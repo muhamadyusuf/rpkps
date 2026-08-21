@@ -340,6 +340,28 @@ apa pun. Karena itu `prisma generate` dirangkai ke dua tempat:
 `prisma generate` tidak menyentuh database dan tidak memerlukan `DATABASE_URL`,
 jadi aman berjalan sebelum variabel lingkungan lengkap.
 
+### Versi Node
+
+`package.json` menyatakan `engines.node: ">=22.12.0"`. Bukan sekadar
+kerapian — `firebase-admin` menuntut Node >= 22, dan `jwks-rsa` di dalamnya
+menuntut `^20.19 || ^22.12 || >=23`, yaitu daftar versi Node yang mendukung
+`require()` terhadap modul ESM. `jose@6` yang dipakainya sudah ESM-only,
+sedangkan `jwks-rsa` masih CommonJS.
+
+Pada Node yang lebih tua, build tetap lolos tetapi **halaman gagal saat
+dibuka**:
+
+```
+Failed to load external module firebase-admin-…/auth:
+ERR_REQUIRE_ESM: require() of ES Module …/jose/dist/webapi/index.js
+from …/jwks-rsa/src/utils.js not supported
+```
+
+Kegagalannya di runtime, bukan build, karena `firebase-admin` sengaja tidak
+dibundel — Next memuatnya dari `node_modules` saat permintaan pertama tiba.
+Bila galat ini muncul lagi, periksa **Vercel → Settings → Node.js Version**;
+setelan proyek dapat mengalahkan `engines`.
+
 Yang harus diisi di **Vercel → Settings → Environment Variables**:
 
 | Variabel | Wajib | Catatan |
