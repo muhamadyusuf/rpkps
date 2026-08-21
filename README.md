@@ -324,6 +324,37 @@ dibongkar untuk memastikan seluruh bagian A–J ada, dan kurikulum sengaja
 disunting untuk membuktikan dokumen resmi tidak ikut berubah. 49 pemeriksaan.
 Lihat [`uji/README.md`](uji/README.md).
 
+## Deploy
+
+Klien Prisma dihasilkan ke `src/generated/prisma`, dan folder itu **tidak
+masuk repositori** (`.gitignore`). Karena Vercel membangun dari checkout git
+yang bersih, klien itu tidak ada di sana — build gagal dengan
+`Module not found: Can't resolve '@/generated/prisma'` sebelum sempat merender
+apa pun. Karena itu `prisma generate` dirangkai ke dua tempat:
+
+| Skrip | Kapan menolong |
+|---|---|
+| `build` | Setiap deploy — jaminan utama, selalu berjalan |
+| `postinstall` | `git clone && npm install` di mesin baru, sebelum `npm run dev` |
+
+`prisma generate` tidak menyentuh database dan tidak memerlukan `DATABASE_URL`,
+jadi aman berjalan sebelum variabel lingkungan lengkap.
+
+Yang harus diisi di **Vercel → Settings → Environment Variables**:
+
+| Variabel | Wajib | Catatan |
+|---|---|---|
+| `DATABASE_URL` | ya | Koneksi ber-pooler |
+| `DIRECT_URL` | ya | Koneksi langsung, dipakai migrasi |
+| `NEXT_PUBLIC_FIREBASE_*` | ya | Empat nilai; ikut terkirim ke peramban |
+| `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` | ya | Service account |
+| `ADMIN_BOOTSTRAP_EMAILS` | ya | Tanpa ini tidak ada yang bisa menjadi admin |
+| `AI_PENYEDIA`, `ANTHROPIC_API_KEY` / `MISTRAL_API_KEY` | tidak | Tombol AI tersembunyi bila kosong |
+
+`FIREBASE_PRIVATE_KEY` memuat baris baru. Tempelkan sebagai satu baris dengan
+`\n` literal — bukan baris baru sungguhan, yang akan terpotong di kotak isian
+Vercel.
+
 ## Catatan
 
 - `npm audit` melaporkan kerentanan transitif di bawah `prisma` dan
