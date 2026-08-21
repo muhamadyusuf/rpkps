@@ -13,6 +13,7 @@ import {
 import { bekukanRpkps } from "@/lib/rpkps/snapshot";
 import { susunRencanaSemester } from "@/domain/beban-belajar/kalkulator";
 import { validasiRpkps } from "@/domain/rpkps/validator";
+import { MIN_CATATAN_REVISI } from "@/domain/rpkps/tipe";
 import type { KategoriWaktu } from "@/generated/prisma";
 
 export type Hasil = { ok: boolean; pesan: string; id?: string };
@@ -466,6 +467,22 @@ export async function putuskanRpkps(
     return { ok: false, pesan: "Hanya RPKPS berstatus diajukan yang dapat diputuskan." };
   }
 
+  /**
+   * Catatan WAJIB saat mengembalikan untuk revisi.
+   *
+   * Diperiksa di sini, bukan hanya di dialog: aksi ini dapat dipanggil
+   * langsung, dan catatan kosong menghasilkan baris histori "Dikembalikan
+   * untuk revisi" tanpa keterangan — dosen tidak punya petunjuk apa pun
+   * tentang apa yang harus diperbaiki.
+   */
+  const catatanBersih = catatan?.trim() ?? "";
+  if (keputusan === "REVISI" && catatanBersih.length < MIN_CATATAN_REVISI) {
+    return {
+      ok: false,
+      pesan: `Catatan revisi wajib diisi, minimal ${MIN_CATATAN_REVISI} karakter — sebutkan bagian mana yang harus diperbaiki.`,
+    };
+  }
+
   const status = keputusan === "SETUJU" ? "TERBIT" : "DIREVISI";
 
   // Membekukan isi dokumen SEBELUM status berubah. Setelah ini, perubahan
@@ -490,7 +507,7 @@ export async function putuskanRpkps(
         deskripsi:
           keputusan === "SETUJU"
             ? `Disetujui dan diterbitkan (sidik ${sidik?.slice(0, 16)})`
-            : `Dikembalikan untuk revisi${catatan ? `: ${catatan}` : ""}`,
+            : `Dikembalikan untuk revisi: ${catatanBersih}`,
         olehId: sesi.id,
       },
     }),

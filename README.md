@@ -18,11 +18,12 @@ Berikutnya: pelaksanaan (nilai per butir) dan analitik ketercapaian CPL.
 | Pengguna & peran | 7 peran dengan cakupan prodi; profil NIDN/NIP dikelola admin |
 | Master data | Institusi, fakultas, program studi, tahun akademik |
 | Beban belajar | Konfigurasi kebijakan + kalkulator + 4 lapis validasi |
-| Kurikulum | Impor Excel (CPL, MK, CPMK, Sub-CPMK) + validator rantai capaian |
+| Kurikulum | Impor Excel (profil lulusan, CPL, MK, CPMK, Sub-CPMK) + validator rantai capaian |
 | RPKPS | Kerangka 16 pertemuan otomatis, editor mingguan, neraca waktu langsung, alur pengesahan |
 | Tugas/proyek | Bagian I: uraian, indikator berbobot, linimasa mingguan |
 | Kisi-kisi ujian | Blueprint UTS/UAS: Sub-CPMK × level Bloom × bentuk × skor |
 | Ekspor | Dokumen `.docx` sesuai template ITTS bagian A–J, tabel mingguan mendatar |
+| Katalog publik | Dokumen terbit dapat dibaca tanpa login di `/` dan `/katalog`, siap ditautkan dari situs prodi |
 | Penguncian versi | Salinan beku bersidik SHA-256 saat terbit + deteksi pergeseran isi |
 | Lapisan AI | Draf RPKPS utuh dan usulan perbaikan kurikulum — opsional, mati bila kunci tidak dipasang |
 | Audit | Pencatatan aksi penting ke `log_audit`, termasuk penyedia, model, dan pemakaian token |
@@ -113,7 +114,9 @@ src/
   lib/                    Prisma, Firebase, sesi, otorisasi, env
   lib/ai/                 Gerbang AI, adapter penyedia, prompt, skema keluaran
   app/(app)/              Halaman terproteksi (guard di layout)
+  app/(publik)/           Katalog RPKPS terbit — tanpa login
   app/masuk, /setup       Halaman publik
+  lib/publik/             Pemuat data katalog publik (hanya status TERBIT)
 prisma/                   Skema, migrasi, seed
 uji/                      Uji integrasi (Postgres tertanam via PGlite)
 docs/                     Dokumen konsep — baca sebelum menambah fitur
@@ -142,25 +145,51 @@ Rinciannya di [`docs/03-kebijakan-beban-belajar.md`](docs/03-kebijakan-beban-bel
 
 ## Kurikulum
 
-CPL, CPMK, dan Sub-CPMK diimpor dari buku kurikulum lewat template Excel empat
-lembar, lalu bersifat **read-only** di penyusun RPKPS. Perubahan rumusan harus
-melalui usulan revisi kurikulum ke Ketua Program Studi — tanpa batas ini,
-pemetaan CPL program studi rusak dalam satu semester.
+Profil lulusan, CPL, CPMK, dan Sub-CPMK diimpor dari buku kurikulum lewat
+template Excel lima lembar, lalu bersifat **read-only** di penyusun RPKPS.
+Perubahan rumusan harus melalui usulan revisi kurikulum ke Ketua Program Studi —
+tanpa batas ini, pemetaan CPL program studi rusak dalam satu semester.
 
-Validator menolak kurikulum yang rantai capaiannya putus:
+Rantai penelusurannya utuh dari pangkal ke ujung:
+
+```
+Profil Lulusan → CPL → CPMK → Sub-CPMK → butir penilaian
+```
+
+Validator menolak kurikulum yang rantai itu putus:
 
 | Aturan | Tingkat |
 |---|---|
+| Profil lulusan tidak ditopang CPL mana pun | pemblokir |
+| CPL merujuk profil lulusan yang tidak ada | pemblokir |
 | CPL tidak dibebankan pada mata kuliah mana pun | pemblokir |
 | CPL dibebankan tetapi tidak dijabarkan CPMK mana pun | pemblokir |
 | CPMK tanpa Sub-CPMK, atau tanpa CPL | pemblokir |
 | Level Bloom Sub-CPMK melampaui CPMK induknya | pemblokir |
+| CPL belum menopang profil lulusan mana pun | peringatan |
 | Rumusan memakai kata tak terukur ("memahami", "mengetahui") | peringatan |
 | Satu Sub-CPMK memuat lebih dari satu kata kerja operasional | peringatan |
 
-Aturan kedua adalah temuan nyata pada RPKPS TI214: CPL06 dibebankan di bagian
-B.1 tetapi tidak pernah muncul di tabel penilaian, sehingga tidak akan pernah
-dinilai. Validator menangkapnya satu lapis lebih awal.
+Aturan "CPL dibebankan tetapi tidak dijabarkan" adalah temuan nyata pada RPKPS
+TI214: CPL06 dibebankan di bagian B.1 tetapi tidak pernah muncul di tabel
+penilaian, sehingga tidak akan pernah dinilai. Validator menangkapnya satu lapis
+lebih awal.
+
+### Profil lulusan
+
+Lembar Profil Lulusan **boleh dikosongkan** — berkas Excel yang diunduh sebelum
+lembar itu ada tetap terimpor tanpa galat, dan hanya diberi temuan tingkat info.
+Begitu satu profil dicantumkan, barulah aturan keterkaitannya berlaku.
+
+Selain lewat impor, profil lulusan dapat dikelola langsung di
+`/kurikulum/{id}` oleh Admin dan Ketua Program Studi, termasuk pada kurikulum
+yang sudah berstatus BERLAKU. Itu aman karena **profil lulusan tidak ikut dalam
+`proyeksiIsi()`**, sehingga menyuntingnya tidak mengubah sidik SHA-256 satu pun
+RPKPS yang sudah disahkan. Bila suatu saat profil lulusan hendak dimasukkan ke
+proyeksi itu, batasan tersebut harus diperketat lebih dulu.
+
+Profil lulusan tampil di katalog publik pada halaman program studi, mis.
+`/katalog/ti`, beserta CPL yang menopang tiap profil.
 
 
 ## Penyusun RPKPS
@@ -307,6 +336,42 @@ waktu. Kalau `diubahPada` ikut di-hash, sidik berubah setiap baris disentuh
 meski isinya sama, dan deteksi pergeseran jadi tidak berarti. Serialisasinya
 mengurutkan kunci objek lebih dulu, karena urutan kunci JSON tidak dijamin
 stabil antar runtime.
+
+## Katalog publik
+
+RPKPS yang sudah disahkan terbuka untuk umum — mahasiswa, calon mahasiswa, dan
+asesor akreditasi tidak perlu akun.
+
+| Alamat | Isi |
+|---|---|
+| `/` | Beranda: angka ringkas, daftar prodi, pengesahan terakhir |
+| `/katalog` | Indeks lintas prodi dengan penyaring prodi / tahun akademik / semester |
+| `/katalog/{prodi}` | Katalog satu prodi, mis. `/katalog/ti` |
+| `/katalog/{prodi}/{kode}` | Satu dokumen, mis. `/katalog/ti/ti201`; `?ta=2025/2026-GENAP` memilih tahun lain |
+| `/api/publik/rpkps/{id}/docx` | Unduhan DOCX resmi, tanpa login |
+
+Tiga aturan yang menjaganya:
+
+1. **Hanya `status: TERBIT`.** Setiap kueri di `src/lib/publik/muat.ts`
+   menyaringnya. Draf tidak pernah bocor, sekalipun alamatnya ditebak benar.
+2. **Isi dibaca dari salinan beku**, bukan data langsung — sama seperti unduhan
+   DOCX. RPKPS terbit tanpa salinan beku dijawab 404, bukan jatuh ke data
+   langsung.
+3. **Kebocoran field dicegah secara struktural.** `dokumenPublik()` di
+   `src/domain/rpkps/publik.ts` dibangun di atas `proyeksiIsi()` — proyeksi yang
+   sama yang dipakai menghitung sidik, dan yang memang tidak memuat id, cap
+   waktu, maupun email. Field baru harus ditulis eksplisit di sana sebelum bisa
+   tampil. `publik.test.ts` menjaga aturan itu.
+
+Kisi-kisi ujian **tidak** ditampilkan di web karena membocorkan struktur soal;
+lampiran itu tetap ada pada DOCX resmi yang ditandatangani.
+
+Halaman dokumen punya aturan `@media print` sendiri, sehingga Cmd+P menghasilkan
+PDF bersih tanpa bilah, daftar isi, maupun tombol.
+
+Isi `NEXT_PUBLIC_URL_SITUS` dengan alamat kanonik situs (tanpa garis miring di
+akhir). Tanpa itu tautan kanonik, `sitemap.xml`, dan kartu pratinjau OpenGraph
+menunjuk ke `http://localhost:3000`.
 
 ## Pengujian
 

@@ -242,17 +242,120 @@ export function validasiMataKuliah(
   return temuan;
 }
 
+/**
+ * Memeriksa profil lulusan dan kaitannya ke CPL.
+ *
+ * Profil lulusan adalah PANGKAL rantai penelusuran: PL ditopang CPL, CPL
+ * dijabarkan CPMK, CPMK ditahap Sub-CPMK, Sub-CPMK dinilai. Profil yang tidak
+ * ditopang CPL mana pun adalah janji yang tidak dibayar kurikulum — kelas
+ * kesalahan yang sama dengan CPL yang tidak dibebankan ke mata kuliah, jadi
+ * tingkatnya pun sama: PEMBLOKIR.
+ *
+ * Sebaliknya CPL yang belum menopang profil hanya PERINGATAN. Pemetaannya
+ * kerap disusun bertahap, dan memblokirnya berarti kurikulum yang baru
+ * mencantumkan sebagian profil tidak bisa diimpor sama sekali.
+ *
+ * Seluruh aturan keterkaitan DILEWATI bila kurikulum belum punya profil
+ * lulusan. Tanpa gerbang itu, setiap berkas Excel yang diunduh sebelum lembar
+ * Profil Lulusan ada akan ditolak oleh sederet pemblokir palsu.
+ */
+export function validasiProfilLulusan(k: KurikulumInput): TemuanKurikulum[] {
+  const temuan: TemuanKurikulum[] = [];
+  const profil = k.profilLulusan ?? [];
+
+  if (profil.length === 0) {
+    temuan.push({
+      kode: "K-PL-BELUM-DIISI",
+      tingkat: "INFO",
+      pesan: "Kurikulum belum mencantumkan profil lulusan.",
+      saran:
+        "Isi lembar Profil Lulusan pada berkas impor, atau tambahkan lewat " +
+        "halaman kurikulum. Tanpa itu, CPL tidak dapat ditelusuri ke janji " +
+        "program studi kepada lulusannya.",
+    });
+    return temuan;
+  }
+
+  const kodePl = profil.map((p) => p.kode);
+  const ganda = kodePl.filter((p, i) => kodePl.indexOf(p) !== i);
+  if (ganda.length > 0) {
+    temuan.push({
+      kode: "K-PL-KODE-GANDA",
+      tingkat: "PEMBLOKIR",
+      pesan: `Kode profil lulusan berulang: ${[...new Set(ganda)].join(", ")}.`,
+    });
+  }
+
+  for (const p of profil) {
+    if (p.deskripsi.trim().length < 15) {
+      temuan.push({
+        kode: "K-PL-DESKRIPSI-PENDEK",
+        tingkat: "PERINGATAN",
+        pesan: `Rumusan ${p.kode} terlalu pendek untuk menggambarkan sebuah profil.`,
+        lokasi: { profilLulusan: p.kode },
+        saran: 'Sebutkan peran beserta ranah kerjanya, mis. "Pengembang perangkat lunak untuk sistem informasi kesehatan".',
+      });
+    }
+  }
+
+  const setPl = new Set(kodePl);
+  const plTertopang = new Set<string>();
+
+  for (const c of k.cpl) {
+    const ditopang = c.profilLulusanKode ?? [];
+
+    for (const kode of ditopang) {
+      if (!setPl.has(kode)) {
+        temuan.push({
+          kode: "K-CPL-PL-TIDAK-ADA",
+          tingkat: "PEMBLOKIR",
+          pesan: `${c.kode} merujuk ${kode}, yang tidak ada di daftar profil lulusan.`,
+          lokasi: { cpl: c.kode },
+        });
+        continue;
+      }
+      plTertopang.add(kode);
+    }
+
+    if (ditopang.length === 0) {
+      temuan.push({
+        kode: "K-CPL-TANPA-PL",
+        tingkat: "PERINGATAN",
+        pesan: `${c.kode} tidak menopang profil lulusan mana pun.`,
+        lokasi: { cpl: c.kode },
+        saran: "Petakan ke minimal satu profil agar capaian ini punya alasan keberadaan yang terlacak.",
+      });
+    }
+  }
+
+  for (const kode of kodePl) {
+    if (!plTertopang.has(kode)) {
+      temuan.push({
+        kode: "K-PL-TANPA-CPL",
+        tingkat: "PEMBLOKIR",
+        pesan: `${kode} tidak ditopang CPL mana pun.`,
+        lokasi: { profilLulusan: kode },
+        saran: `Petakan minimal satu CPL ke ${kode}, atau hapus profil itu dari kurikulum.`,
+      });
+    }
+  }
+
+  return temuan;
+}
+
 export interface HasilValidasiKurikulum {
   temuan: TemuanKurikulum[];
   pemblokir: TemuanKurikulum[];
   peringatan: TemuanKurikulum[];
   lolos: boolean;
   ringkasan: {
+    jumlahProfilLulusan: number;
     jumlahCpl: number;
     jumlahMk: number;
     jumlahCpmk: number;
     jumlahSubCpmk: number;
     cplTanpaMk: string[];
+    plTanpaCpl: string[];
   };
 }
 
@@ -260,6 +363,8 @@ export function validasiKurikulum(k: KurikulumInput): HasilValidasiKurikulum {
   const temuan: TemuanKurikulum[] = [];
   const kodeCpl = k.cpl.map((c) => c.kode);
   const setCpl = new Set(kodeCpl);
+
+  temuan.push(...validasiProfilLulusan(k));
 
   const cplGanda = kodeCpl.filter((c, i) => kodeCpl.indexOf(c) !== i);
   if (cplGanda.length > 0) {
@@ -299,12 +404,21 @@ export function validasiKurikulum(k: KurikulumInput): HasilValidasiKurikulum {
 
   const pemblokir = temuan.filter((t) => t.tingkat === "PEMBLOKIR");
 
+  // Diambil dari temuan yang sudah terbit, bukan dihitung ulang: aturannya
+  // hanya ditulis sekali, di validasiProfilLulusan.
+  const profil = k.profilLulusan ?? [];
+  const plTanpaCpl = temuan
+    .filter((t) => t.kode === "K-PL-TANPA-CPL")
+    .map((t) => t.lokasi?.profilLulusan ?? "")
+    .filter(Boolean);
+
   return {
     temuan,
     pemblokir,
     peringatan: temuan.filter((t) => t.tingkat === "PERINGATAN"),
     lolos: pemblokir.length === 0,
     ringkasan: {
+      jumlahProfilLulusan: profil.length,
       jumlahCpl: k.cpl.length,
       jumlahMk: k.mataKuliah.length,
       jumlahCpmk: k.mataKuliah.reduce((s, m) => s + m.cpmk.length, 0),
@@ -313,6 +427,7 @@ export function validasiKurikulum(k: KurikulumInput): HasilValidasiKurikulum {
         0,
       ),
       cplTanpaMk,
+      plTanpaCpl,
     },
   };
 }

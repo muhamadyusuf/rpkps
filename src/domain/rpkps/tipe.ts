@@ -4,6 +4,19 @@ import type { KategoriWaktu } from "@/domain/beban-belajar/tipe";
 
 export type JenisPertemuan = "EFEKTIF" | "UTS" | "UAS";
 
+/**
+ * Panjang minimum catatan revisi.
+ *
+ * Mengembalikan RPKPS tanpa menyebutkan apa yang salah memaksa dosen menebak,
+ * dan menghabiskan satu putaran bolak-balik untuk sesuatu yang bisa ditulis
+ * dalam satu kalimat. Angkanya sengaja rendah — cukup untuk menolak "revisi"
+ * dan "ok", tidak cukup untuk merepotkan.
+ *
+ * Ditegakkan di server (aksi.ts) dan dicerminkan di tombol putusan supaya
+ * pengguna tahu batasnya sebelum menekan tombol.
+ */
+export const MIN_CATATAN_REVISI = 10;
+
 export interface AktivitasRpkps {
   nama: string;
   kategori: KategoriWaktu;

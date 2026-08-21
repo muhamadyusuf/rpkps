@@ -165,6 +165,25 @@ export async function simpanImpor(
       // createMany tidak mengembalikan id, jadi tiap lapisan dibaca ulang
       // sekali untuk memetakan kode ke id.
 
+      // Profil lulusan ditulis lebih dulu karena CPL menunjuk balik ke sini.
+      const profilLulusan = kurikulum.profilLulusan ?? [];
+      await tx.profilLulusan.createMany({
+        data: profilLulusan.map((p, i) => ({
+          kurikulumId: baru.id,
+          kode: p.kode,
+          deskripsi: p.deskripsi,
+          urutan: i,
+        })),
+      });
+      const petaPl = new Map(
+        (
+          await tx.profilLulusan.findMany({
+            where: { kurikulumId: baru.id },
+            select: { id: true, kode: true },
+          })
+        ).map((p) => [p.kode, p.id]),
+      );
+
       await tx.cpl.createMany({
         data: kurikulum.cpl.map((c, i) => ({
           kurikulumId: baru.id,
@@ -182,6 +201,15 @@ export async function simpanImpor(
           })
         ).map((c) => [c.kode, c.id]),
       );
+
+      await tx.cplProfilLulusan.createMany({
+        data: kurikulum.cpl.flatMap((c) =>
+          (c.profilLulusanKode ?? [])
+            .map((k) => petaPl.get(k))
+            .filter((id): id is string => Boolean(id))
+            .map((profilLulusanId) => ({ cplId: petaCpl.get(c.kode)!, profilLulusanId })),
+        ),
+      });
 
       await tx.mataKuliah.createMany({
         data: kurikulum.mataKuliah.map((mk) => ({

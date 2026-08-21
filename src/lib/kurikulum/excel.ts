@@ -4,6 +4,7 @@ import type {
   BarisCpl,
   BarisCpmk,
   BarisMk,
+  BarisProfilLulusan,
   BarisSubCpmk,
   IsiBerkas,
 } from "@/domain/kurikulum/berkas";
@@ -15,6 +16,7 @@ import type {
 
 export const LEMBAR = {
   petunjuk: "Petunjuk",
+  profilLulusan: "Profil Lulusan",
   cpl: "CPL",
   mk: "Mata Kuliah",
   cpmk: "CPMK",
@@ -22,7 +24,12 @@ export const LEMBAR = {
 } as const;
 
 const KOLOM = {
-  cpl: ["Kode CPL", "Deskripsi", "Tingkat KKNI"],
+  profilLulusan: ["Kode PL", "Profil Lulusan"],
+  // "Kode PL" ditambahkan DI UJUNG. bacaLembar mencocokkan kolom lewat teks
+  // judulnya, jadi berkas yang diunduh sebelum kolom ini ada tetap terbaca
+  // benar; menaruhnya di ujung membuat pembacaan cadangan berbasis posisi
+  // (dipakai bila baris judul dihapus) juga tidak bergeser artinya.
+  cpl: ["Kode CPL", "Deskripsi", "Tingkat KKNI", "Kode PL (pisah koma)"],
   mk: ["Kode MK", "Nama MK", "Semester", "sks Teori", "sks Praktik", "Status", "Kode CPL (pisah koma)"],
   cpmk: ["Kode MK", "Kode CPMK", "Rumusan", "Level Bloom", "Kode CPL (pisah koma)"],
   subCpmk: ["Kode MK", "Kode CPMK", "Kode Sub-CPMK", "Rumusan", "Level Bloom"],
@@ -88,8 +95,13 @@ export async function bacaBerkasKurikulum(buffer: ArrayBuffer): Promise<IsiBerka
   await wb.xlsx.load(buffer);
 
   return {
+    profilLulusan: bacaLembar<BarisProfilLulusan>(
+      wb, LEMBAR.profilLulusan, ["kode", "deskripsi"], KOLOM.profilLulusan,
+    ),
     cpl: bacaLembar<BarisCpl>(
-      wb, LEMBAR.cpl, ["kode", "deskripsi", "tingkatKkni"], KOLOM.cpl,
+      wb, LEMBAR.cpl,
+      ["kode", "deskripsi", "tingkatKkni", "profilLulusanKode"],
+      KOLOM.cpl,
     ),
     mk: bacaLembar<BarisMk>(
       wb, LEMBAR.mk,
@@ -145,24 +157,31 @@ export async function buatTemplateKurikulum(): Promise<Buffer> {
   const baris: [string, boolean][] = [
     ["Template Impor Kurikulum — RPKPS ITTS", true],
     ["", false],
-    ["Isi empat lembar berikut sesuai buku kurikulum program studi.", false],
+    ["Isi lima lembar berikut sesuai buku kurikulum program studi.", false],
     ["Baris contoh berwarna abu-abu boleh langsung ditimpa atau dihapus.", false],
     ["", false],
-    ["1. CPL — Capaian Pembelajaran Lulusan program studi.", true],
-    ["   Kode CPL harus unik, mis. CPL06.", false],
+    ["1. Profil Lulusan — peran yang dijanjikan prodi kepada lulusannya.", true],
+    ["   Kode PL harus unik, mis. PL1. Lembar ini boleh dikosongkan, tetapi", false],
+    ["   tanpa itu CPL tidak dapat ditelusuri kembali ke janji program studi.", false],
+    ["   Setiap profil WAJIB ditopang minimal satu CPL — profil yang tidak", false],
+    ["   ditopang CPL mana pun akan ditolak.", false],
     ["", false],
-    ["2. Mata Kuliah — daftar mata kuliah beserta beban sks.", true],
+    ["2. CPL — Capaian Pembelajaran Lulusan program studi.", true],
+    ["   Kode CPL harus unik, mis. CPL06.", false],
+    ["   Kolom Kode PL diisi profil lulusan yang ditopang CPL ini, dipisah koma.", false],
+    ["", false],
+    ["3. Mata Kuliah — daftar mata kuliah beserta beban sks.", true],
     ["   sks dipecah TEORI dan PRAKTIK. Totalnya sama, tetapi beban terjadwal", false],
     ["   berbeda jauh: 3 sks teori butuh 150 menit tatap muka, sedangkan", false],
     ["   2 teori + 1 praktik butuh 200 menit karena praktikum memakai slot lab.", false],
     ["   Kolom Kode CPL diisi kode CPL yang dibebankan, dipisah koma.", false],
     ["", false],
-    ["3. CPMK — Capaian Pembelajaran Mata Kuliah.", true],
+    ["4. CPMK — Capaian Pembelajaran Mata Kuliah.", true],
     ["   Setiap CPMK harus menjabarkan minimal satu CPL yang dibebankan pada", false],
     ["   mata kuliahnya. CPL yang dibebankan tetapi tidak dijabarkan CPMK mana pun", false],
     ["   akan ditolak — CPL seperti itu tidak akan pernah dinilai.", false],
     ["", false],
-    ["4. Sub-CPMK — tahapan belajar, umumnya satu per pertemuan.", true],
+    ["5. Sub-CPMK — tahapan belajar, umumnya satu per pertemuan.", true],
     ["   Isi Kode MK DAN Kode CPMK induknya. Kode CPMK hanya unik di dalam satu", false],
     ["   mata kuliah, jadi \"CPMK01\" saja tidak menunjukkan induk yang mana bila", false],
     ["   dipakai beberapa mata kuliah sekaligus.", false],
@@ -182,9 +201,17 @@ export async function buatTemplateKurikulum(): Promise<Buffer> {
     if (tebal) r.font = { bold: true };
   }
 
-  siapkanLembar(wb, LEMBAR.cpl, KOLOM.cpl, [14, 90, 14], [
-    ["CPL06", "Mampu menerapkan pemikiran logis, kritis, sistematis, dan inovatif dalam konteks pengembangan ilmu pengetahuan dan teknologi.", "6"],
-    ["CPL08", "Mampu merancang, mengimplementasi, dan mengevaluasi solusi berbasis computing sesuai kebutuhan.", "6"],
+  siapkanLembar(wb, LEMBAR.profilLulusan, KOLOM.profilLulusan, [12, 92], [
+    ["PL1", "Pengembang perangkat lunak yang mampu merancang dan membangun sistem informasi sesuai kebutuhan organisasi."],
+    ["PL2", "Analis data yang mampu mengolah dan menafsirkan data untuk mendukung pengambilan keputusan."],
+  ]);
+
+  // Contoh dibuat LOLOS validasi: kedua profil ditopang CPL, dan kedua CPL
+  // menopang profil — dosen melihat bentuk pemetaan yang benar, bukan kerangka
+  // yang langsung menghasilkan pemblokir saat diunggah kembali.
+  siapkanLembar(wb, LEMBAR.cpl, KOLOM.cpl, [14, 84, 14, 20], [
+    ["CPL06", "Mampu menerapkan pemikiran logis, kritis, sistematis, dan inovatif dalam konteks pengembangan ilmu pengetahuan dan teknologi.", "6", "PL1, PL2"],
+    ["CPL08", "Mampu merancang, mengimplementasi, dan mengevaluasi solusi berbasis computing sesuai kebutuhan.", "6", "PL1"],
   ]);
 
   siapkanLembar(wb, LEMBAR.mk, KOLOM.mk, [12, 34, 11, 11, 12, 12, 26], [

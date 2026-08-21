@@ -1,4 +1,9 @@
-import type { CpmkInput, KurikulumInput, MataKuliahInput } from "./tipe";
+import type {
+  CpmkInput,
+  KurikulumInput,
+  MataKuliahInput,
+  ProfilLulusanInput,
+} from "./tipe";
 import type { LevelBloom } from "./bloom";
 
 /**
@@ -6,10 +11,17 @@ import type { LevelBloom } from "./bloom";
  * supaya kesalahan pengisian menjadi TEMUAN yang bisa dibaca dosen,
  * bukan galat parsing yang menggagalkan seluruh berkas.
  */
+export interface BarisProfilLulusan {
+  kode: string;
+  deskripsi: string;
+}
 export interface BarisCpl {
   kode: string;
   deskripsi: string;
   tingkatKkni?: string;
+  /// Kode profil lulusan yang ditopang CPL ini, dipisah koma. Boleh kosong
+  /// pada berkas yang diunduh sebelum kolom ini ada.
+  profilLulusanKode?: string;
 }
 export interface BarisMk {
   kode: string;
@@ -39,6 +51,8 @@ export interface BarisSubCpmk {
 }
 
 export interface IsiBerkas {
+  /// Lembar baru; berkas lama tidak memilikinya dan itu bukan galat.
+  profilLulusan?: BarisProfilLulusan[];
   cpl: BarisCpl[];
   mk: BarisMk[];
   cpmk: BarisCpmk[];
@@ -99,6 +113,29 @@ export function rakitKurikulum(
 ): HasilRakit {
   const galat: GalatBaris[] = [];
 
+  // Profil lulusan dirakit lebih dulu karena lembar CPL menunjuk balik ke sini.
+  // Kode berulang DITOLAK di lapisan ini, bukan diserahkan ke validator: dua
+  // baris berkode sama akan menabrak @@unique([kurikulumId, kode]) saat
+  // disimpan, dan galat basis data tidak menyebutkan baris keberapa.
+  const petaPl = new Map<string, ProfilLulusanInput>();
+  (isi.profilLulusan ?? []).forEach((b, i) => {
+    const baris = i + 2;
+    const kode = b.kode?.trim().toUpperCase();
+    if (!kode) {
+      galat.push({ lembar: "Profil Lulusan", baris, pesan: "Kode profil lulusan kosong." });
+      return;
+    }
+    if (petaPl.has(kode)) {
+      galat.push({ lembar: "Profil Lulusan", baris, pesan: `${kode}: kode berulang.` });
+      return;
+    }
+    if (!b.deskripsi?.trim()) {
+      galat.push({ lembar: "Profil Lulusan", baris, pesan: `${kode}: rumusan profil kosong.` });
+      return;
+    }
+    petaPl.set(kode, { kode, deskripsi: b.deskripsi.trim() });
+  });
+
   const cpl = isi.cpl
     .map((b, i) => {
       const kode = b.kode.trim().toUpperCase();
@@ -114,6 +151,7 @@ export function rakitKurikulum(
         kode,
         deskripsi: b.deskripsi.trim(),
         tingkatKkni: bacaAngka(b.tingkatKkni),
+        profilLulusanKode: pisahKode(b.profilLulusanKode ?? ""),
       };
     })
     .filter((x): x is NonNullable<typeof x> => x !== null);
@@ -275,6 +313,7 @@ export function rakitKurikulum(
     kurikulum: {
       nama: meta.nama,
       tahun: meta.tahun,
+      profilLulusan: [...petaPl.values()],
       cpl,
       mataKuliah: [...petaMk.values()],
     },

@@ -35,16 +35,36 @@ export interface MataKuliahInput {
   cpmk: CpmkInput[];
 }
 
+/**
+ * Profil lulusan: peran atau posisi yang dijanjikan program studi kepada
+ * lulusannya, mis. "PL1 — Pengembang Perangkat Lunak". Pangkal rantai
+ * penelusuran OBE: PL ditopang CPL, CPL dijabarkan CPMK, CPMK ditahap
+ * Sub-CPMK, Sub-CPMK dinilai.
+ */
+export interface ProfilLulusanInput {
+  id?: string;
+  kode: string;
+  deskripsi: string;
+}
+
 export interface CplInput {
   id?: string;
   kode: string;
   deskripsi: string;
   tingkatKkni?: number | null;
+  /**
+   * Kode profil lulusan yang ditopang CPL ini. Opsional karena kurikulum lama
+   * dan berkas Excel yang diunduh sebelum kolomnya ada tidak memilikinya —
+   * bukan karena keterkaitannya tidak penting.
+   */
+  profilLulusanKode?: string[];
 }
 
 export interface KurikulumInput {
   nama: string;
   tahun: number;
+  /** Opsional dengan alasan yang sama seperti `CplInput.profilLulusanKode`. */
+  profilLulusan?: ProfilLulusanInput[];
   cpl: CplInput[];
   mataKuliah: MataKuliahInput[];
 }

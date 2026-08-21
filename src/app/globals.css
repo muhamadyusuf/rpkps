@@ -428,3 +428,95 @@
     text-transform: uppercase;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Cetak.
+
+   Halaman dokumen publik sering dicetak atau disimpan sebagai PDF — mahasiswa
+   menempelkannya di map, asesor melampirkannya ke berkas. Yang dicetak harus
+   dokumennya, bukan antarmukanya: bilah, daftar isi, dan tombol hilang, kisi
+   dan pendar sian dimatikan (keduanya menghabiskan tinta tanpa menambah
+   informasi), dan seluruh warna dipaksa ke tema terang.
+
+   Elemen berlabel `print:hidden` sudah disembunyikan lewat Tailwind; blok ini
+   mengurus hal yang tidak bisa ditempel per elemen.
+--------------------------------------------------------------------------- */
+@media print {
+  :root {
+    color-scheme: light;
+  }
+
+  html,
+  .dark {
+    --background: #fff;
+    --foreground: #111;
+    --card: #fff;
+    --card-foreground: #111;
+    --popover: #fff;
+    --popover-foreground: #111;
+    --muted: #f4f4f5;
+    --muted-foreground: #52525b;
+    --border: #d4d4d8;
+    --input: #d4d4d8;
+
+    /* Lencana dan tombol ikut dipaksa terang. Tanpa ini, `bg-secondary` dan
+       `bg-primary` tetap memakai nilai tema gelap dan tercetak sebagai balok
+       hitam yang menghabiskan toner. */
+    --secondary: #f4f4f5;
+    --secondary-foreground: #27272a;
+    --primary: #0e7490;
+    --primary-foreground: #fff;
+    --accent: #f4f4f5;
+    --accent-foreground: #27272a;
+    --success: #0f766e;
+    --warning: #b45309;
+    --destructive: #b91c1c;
+
+    --cahaya: #0e7490;
+    --panel-kilau: transparent;
+    --kisi: transparent;
+    --cahaya-bloom: transparent;
+    --cahaya-siku: #a1a1aa;
+    --cahaya-sorot: transparent;
+  }
+
+  body::before,
+  body::after {
+    display: none !important;
+  }
+
+  /* Bayangan dan tepi melengkung tidak menambah apa pun di atas kertas, tetapi
+     membuat batas panel jadi kabur saat dirender ke PDF. */
+  .panel::before,
+  .siku::after {
+    display: none !important;
+  }
+
+  .panel,
+  [class*="rounded-"] {
+    box-shadow: none !important;
+  }
+
+  /* Bagian tidak boleh terpotong di tengah judulnya. */
+  h1,
+  h2,
+  h3 {
+    break-after: avoid-page;
+  }
+
+  tr,
+  li {
+    break-inside: avoid;
+  }
+
+  /* Tabel mingguan hanya dirender pada lebar md ke atas. Media cetak tidak
+     mengenal breakpoint layar, jadi varian ponselnya yang dipakai — dan
+     itu justru lebih baik di kertas potret: satu kartu per minggu, tanpa
+     kolom yang terpotong tepi halaman. */
+  a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.75em;
+    color: #52525b;
+    word-break: break-all;
+  }
+}

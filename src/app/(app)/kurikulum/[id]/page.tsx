@@ -15,6 +15,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import { cakupanProdi, punyaPeran, wajibAktif } from "@/lib/otorisasi";
 import { TombolHapusKurikulum, TombolStatusKurikulum } from "../tombol";
+import { PengelolaProfilLulusan } from "./profil-lulusan";
 
 export const dynamic = "force-dynamic";
 
@@ -30,9 +31,18 @@ export default async function HalamanDetailKurikulum({
     where: { id },
     include: {
       prodi: { select: { id: true, nama: true, kode: true } },
+      profilLulusan: {
+        orderBy: { urutan: "asc" },
+        include: { cpl: { select: { cplId: true } } },
+      },
       cpl: {
         orderBy: { urutan: "asc" },
-        include: { _count: { select: { mataKuliah: true, cpmk: true } } },
+        include: {
+          _count: { select: { mataKuliah: true, cpmk: true } },
+          profilLulusan: {
+            include: { profilLulusan: { select: { kode: true } } },
+          },
+        },
       },
       mataKuliah: {
         orderBy: [{ semester: "asc" }, { kode: "asc" }],
@@ -54,6 +64,11 @@ export default async function HalamanDetailKurikulum({
   // CPL yang tidak dibebankan pada mata kuliah mana pun tidak akan pernah
   // tercapai — ditandai di sini agar terlihat sebelum RPKPS disusun.
   const cplYatim = kurikulum.cpl.filter((c) => c._count.mataKuliah === 0);
+
+  // Profil yang tidak ditopang CPL mana pun adalah janji yang tidak dibayar
+  // kurikulum — kelas kesalahan yang sama dengan cplYatim di atas, satu lapis
+  // lebih ke hulu.
+  const profilYatim = kurikulum.profilLulusan.filter((p) => p.cpl.length === 0);
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -104,6 +119,76 @@ export default async function HalamanDetailKurikulum({
         </Card>
       ) : null}
 
+      {profilYatim.length > 0 ? (
+        <Card className="border-destructive/40 bg-destructive/5">
+          <CardHeader>
+            <CardTitle className="text-base">
+              {profilYatim.length} profil lulusan tidak ditopang CPL mana pun
+            </CardTitle>
+            <CardDescription className="mt-1">
+              {profilYatim.map((p) => p.kode).join(", ")} — profil seperti ini
+              adalah janji yang tidak dibayar oleh satu pun capaian.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      ) : null}
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">
+            Profil Lulusan ({kurikulum.profilLulusan.length})
+          </CardTitle>
+          <CardDescription>
+            Peran yang dijanjikan program studi kepada lulusannya — pangkal
+            rantai penelusuran PL → CPL → CPMK → Sub-CPMK.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {bolehKelola ? (
+            <PengelolaProfilLulusan
+              kurikulumId={kurikulum.id}
+              profil={kurikulum.profilLulusan.map((p) => ({
+                id: p.id,
+                kode: p.kode,
+                deskripsi: p.deskripsi,
+                cplId: p.cpl.map((x) => x.cplId),
+              }))}
+              cpl={kurikulum.cpl.map((c) => ({
+                id: c.id,
+                kode: c.kode,
+                deskripsi: c.deskripsi,
+              }))}
+            />
+          ) : (
+            <div className="space-y-3">
+              {kurikulum.profilLulusan.map((p) => {
+                const kodeCpl = kurikulum.cpl
+                  .filter((c) => p.cpl.some((x) => x.cplId === c.id))
+                  .map((c) => c.kode);
+                return (
+                  <div key={p.id} className="border-b pb-3 last:border-0 last:pb-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="secondary">{p.kode}</Badge>
+                      {kodeCpl.map((kode) => (
+                        <Badge key={kode} variant="outline" className="text-[10px]">
+                          {kode}
+                        </Badge>
+                      ))}
+                    </div>
+                    <p className="mt-1 text-sm">{p.deskripsi}</p>
+                  </div>
+                );
+              })}
+              {kurikulum.profilLulusan.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Belum ada profil lulusan.
+                </p>
+              ) : null}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
@@ -120,6 +205,15 @@ export default async function HalamanDetailKurikulum({
                     KKNI {c.tingkatKkni}
                   </span>
                 ) : null}
+                {c.profilLulusan.map((m) => (
+                  <Badge
+                    key={m.profilLulusanId}
+                    variant="outline"
+                    className="text-[10px]"
+                  >
+                    {m.profilLulusan.kode}
+                  </Badge>
+                ))}
                 <span className="text-xs text-muted-foreground">
                   {c._count.mataKuliah} mata kuliah · {c._count.cpmk} CPMK
                 </span>

@@ -26,10 +26,18 @@ Konsep lengkap ada di `docs/` — **baca sebelum menambah fitur**:
 
 - **CPL, CPMK, dan Sub-CPMK berasal dari buku kurikulum dan bersifat read-only** di
   penyusun RPKPS. Perubahan harus lewat Usulan Revisi Kurikulum ke Kaprodi.
+- **Profil lulusan tidak boleh masuk ke `proyeksiIsi()`.** Proyeksi itu dasar
+  sidik SHA-256; menambah apa pun ke sana mengubah sidik SELURUH RPKPS terbit
+  dan memunculkan peringatan pergeseran palsu. Profil lulusan hidup di lapisan
+  kurikulum, bukan lapisan mata kuliah.
 - **Invarian beban belajar: total / sks = 45 jam per semester.** Jangan pernah
   meng-hardcode pola 50/60/60 — itu konfigurasi (`kebijakan_bentuk`), bukan konstanta.
 - **Template dokumen adalah data, bukan kode.** ITTS memakai tabel mingguan 7 kolom;
   kampus lain 9 kolom.
+- **Halaman publik hanya membaca salinan beku, dan hanya status `TERBIT`.**
+  Semua kueri lewat `src/lib/publik/muat.ts`; isi dokumen selalu lewat
+  `dokumenPublik()` yang dibangun di atas `proyeksiIsi` — jangan mengirim baris
+  Prisma mentah ke komponen publik.
 - Domain `src/domain/` harus murni: tanpa Prisma, tanpa React, agar dapat diuji.
 - Bahasa antarmuka dan penamaan domain: Indonesia. Tabel database snake_case
   lewat `@@map`/`@map`.

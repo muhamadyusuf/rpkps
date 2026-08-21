@@ -224,3 +224,101 @@ describe("mata kuliah", () => {
     assert.ok(hasil.pemblokir.some((t) => t.kode === "K-MK-KODE-GANDA"));
   });
 });
+
+describe("profil lulusan", () => {
+  /** Kurikulum sehat yang profil lulusannya sudah terpetakan penuh. */
+  function denganProfil(): KurikulumInput {
+    const k = kurikulumSehat();
+    k.profilLulusan = [
+      { kode: "PL1", deskripsi: "Pengembang perangkat lunak untuk sistem informasi." },
+      { kode: "PL2", deskripsi: "Analis data pada industri manufaktur." },
+    ];
+    k.cpl[0].profilLulusanKode = ["PL1"];
+    k.cpl[1].profilLulusanKode = ["PL1", "PL2"];
+    return k;
+  }
+
+  it("pemetaan yang lengkap tidak menerbitkan temuan profil lulusan", () => {
+    const hasil = validasiKurikulum(denganProfil());
+
+    assert.equal(hasil.lolos, true);
+    assert.equal(
+      hasil.temuan.some((t) => t.kode.startsWith("K-PL-") || t.kode === "K-CPL-TANPA-PL"),
+      false,
+    );
+    assert.equal(hasil.ringkasan.jumlahProfilLulusan, 2);
+    assert.deepEqual(hasil.ringkasan.plTanpaCpl, []);
+  });
+
+  /**
+   * Penjaga terpenting: berkas Excel lama tidak punya lembar Profil Lulusan.
+   * Kalau aturan keterkaitan ikut berjalan pada kurikulum tanpa profil, setiap
+   * impor lama akan ditolak sederet pemblokir palsu.
+   */
+  it("kurikulum tanpa profil lulusan tetap LOLOS, hanya diberi info", () => {
+    const hasil = validasiKurikulum(kurikulumSehat());
+
+    assert.equal(hasil.lolos, true);
+    assert.equal(hasil.pemblokir.length, 0);
+    assert.ok(hasil.temuan.some((t) => t.kode === "K-PL-BELUM-DIISI"));
+    // Aturan keterkaitan tidak boleh ikut berjalan.
+    assert.equal(hasil.temuan.some((t) => t.kode === "K-CPL-TANPA-PL"), false);
+    assert.equal(hasil.ringkasan.jumlahProfilLulusan, 0);
+  });
+
+  it("profil yang tidak ditopang CPL mana pun adalah pemblokir", () => {
+    const k = denganProfil();
+    k.cpl[1].profilLulusanKode = ["PL1"]; // PL2 jadi yatim
+
+    const hasil = validasiKurikulum(k);
+
+    assert.equal(hasil.lolos, false);
+    const t = hasil.pemblokir.find((x) => x.kode === "K-PL-TANPA-CPL");
+    assert.ok(t);
+    assert.match(t!.pesan, /PL2/);
+    assert.deepEqual(hasil.ringkasan.plTanpaCpl, ["PL2"]);
+  });
+
+  it("CPL yang belum menopang profil hanya peringatan, tidak memblokir", () => {
+    const k = denganProfil();
+    k.cpl[0].profilLulusanKode = [];
+    k.cpl[1].profilLulusanKode = ["PL1", "PL2"];
+
+    const hasil = validasiKurikulum(k);
+
+    assert.equal(hasil.lolos, true);
+    const t = hasil.peringatan.find((x) => x.kode === "K-CPL-TANPA-PL");
+    assert.ok(t);
+    assert.match(t!.pesan, /CPL06/);
+  });
+
+  it("CPL yang merujuk profil tak dikenal adalah pemblokir", () => {
+    const k = denganProfil();
+    k.cpl[0].profilLulusanKode = ["PL1", "PL7"];
+
+    const hasil = validasiKurikulum(k);
+
+    const t = hasil.pemblokir.find((x) => x.kode === "K-CPL-PL-TIDAK-ADA");
+    assert.ok(t);
+    assert.match(t!.pesan, /PL7/);
+  });
+
+  it("kode profil berulang adalah pemblokir", () => {
+    const k = denganProfil();
+    k.profilLulusan!.push({ kode: "PL1", deskripsi: "Peran lain dengan kode yang sama." });
+
+    const hasil = validasiKurikulum(k);
+
+    assert.ok(hasil.pemblokir.some((x) => x.kode === "K-PL-KODE-GANDA"));
+  });
+
+  it("rumusan profil yang terlalu pendek diperingatkan tanpa memblokir", () => {
+    const k = denganProfil();
+    k.profilLulusan![0].deskripsi = "Programmer";
+
+    const hasil = validasiKurikulum(k);
+
+    assert.equal(hasil.lolos, true);
+    assert.ok(hasil.peringatan.some((x) => x.kode === "K-PL-DESKRIPSI-PENDEK"));
+  });
+});

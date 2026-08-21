@@ -15,6 +15,25 @@ const eslintConfig = defineConfig([
     // Klien Prisma yang dihasilkan otomatis — bukan kode yang kita tulis.
     "src/generated/**",
   ]),
+  {
+    rules: {
+      /**
+       * Awalan garis bawah menandai nilai yang sengaja tidak dipakai. Pola ini
+       * dibutuhkan saat sebuah field dibuang lewat destructuring — mis.
+       * `const { kisiKisi: _kisiKisi, ...sisa }` di domain/rpkps/publik.ts,
+       * yang justru bermaksud MEMBUANG field itu.
+       */
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+          ignoreRestSiblings: true,
+        },
+      ],
+    },
+  },
 ]);
 
 export default eslintConfig;

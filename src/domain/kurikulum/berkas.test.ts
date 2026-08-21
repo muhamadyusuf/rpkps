@@ -109,3 +109,75 @@ describe("rakitKurikulum — berkas lama tanpa kolom Kode MK", () => {
     assert.equal(cariMk(hasil, "TI310").cpmk[0].subCpmk.length, 0);
   });
 });
+
+describe("rakitKurikulum — profil lulusan", () => {
+  function isiDenganProfil(): IsiBerkas {
+    const isi = isiKodeBentrok();
+    isi.profilLulusan = [
+      { kode: "PL1", deskripsi: "Pengembang perangkat lunak untuk sistem informasi." },
+      { kode: "PL2", deskripsi: "Analis data pada industri manufaktur." },
+    ];
+    isi.cpl[0].profilLulusanKode = "PL1, PL2";
+    return isi;
+  }
+
+  it("merakit profil lulusan dan menyambungkannya dari lembar CPL", () => {
+    const hasil = rakitKurikulum(isiDenganProfil(), META);
+
+    assert.deepEqual(hasil.galat, []);
+    assert.deepEqual(
+      hasil.kurikulum.profilLulusan?.map((p) => p.kode),
+      ["PL1", "PL2"],
+    );
+    assert.deepEqual(hasil.kurikulum.cpl[0].profilLulusanKode, ["PL1", "PL2"]);
+  });
+
+  it("kode ditulis huruf besar dan pemisah selain koma tetap dikenali", () => {
+    const isi = isiDenganProfil();
+    isi.cpl[0].profilLulusanKode = "pl1; pl2";
+
+    const hasil = rakitKurikulum(isi, META);
+
+    assert.deepEqual(hasil.kurikulum.cpl[0].profilLulusanKode, ["PL1", "PL2"]);
+  });
+
+  it("kode profil berulang ditolak dengan nomor barisnya", () => {
+    const isi = isiDenganProfil();
+    isi.profilLulusan!.push({ kode: "PL1", deskripsi: "Peran lain yang kodenya keliru." });
+
+    const hasil = rakitKurikulum(isi, META);
+
+    assert.equal(hasil.galat.length, 1);
+    assert.equal(hasil.galat[0].lembar, "Profil Lulusan");
+    assert.equal(hasil.galat[0].baris, 4);
+    assert.match(hasil.galat[0].pesan, /berulang/);
+    // Baris yang sah tetap terakit.
+    assert.equal(hasil.kurikulum.profilLulusan?.length, 2);
+  });
+
+  it("kode kosong dan rumusan kosong dilaporkan terpisah", () => {
+    const isi = isiDenganProfil();
+    isi.profilLulusan = [
+      { kode: "", deskripsi: "Rumusan tanpa kode." },
+      { kode: "PL9", deskripsi: "   " },
+    ];
+
+    const hasil = rakitKurikulum(isi, META);
+
+    assert.equal(hasil.galat.length, 2);
+    assert.match(hasil.galat[0].pesan, /Kode profil lulusan kosong/);
+    assert.match(hasil.galat[1].pesan, /rumusan profil kosong/i);
+  });
+
+  /**
+   * Penjaga kompatibilitas: berkas yang diunduh sebelum lembar Profil Lulusan
+   * ada tidak boleh gagal dirakit, dan tidak boleh menghasilkan galat palsu.
+   */
+  it("berkas tanpa lembar profil lulusan tetap terakit", () => {
+    const hasil = rakitKurikulum(isiKodeBentrok(), META);
+
+    assert.deepEqual(hasil.galat, []);
+    assert.deepEqual(hasil.kurikulum.profilLulusan, []);
+    assert.deepEqual(hasil.kurikulum.cpl[0].profilLulusanKode, []);
+  });
+});

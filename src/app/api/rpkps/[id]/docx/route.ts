@@ -2,12 +2,15 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { cakupanProdi } from "@/lib/otorisasi";
 import { sesiSaatIni } from "@/lib/sesi";
-import { muatRpkps, type RpkpsLengkap } from "@/lib/rpkps/muat";
-import { ambilSnapshot, cairkanSnapshot, type IsiSnapshot } from "@/lib/rpkps/snapshot";
-import { buatDokumenRpkps } from "@/lib/dokumen/rpkps-docx";
+import { siapkanUnduhanRpkps } from "@/lib/dokumen/siapkan-unduhan";
 
 export const runtime = "nodejs";
 
+/**
+ * Unduhan untuk pengguna terdaftar — termasuk draf yang belum disahkan.
+ * Padanan publiknya ada di /api/publik/rpkps/[id]/docx dan hanya melayani
+ * dokumen berstatus TERBIT.
+ */
 export async function GET(
   _permintaan: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -18,7 +21,13 @@ export async function GET(
   }
 
   const { id } = await params;
-  const rpkps = await muatRpkps(id);
+
+  // Cakupan prodi diperiksa lebih dulu, dengan kueri murah: menyusun DOCX
+  // lengkap untuk kemudian menolaknya adalah kerja yang terbuang.
+  const rpkps = await prisma.rpkps.findUnique({
+    where: { id },
+    select: { mataKuliah: { select: { kurikulum: { select: { prodiId: true } } } } },
+  });
   if (!rpkps) {
     return NextResponse.json({ pesan: "RPKPS tidak ditemukan." }, { status: 404 });
   }
@@ -28,38 +37,16 @@ export async function GET(
     return NextResponse.json({ pesan: "Tidak berwenang." }, { status: 403 });
   }
 
-  // Dokumen yang sudah terbit selalu dicetak dari salinan beku, bukan dari
-  // data langsung. Kalau kurikulum disunting setelah pengesahan, berkas yang
-  // diunduh tetap identik dengan yang ditandatangani.
-  const snapshot =
-    rpkps.status === "TERBIT" ? await ambilSnapshot(id, rpkps.versi) : null;
-
-  let sumber = rpkps;
-  let riwayat: { versi: number; dibuatPada: Date; deskripsi: string }[];
-  let sidik: string | null = null;
-
-  if (snapshot) {
-    const beku = cairkanSnapshot<RpkpsLengkap>(snapshot.isi as unknown as IsiSnapshot);
-    sumber = beku.rpkps;
-    riwayat = beku.riwayat;
-    sidik = snapshot.sidik;
-  } else {
-    riwayat = await prisma.rpkpsRiwayat.findMany({
-      where: { rpkpsId: id },
-      orderBy: { dibuatPada: "asc" },
-      select: { versi: true, dibuatPada: true, deskripsi: true },
-    });
+  const berkas = await siapkanUnduhanRpkps(id);
+  if (!berkas) {
+    return NextResponse.json({ pesan: "RPKPS tidak ditemukan." }, { status: 404 });
   }
 
-  const buffer = await buatDokumenRpkps(sumber, riwayat, sidik);
-  const namaBerkas = `RPKPS ${rpkps.mataKuliah.kode} ${rpkps.mataKuliah.nama} - ${rpkps.tahunAkademik.kode}${sidik ? " (terbit)" : " (draf)"}.docx`
-    .replace(/[/\\?%*:|"<>]/g, "-");
-
-  return new NextResponse(new Uint8Array(buffer), {
+  return new NextResponse(new Uint8Array(berkas.buffer), {
     headers: {
       "Content-Type":
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      "Content-Disposition": `attachment; filename="${namaBerkas}"`,
+      "Content-Disposition": `attachment; filename="${berkas.namaBerkas}"`,
       "Cache-Control": "no-store",
     },
   });

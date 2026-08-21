@@ -173,7 +173,11 @@ export function FormulirImpor({
             <CardTitle className="text-base">3 · Hasil pemeriksaan</CardTitle>
           </CardHeader>
           <CardContent className="space-y-5">
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+              <Angka
+                label="Profil lulusan"
+                nilai={validasi.ringkasan.jumlahProfilLulusan}
+              />
               <Angka label="CPL" nilai={validasi.ringkasan.jumlahCpl} />
               <Angka label="Mata kuliah" nilai={validasi.ringkasan.jumlahMk} />
               <Angka label="CPMK" nilai={validasi.ringkasan.jumlahCpmk} />

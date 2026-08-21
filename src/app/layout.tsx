@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { PenyediaTema } from "@/components/penyedia-tema";
+import { urlSitus } from "@/lib/publik/tautan";
 import "./globals.css";
 
 /** Teks jalan: netral, lebar-x tinggi, nyaman untuk paragraf panjang. */
@@ -25,6 +26,9 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
+  // Diperlukan agar kartu OpenGraph dan tautan kanonik pada halaman publik
+  // berupa URL absolut; tanpa ini pratinjau tautan menunjuk ke localhost.
+  metadataBase: new URL(urlSitus()),
   title: {
     default: "RPKPS ITTS",
     template: "%s · RPKPS ITTS",
