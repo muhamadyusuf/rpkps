@@ -1,0 +1,521 @@
+import { writeFileSync } from "node:fs";
+import JSZip from "jszip";
+import { prisma } from "./prisma";
+import type { Prisma } from "@/generated/prisma";
+import { buatDokumenRpkps } from "@/lib/dokumen/rpkps-docx";
+import { sidikDokumen } from "@/domain/rpkps/proyeksi";
+import { cairkanSnapshot } from "@/domain/rpkps/sidik";
+import { keRpkpsInput } from "@/domain/rpkps/pemetaan";
+import { BENTUK_BAWAAN, KEBIJAKAN_BAWAAN } from "@/domain/beban-belajar/kebijakan-bawaan";
+import { susunRencanaSemester } from "@/domain/beban-belajar/kalkulator";
+import { validasiRpkps } from "@/domain/rpkps/validator";
+import { validasiKurikulum } from "@/domain/kurikulum/validator";
+import { validasiKisiKisi } from "@/domain/rpkps/kisi-kisi";
+import type { KategoriWaktu } from "@/generated/prisma";
+
+function cek(nama: string, syarat: boolean, detail?: string) {
+  console.log(`${syarat ? "  OK  " : " GAGAL"} ${nama}${detail ? ` — ${detail}` : ""}`);
+  if (!syarat) process.exitCode = 1;
+}
+
+async function main() {
+  // ── 1 · Master data ────────────────────────────────────────────
+  const institusi = await prisma.institusi.create({
+    data: { id: "itts", nama: "Institut Teknologi Tangerang Selatan", namaSingkat: "ITTS" },
+  });
+  const fakultas = await prisma.fakultas.create({
+    data: { kode: "FTI", nama: "Fakultas Teknologi Industri", institusiId: institusi.id },
+  });
+  const prodi = await prisma.prodi.create({
+    data: { kode: "TI", nama: "Teknologi Informasi", fakultasId: fakultas.id },
+  });
+  const tahun = await prisma.tahunAkademik.create({
+    data: { kode: "2025/2026-GENAP", tahunMulai: 2025, tahunSelesai: 2026, semester: "GENAP", aktif: true },
+  });
+  await prisma.kebijakanBebanBelajar.create({
+    data: {
+      institusiId: institusi.id,
+      nama: "Kebijakan bawaan",
+      status: "BERLAKU",
+      berlakuDari: new Date(),
+      bentuk: {
+        create: BENTUK_BAWAAN.map((b) => ({
+          bentuk: b.bentuk,
+          menitTmPerSks: b.tm,
+          menitPtPerSks: b.pt,
+          menitBmPerSks: b.bm,
+          tmTerjadwal: b.tmTerjadwal,
+          butuhRuangKhusus: b.butuhRuangKhusus,
+        })),
+      },
+    },
+  });
+  cek("master data tersimpan", true);
+
+  // ── 2 · Kurikulum: TI214 seperti dokumen ITTS ───────────────────
+  const kurikulum = await prisma.kurikulum.create({
+    data: { prodiId: prodi.id, nama: "Kurikulum TI 2025", tahun: 2025, status: "BERLAKU" },
+  });
+  const cpl06 = await prisma.cpl.create({
+    data: { kurikulumId: kurikulum.id, kode: "CPL06", deskripsi: "Mampu menerapkan pemikiran logis, kritis, dan sistematis.", tingkatKkni: 6, urutan: 0 },
+  });
+  const cpl08 = await prisma.cpl.create({
+    data: { kurikulumId: kurikulum.id, kode: "CPL08", deskripsi: "Mampu merancang dan mengimplementasi solusi berbasis computing.", tingkatKkni: 6, urutan: 1 },
+  });
+
+  const mk = await prisma.mataKuliah.create({
+    data: {
+      kurikulumId: kurikulum.id,
+      kode: "TI214",
+      nama: "Basis Data",
+      semester: 2,
+      sksTeori: 2,
+      sksPraktik: 1,
+      deskripsi: "Mata kuliah Basis Data memberikan pemahaman komprehensif mengenai konsep dasar, perancangan, dan implementasi sistem basis data relasional.",
+      cpl: { create: [{ cplId: cpl06.id }, { cplId: cpl08.id }] },
+    },
+  });
+
+  // 2 CPMK x 7 Sub-CPMK = 14, persis seperti dokumen aslinya
+  for (const [i, spec] of [
+    { kode: "CPMK081", cplId: cpl08.id, level: "C6" as const },
+    { kode: "CPMK082", cplId: cpl06.id, level: "C3" as const },
+  ].entries()) {
+    const cpmk = await prisma.cpmk.create({
+      data: {
+        mataKuliahId: mk.id,
+        kode: spec.kode,
+        rumusan: `Rumusan ${spec.kode} yang cukup panjang untuk dinilai.`,
+        levelBloom: spec.level,
+        urutan: i,
+        cpl: { create: { cplId: spec.cplId } },
+      },
+    });
+    await prisma.subCpmk.createMany({
+      data: Array.from({ length: 7 }, (_, j) => ({
+        cpmkId: cpmk.id,
+        kode: `${spec.kode}-${j + 1}`,
+        rumusan: `Mahasiswa mampu menjelaskan pokok bahasan ke-${j + 1} pada ${spec.kode}.`,
+        levelBloom: "C2" as const,
+        urutan: j,
+        mingguDisarankan: [],
+      })),
+    });
+  }
+  cek("kurikulum tersimpan", true, "2 CPL, 1 MK, 2 CPMK, 14 Sub-CPMK");
+
+  // Validator kurikulum harus lolos
+  const cplRows = await prisma.cpl.findMany({ where: { kurikulumId: kurikulum.id } });
+  const mkRow = await prisma.mataKuliah.findUniqueOrThrow({
+    where: { id: mk.id },
+    include: { cpl: { include: { cpl: true } }, cpmk: { include: { cpl: { include: { cpl: true } }, subCpmk: true } } },
+  });
+  const vk = validasiKurikulum({
+    nama: "Kurikulum TI 2025",
+    tahun: 2025,
+    cpl: cplRows.map((c) => ({ kode: c.kode, deskripsi: c.deskripsi })),
+    mataKuliah: [{
+      kode: mkRow.kode, nama: mkRow.nama, semester: mkRow.semester,
+      sksTeori: mkRow.sksTeori, sksPraktik: mkRow.sksPraktik,
+      cplKode: mkRow.cpl.map((x) => x.cpl.kode),
+      cpmk: mkRow.cpmk.map((c) => ({
+        kode: c.kode, rumusan: c.rumusan, levelBloom: c.levelBloom,
+        cplKode: c.cpl.map((x) => x.cpl.kode),
+        subCpmk: c.subCpmk.map((s) => ({ kode: s.kode, rumusan: s.rumusan, levelBloom: s.levelBloom })),
+      })),
+    }],
+  });
+  cek("validator kurikulum lolos", vk.lolos, vk.pemblokir.map((t) => t.kode).join(",") || "tanpa pemblokir");
+
+  // ── 3 · Menyusun kerangka RPKPS (logika buatRpkps) ─────────────
+  const kebijakan = KEBIJAKAN_BAWAAN;
+  const rencana = susunRencanaSemester(kebijakan, {
+    sksTeori: mk.sksTeori, sksPraktik: mk.sksPraktik,
+    bentukTeori: mk.bentukTeori, bentukPraktik: mk.bentukPraktik,
+  });
+  const semuaSub = await prisma.subCpmk.findMany({
+    where: { cpmk: { mataKuliahId: mk.id } },
+    orderBy: [{ cpmk: { urutan: "asc" } }, { urutan: "asc" }],
+  });
+  const mingguEfektif = rencana.minggu.filter((m) => m.jenis === "EFEKTIF");
+
+  const pengguna = await prisma.pengguna.create({
+    data: { firebaseUid: "uji-1", email: "yusuf@itts.ac.id", nama: "Muhamad Yusuf", nidn: "0412129501", status: "AKTIF" },
+  });
+
+  const rpkps = await prisma.rpkps.create({
+    data: {
+      mataKuliahId: mk.id,
+      tahunAkademikId: tahun.id,
+      deskripsi: mk.deskripsi,
+      pengampu: { create: { penggunaId: pengguna.id, peran: "KOORDINATOR" } },
+      komponenNilai: {
+        create: [
+          { nama: "UTS", bobot: 15, urutan: 0 },
+          { nama: "UAS", bobot: 15, urutan: 1 },
+          { nama: "Tugas", bobot: 70, urutan: 2 },
+        ],
+      },
+      pustaka: {
+        create: [{ jenis: "UTAMA", nomor: 1, teks: "Silberschatz, A. (2019). Database System Concepts (7th ed.)." }],
+      },
+    },
+  });
+
+  for (const m of rencana.minggu) {
+    const ujian = m.jenis === "UJIAN";
+    const idx = mingguEfektif.findIndex((x) => x.minggu === m.minggu);
+    const sub = !ujian && idx >= 0 ? semuaSub[idx] : undefined;
+    const aktivitas: { nama: string; kategori: KategoriWaktu; menit: number; urutan: number }[] = [];
+    if (m.pagu.tm > 0) aktivitas.push({ nama: ujian ? "Pelaksanaan ujian" : "Tatap muka", kategori: "TM", menit: m.pagu.tm, urutan: 0 });
+    if (m.pagu.pt > 0) aktivitas.push({ nama: "Penugasan terstruktur", kategori: "PT", menit: m.pagu.pt, urutan: 1 });
+    if (m.pagu.bm > 0) aktivitas.push({ nama: ujian ? "Persiapan ujian" : "Belajar mandiri", kategori: "BM", menit: m.pagu.bm, urutan: 2 });
+
+    await prisma.pertemuan.create({
+      data: {
+        rpkpsId: rpkps.id,
+        minggu: m.minggu,
+        jenis: ujian ? (m.minggu < 16 ? "UTS" : "UAS") : "EFEKTIF",
+        topik: ujian ? "Ujian" : `Topik minggu ${m.minggu}`,
+        subtopik: ujian ? [] : ["Subtopik A", "Subtopik B"],
+        bobot: ujian ? 15 : 5,
+        penilaianJenis: ujian ? "Tes tertulis" : "Tugas",
+        aktivitas: { create: aktivitas },
+        indikator: { create: [{ teks: "Indikator terukur pertama", urutan: 0 }] },
+        pustaka: { create: { pustakaId: (await prisma.pustaka.findFirstOrThrow({ where: { rpkpsId: rpkps.id } })).id } },
+        ...(sub ? { subCpmk: { create: { subCpmkId: sub.id } } } : {}),
+      },
+    });
+  }
+  // Tugas / proyek — bagian I template ITTS
+  const subUntukTugas = semuaSub.slice(2, 5);
+  await prisma.tugas.create({
+    data: {
+      rpkpsId: rpkps.id,
+      nomor: 1,
+      nama: "Proyek Akhir Basis Data",
+      jenis: "KELOMPOK",
+      mingguMulai: 9,
+      mingguSelesai: 16,
+      bobot: 20,
+      deskripsi:
+        "Mahasiswa membangun purwarupa sistem basis data fungsional untuk menyelesaikan masalah nyata, mulai dari analisis kebutuhan, perancangan ERD, normalisasi, implementasi DBMS, hingga integrasi dengan aplikasi.",
+      formatLuaran: "Source code, dokumentasi perancangan, laporan pengujian, slide presentasi.",
+      subCpmk: { create: subUntukTugas.map((s) => ({ subCpmkId: s.id })) },
+      kriteria: {
+        create: [
+          { nomor: 1, indikator: "Desain & pemodelan", rincian: ["Ketepatan entitas dan kardinalitas pada ERD", "Skema memenuhi 3NF"], bobot: 25 },
+          { nomor: 2, indikator: "Implementasi SQL & integritas", rincian: ["DDL dan DML berjalan tanpa galat", "PK/FK mencegah data yatim"], bobot: 30 },
+          { nomor: 3, indikator: "Integrasi & pengujian", rincian: ["CRUD dari antarmuka berhasil", "Laporan EXPLAIN terdokumentasi"], bobot: 20 },
+          { nomor: 4, indikator: "Presentasi & demo", rincian: ["Penyampaian jelas dan terstruktur"], bobot: 15 },
+          { nomor: 5, indikator: "Refleksi individu", rincian: ["Kedalaman analisis kritis"], bobot: 10 },
+        ],
+      },
+      linimasa: {
+        create: [
+          { minggu: 12, tahapan: "Pembagian kelompok & tema", aktivitas: "Instruksi proyek, pembagian kelompok 2-3 orang, pemilihan studi kasus." },
+          { minggu: 13, tahapan: "Fase desain", aktivitas: "Penyusunan business rules, ERD, dan normalisasi tabel." },
+          { minggu: 14, tahapan: "Fase basis data", aktivitas: "Implementasi DDL, penetapan constraint, pengisian data." },
+          { minggu: 15, tahapan: "Otomasi & integrasi", aktivitas: "Stored procedure, trigger, uji performa, integrasi antarmuka." },
+          { minggu: 16, tahapan: "Laporan & presentasi", aktivitas: "Pengumpulan laporan dan demo aplikasi." },
+        ],
+      },
+    },
+  });
+
+  cek("kerangka RPKPS tersusun", true, `${rencana.minggu.length} pertemuan`);
+
+  // ── 4 · Verifikasi hasil kerangka ─────────────────────────────
+  const muat = await prisma.rpkps.findUniqueOrThrow({
+    where: { id: rpkps.id },
+    include: {
+      tahunAkademik: true,
+      mataKuliah: {
+        include: {
+          kurikulum: { select: { id: true, nama: true, tahun: true, prodiId: true, prodi: { select: { nama: true, kode: true } } } },
+          cpl: { include: { cpl: { select: { id: true, kode: true, deskripsi: true } } } },
+          cpmk: { orderBy: { urutan: "asc" }, include: { cpl: { include: { cpl: { select: { kode: true } } } }, subCpmk: { orderBy: { urutan: "asc" } } } },
+        },
+      },
+      pengampu: { include: { pengguna: { select: { id: true, nama: true, gelarDepan: true, gelarBelakang: true, nidn: true, nip: true } } } },
+      pustaka: true,
+      komponenNilai: true,
+      tugas: {
+        orderBy: { nomor: "asc" },
+        include: {
+          subCpmk: { include: { subCpmk: { select: { id: true, kode: true } } } },
+          kriteria: { orderBy: { nomor: "asc" } },
+          linimasa: { orderBy: { minggu: "asc" } },
+        },
+      },
+      pertemuan: {
+        orderBy: { minggu: "asc" },
+        include: {
+          subCpmk: { include: { subCpmk: { select: { id: true, kode: true, rumusan: true } } } },
+          aktivitas: true, indikator: true,
+          pustaka: { include: { pustaka: { select: { nomor: true, jenis: true } } } },
+        },
+      },
+    },
+  });
+
+  cek("16 pertemuan bernomor lengkap", muat.pertemuan.length === 16, `${muat.pertemuan.length}`);
+  cek("minggu ujian di posisi 8 dan 16",
+    muat.pertemuan.filter((p) => p.jenis !== "EFEKTIF").map((p) => p.minggu).join(",") === "8,16");
+
+  const totalMenit = muat.pertemuan.reduce((s, p) => s + p.aktivitas.reduce((t, a) => t + a.menit, 0), 0);
+  const jamPerSks = totalMenit / 60 / (mk.sksTeori + mk.sksPraktik);
+  cek("total beban tepat 45 jam/sks", Math.abs(jamPerSks - 45) < 0.01, `${jamPerSks.toFixed(2)} jam/sks`);
+
+  const m1 = muat.pertemuan.find((p) => p.minggu === 1)!;
+  cek("pagu minggu efektif 510 menit", m1.aktivitas.reduce((s, a) => s + a.menit, 0) === 510);
+  const m8 = muat.pertemuan.find((p) => p.minggu === 8)!;
+  cek("minggu ujian punya alokasi waktu", m8.aktivitas.reduce((s, a) => s + a.menit, 0) === 480);
+
+  const terjadwal = muat.pertemuan.flatMap((p) => p.subCpmk.map((s) => s.subCpmk.kode));
+  cek("14 Sub-CPMK terjadwal otomatis", terjadwal.length === 14, terjadwal.slice(0, 3).join(", ") + ", …");
+
+  // ── 5 · Validator RPKPS terhadap data nyata ───────────────────
+  const input = keRpkpsInput(muat);
+  const hasil = validasiRpkps(input, kebijakan);
+  cek("validator RPKPS lolos", hasil.lolos,
+    hasil.lolos ? "tanpa pemblokir" : hasil.pemblokir.map((t) => `${t.kode}: ${t.pesan}`).join(" | "));
+  cek("bobot mingguan 100%", hasil.ringkasan.totalBobotMingguan === 100, `${hasil.ringkasan.totalBobotMingguan}%`);
+  cek("seluruh Sub-CPMK terjadwal", hasil.ringkasan.subCpmkBelumDijadwalkan.length === 0);
+  cek("satu tugas tersimpan", hasil.ringkasan.jumlahTugas === 1);
+  cek("bobot indikator tugas 100%", !hasil.temuan.some((t) => t.kode === "I-BOBOT-KRITERIA"));
+
+  // ── 6 · Uji negatif: rusakkan bobot, harus tertangkap ─────────
+  await prisma.pertemuan.update({ where: { id: m1.id }, data: { bobot: 25 } });
+  const ulang = await prisma.pertemuan.findMany({
+    where: { rpkpsId: rpkps.id },
+    orderBy: { minggu: "asc" },
+    include: {
+      subCpmk: { include: { subCpmk: { select: { kode: true } } } },
+      aktivitas: true,
+      indikator: true,
+      pustaka: { include: { pustaka: { select: { nomor: true } } } },
+    },
+  });
+  const hasilRusak = validasiRpkps(
+    { ...input, pertemuan: keRpkpsInput({ ...muat, pertemuan: ulang }).pertemuan },
+    kebijakan,
+  );
+  cek(
+    "uji negatif: bobot 120% tertangkap validator",
+    !hasilRusak.lolos && hasilRusak.pemblokir.some((t) => t.kode === "B1-BOBOT-MINGGUAN"),
+    hasilRusak.pemblokir.map((t) => t.kode).join(", "),
+  );
+
+  // ── 7 · Ekspor DOCX ────────────────────────────────────────────
+  await prisma.pertemuan.update({ where: { id: m1.id }, data: { bobot: 5 } }); // pulihkan
+  // Tanda centang pada tabel distribusi berasal dari kaitan pertemuan ->
+  // komponen nilai, dan pertemuan itu harus punya Sub-CPMK. Minggu ujian
+  // tidak punya Sub-CPMK, jadi kaitannya dipasang pada minggu efektif.
+  const komponenUts = await prisma.komponenNilai.findFirstOrThrow({
+    where: { rpkpsId: rpkps.id, nama: "UTS" },
+  });
+  const komponenTugas = await prisma.komponenNilai.findFirstOrThrow({
+    where: { rpkpsId: rpkps.id, nama: "Tugas" },
+  });
+  await prisma.pertemuan.updateMany({
+    where: { rpkpsId: rpkps.id, jenis: "UTS" },
+    data: { komponenNilaiId: komponenUts.id },
+  });
+  await prisma.pertemuan.updateMany({
+    where: { rpkpsId: rpkps.id, jenis: "EFEKTIF" },
+    data: { komponenNilaiId: komponenTugas.id },
+  });
+
+  const bentukMuat = {
+      tahunAkademik: true,
+      mataKuliah: {
+        include: {
+          kurikulum: { select: { id: true, nama: true, tahun: true, prodiId: true, prodi: { select: { nama: true, kode: true } } } },
+          cpl: { include: { cpl: { select: { id: true, kode: true, deskripsi: true } } } },
+          cpmk: { orderBy: { urutan: "asc" }, include: { cpl: { include: { cpl: { select: { kode: true } } } }, subCpmk: { orderBy: { urutan: "asc" } } } },
+        },
+      },
+      pengampu: { orderBy: { urutan: "asc" }, include: { pengguna: { select: { id: true, nama: true, gelarDepan: true, gelarBelakang: true, nidn: true, nip: true } } } },
+      pustaka: { orderBy: [{ jenis: "asc" }, { nomor: "asc" }] },
+      komponenNilai: { orderBy: { urutan: "asc" } },
+      tugas: {
+        orderBy: { nomor: "asc" },
+        include: {
+          subCpmk: { include: { subCpmk: { select: { id: true, kode: true } } } },
+          kriteria: { orderBy: { nomor: "asc" } },
+          linimasa: { orderBy: { minggu: "asc" } },
+          komponenNilai: { select: { nama: true } },
+        },
+      },
+      kisiKisi: {
+        orderBy: { jenis: "asc" },
+        include: {
+          butir: {
+            orderBy: { nomor: "asc" },
+            include: { subCpmk: { select: { id: true, kode: true, rumusan: true } } },
+          },
+        },
+      },
+      pertemuan: {
+        orderBy: { minggu: "asc" },
+        include: {
+          subCpmk: { include: { subCpmk: { select: { id: true, kode: true, rumusan: true } } } },
+          aktivitas: { orderBy: { urutan: "asc" } },
+          indikator: { orderBy: { urutan: "asc" } },
+          pustaka: { include: { pustaka: { select: { nomor: true, jenis: true } } } },
+        },
+      },
+  } satisfies Prisma.RpkpsInclude;
+
+  // Kisi-kisi UTS: tujuh Sub-CPMK pertama, total skor 100.
+  const subSebelumUts = semuaSub.slice(0, 7);
+  await prisma.kisiKisi.create({
+    data: {
+      rpkpsId: rpkps.id,
+      jenis: "UTS",
+      totalSkor: 100,
+      durasiMenit: 120,
+      butir: {
+        create: subSebelumUts.map((s, i) => ({
+          nomor: i + 1,
+          subCpmkId: s.id,
+          levelBloom: "C3" as const,
+          bentuk: "ESAI" as const,
+          jumlahButir: 2,
+          skor: i === 6 ? 100 - 6 * 14 : 14,
+          indikator: `Ketepatan menjawab pokok bahasan ke-${i + 1}`,
+        })),
+      },
+    },
+  });
+
+  const untukDocx = await prisma.rpkps.findUniqueOrThrow({
+    where: { id: rpkps.id },
+    include: bentukMuat,
+  });
+
+  const buffer = await buatDokumenRpkps(untukDocx, [
+    { versi: 1, dibuatPada: new Date(), deskripsi: "Kerangka dibuat otomatis" },
+  ]);
+  cek("DOCX terbentuk", buffer.length > 10_000, `${(buffer.length / 1024).toFixed(1)} KB`);
+
+  const zip = await JSZip.loadAsync(buffer);
+  const docXml = await zip.file("word/document.xml")!.async("string");
+  cek("berkas .docx sah (berisi word/document.xml)", docXml.length > 0);
+  cek("memuat judul RPKPS ITTS", docXml.includes("INSTITUT TEKNOLOGI TANGERANG SELATAN"));
+  cek("memuat halaman pengesahan", docXml.includes("HALAMAN PENGESAHAN"));
+  for (const bagian of [
+    "DESKRIPSI MATA KULIAH", "CAPAIAN PEMBELAJARAN", "ANALISIS PEMBELAJARAN",
+    "TOPIK PEMBELAJARAN", "EVALUASI PEMBELAJARAN", "AMBANG BATAS KELULUSAN",
+    "REFERENSI DAN SUMBER PEMBELAJARAN", "RENCANA PEMBELAJARAN MINGGUAN",
+    "DETAIL TUGAS / PROYEK", "HISTORI REVISI",
+  ]) {
+    cek(`bagian "${bagian}" ada`, docXml.includes(bagian));
+  }
+  cek("kode MK muncul", docXml.includes("TI214"));
+  cek("Sub-CPMK muncul di tabel", docXml.includes("CPMK081-1"));
+  cek("tabel distribusi bertanda centang", docXml.includes("√"));
+  cek("halaman mingguan mendatar", docXml.includes("landscape"));
+  cek("bagian I tugas muncul di dokumen", docXml.includes("DETAIL TUGAS"));
+  cek("nama tugas muncul", docXml.includes("Proyek Akhir Basis Data"));
+  cek("linimasa tugas muncul", docXml.includes("Fase desain"));
+  cek("lampiran kisi-kisi muncul", docXml.includes("LAMPIRAN — KISI-KISI UJIAN"));
+  cek("judul UTS pada lampiran", docXml.includes("Ujian Tengah Semester"));
+  cek("indikator soal muncul", docXml.includes("Ketepatan menjawab pokok bahasan ke-1"));
+
+  // Validator kisi-kisi terhadap data nyata di database.
+  const kk = await prisma.kisiKisi.findFirstOrThrow({
+    where: { rpkpsId: rpkps.id, jenis: "UTS" },
+    include: { butir: { include: { subCpmk: true } }, },
+  });
+  const kodeSebelum = [...new Set(
+    untukDocx.pertemuan
+      .filter((p) => p.minggu < 8)
+      .flatMap((p) => p.subCpmk.map((s) => s.subCpmk.kode)),
+  )];
+  const hasilKk = validasiKisiKisi(
+    {
+      jenis: "UTS",
+      totalSkor: Number(kk.totalSkor),
+      butir: kk.butir.map((b) => ({
+        nomor: b.nomor,
+        subCpmkKode: b.subCpmk.kode,
+        levelBloom: b.levelBloom,
+        jumlahButir: b.jumlahButir,
+        skor: Number(b.skor),
+      })),
+    },
+    {
+      subCpmkSebelumUts: kodeSebelum,
+      subCpmkSetelahUts: [...new Set(
+        untukDocx.pertemuan
+          .filter((p) => p.minggu > 8)
+          .flatMap((p) => p.subCpmk.map((s) => s.subCpmk.kode)),
+      )],
+      levelSubCpmk: Object.fromEntries(semuaSub.map((s) => [s.kode, s.levelBloom])),
+      bobotSubCpmk: Object.fromEntries(semuaSub.map((s) => [s.kode, 5])),
+    },
+  );
+  cek(
+    "validator kisi-kisi lolos terhadap data nyata",
+    hasilKk.lolos,
+    hasilKk.lolos ? "tanpa pemblokir" : hasilKk.pemblokir.map((t) => t.kode).join(", "),
+  );
+  cek("seluruh Sub-CPMK pra-UTS teruji", hasilKk.ringkasan.subCpmkTercakup === 7);
+  const jumlahSel = (docXml.match(/<w:tbl>/g) ?? []).length;
+  cek("empat tabel terbentuk (tim, distribusi, skala, mingguan, riwayat)", jumlahSel >= 5, `${jumlahSel} tabel`);
+
+  // ── 8 · Penguncian versi saat terbit ───────────────────────────
+  const sidikSebelum = sidikDokumen(untukDocx as never);
+  const isiBeku = {
+    dokumen: JSON.parse(JSON.stringify(untukDocx)),
+    riwayat: [{ versi: 1, dibuatPada: new Date().toISOString(), deskripsi: "Terbit" }],
+  };
+  await prisma.rpkpsSnapshot.create({
+    data: { rpkpsId: rpkps.id, versi: 1, isi: isiBeku as never, sidik: sidikSebelum },
+  });
+  await prisma.rpkps.update({ where: { id: rpkps.id }, data: { status: "TERBIT" } });
+  cek("salinan beku tersimpan", sidikSebelum.length === 64, sidikSebelum.slice(0, 16) + "…");
+
+  // Sidik harus stabil bila tidak ada yang berubah.
+  const ulangMuat = async () =>
+    prisma.rpkps.findUniqueOrThrow({ where: { id: rpkps.id }, include: bentukMuat });
+  cek("sidik stabil tanpa perubahan", sidikDokumen((await ulangMuat()) as never) === sidikSebelum);
+
+  // Sekarang kurikulum disunting — persis skenario yang harus terdeteksi.
+  const cpmkPertama = await prisma.cpmk.findFirstOrThrow({ where: { mataKuliahId: mk.id } });
+  await prisma.cpmk.update({
+    where: { id: cpmkPertama.id },
+    data: { rumusan: cpmkPertama.rumusan + " (rumusan direvisi prodi)" },
+  });
+  const sidikSesudah = sidikDokumen((await ulangMuat()) as never);
+  cek("perubahan kurikulum mengubah sidik", sidikSesudah !== sidikSebelum);
+
+  const snapshot = await prisma.rpkpsSnapshot.findUniqueOrThrow({
+    where: { rpkpsId_versi: { rpkpsId: rpkps.id, versi: 1 } },
+  });
+  cek("salinan beku tidak ikut berubah", snapshot.sidik === sidikSebelum);
+
+  const beku = cairkanSnapshot<typeof untukDocx>(snapshot.isi as never);
+  const docBeku = await buatDokumenRpkps(beku.rpkps, beku.riwayat, snapshot.sidik);
+  const zipBeku = await JSZip.loadAsync(docBeku);
+  const xmlBeku = await zipBeku.file("word/document.xml")!.async("string");
+  cek(
+    "dokumen resmi tidak memuat rumusan yang direvisi",
+    !xmlBeku.includes("rumusan direvisi prodi"),
+  );
+  cek("dokumen resmi mencantumkan sidik", xmlBeku.includes(sidikSebelum.slice(0, 8)));
+
+  writeFileSync("uji/keluaran-rpkps.docx", buffer);
+  console.log("     dokumen contoh: uji/keluaran-rpkps.docx");
+
+  console.log("\nSelesai.");
+  await prisma.$disconnect();
+}
+
+main().catch(async (e) => {
+  console.error(e);
+  await prisma.$disconnect();
+  process.exit(1);
+});

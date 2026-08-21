@@ -1,0 +1,939 @@
+// Skema F0 — Fondasi
+// Acuan: docs/00-konsep-rpkps.md §4.7 dan docs/03-kebijakan-beban-belajar.md §3
+// Cakupan tenancy: SATU institusi, banyak prodi (tanpa kolom tenant di tiap tabel).
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────────────────────
+// ORGANISASI
+// ─────────────────────────────────────────────────────────────
+
+model Institusi {
+  id          String   @id @default(cuid())
+  nama        String
+  namaSingkat String   @map("nama_singkat")
+  kodePt      String?  @map("kode_pt")
+  alamat      String?
+  situs       String?
+  logoUrl     String?  @map("logo_url")
+  dibuatPada  DateTime @default(now()) @map("dibuat_pada")
+  diubahPada  DateTime @updatedAt @map("diubah_pada")
+
+  fakultas  Fakultas[]
+  kebijakan KebijakanBebanBelajar[]
+
+  @@map("institusi")
+}
+
+model Fakultas {
+  id          String   @id @default(cuid())
+  institusiId String   @map("institusi_id")
+  nama        String
+  kode        String   @unique
+  dibuatPada  DateTime @default(now()) @map("dibuat_pada")
+  diubahPada  DateTime @updatedAt @map("diubah_pada")
+
+  institusi Institusi @relation(fields: [institusiId], references: [id], onDelete: Cascade)
+  prodi     Prodi[]
+
+  @@index([institusiId])
+  @@map("fakultas")
+}
+
+enum JenjangProdi {
+  D3
+  D4
+  S1
+  S2
+  S3
+  PROFESI
+}
+
+model Prodi {
+  id         String       @id @default(cuid())
+  fakultasId String       @map("fakultas_id")
+  nama       String
+  kode       String       @unique
+  jenjang    JenjangProdi @default(S1)
+  gelar      String?
+  akreditasi String?
+  aktif      Boolean      @default(true)
+  dibuatPada DateTime     @default(now()) @map("dibuat_pada")
+  diubahPada DateTime     @updatedAt @map("diubah_pada")
+
+  fakultas  Fakultas         @relation(fields: [fakultasId], references: [id], onDelete: Restrict)
+  penugasan PenugasanPeran[]
+  kurikulum Kurikulum[]
+
+  @@index([fakultasId])
+  @@map("prodi")
+}
+
+enum SemesterTipe {
+  GANJIL
+  GENAP
+  ANTARA
+}
+
+model TahunAkademik {
+  id           String       @id @default(cuid())
+  kode         String       @unique // contoh: "2025/2026-GENAP"
+  tahunMulai   Int          @map("tahun_mulai")
+  tahunSelesai Int          @map("tahun_selesai")
+  semester     SemesterTipe
+  tanggalMulai DateTime?    @map("tanggal_mulai")
+  tanggalAkhir DateTime?    @map("tanggal_akhir")
+  aktif        Boolean      @default(false)
+  dibuatPada   DateTime     @default(now()) @map("dibuat_pada")
+  diubahPada   DateTime     @updatedAt @map("diubah_pada")
+  rpkps        Rpkps[]
+
+  @@index([aktif])
+  @@map("tahun_akademik")
+}
+
+// ─────────────────────────────────────────────────────────────
+// PENGGUNA & PERAN
+// Identitas (login) ditangani Firebase Auth. Tabel ini menyimpan
+// PROFIL KEPEGAWAIAN yang tidak boleh berada di layanan pihak ketiga:
+// NIDN/NIP, peran, dan cakupan prodi. Dikelola oleh Admin.
+// ─────────────────────────────────────────────────────────────
+
+enum StatusPengguna {
+  AKTIF
+  NONAKTIF
+  MENUNGGU_VERIFIKASI
+}
+
+model Pengguna {
+  id            String         @id @default(cuid())
+  firebaseUid   String         @unique @map("firebase_uid")
+  email         String         @unique
+  nama          String
+  gelarDepan    String?        @map("gelar_depan")
+  gelarBelakang String?        @map("gelar_belakang")
+  nidn          String?        @unique
+  nip           String?        @unique
+  nik           String?        @unique
+  telepon       String?
+  fotoUrl       String?        @map("foto_url")
+  status        StatusPengguna @default(MENUNGGU_VERIFIKASI)
+  terakhirMasuk DateTime?      @map("terakhir_masuk")
+  dibuatPada    DateTime       @default(now()) @map("dibuat_pada")
+  diubahPada    DateTime       @updatedAt @map("diubah_pada")
+
+  penugasan     PenugasanPeran[]
+  logAudit      LogAudit[]
+  pengampuRpkps RpkpsPengampu[]
+
+  @@index([status])
+  @@map("pengguna")
+}
+
+/// Peran ditulis sebagai enum, bukan tabel, karena himpunannya tetap dan
+/// dipakai untuk pengecekan otorisasi di kode.
+enum Peran {
+  ADMIN // administrator sistem
+  KAPRODI // ketua program studi
+  GPM // gugus/kepala penjaminan mutu
+  KOORDINATOR_MK // koordinator mata kuliah
+  DOSEN // dosen pengampu
+  MAHASISWA
+  ASESOR // akses baca terbatas untuk audit/akreditasi
+}
+
+/// Satu pengguna dapat memegang beberapa peran, masing-masing dengan
+/// cakupan prodi. prodiId null = cakupan institusi (mis. ADMIN, GPM).
+model PenugasanPeran {
+  id         String   @id @default(cuid())
+  penggunaId String   @map("pengguna_id")
+  peran      Peran
+  prodiId    String?  @map("prodi_id")
+  dibuatPada DateTime @default(now()) @map("dibuat_pada")
+
+  pengguna Pengguna @relation(fields: [penggunaId], references: [id], onDelete: Cascade)
+  prodi    Prodi?   @relation(fields: [prodiId], references: [id], onDelete: Cascade)
+
+  /// CATATAN: pada Postgres, NULL dianggap berbeda satu sama lain di dalam
+  /// UNIQUE, sehingga constraint ini TIDAK mencegah duplikat ketika prodiId
+  /// null (peran bercakupan institusi seperti ADMIN/GPM). Indeks partial
+  /// untuk kasus itu ditambahkan lewat migrasi SQL manual —
+  /// lihat prisma/migrations/*_penugasan_peran_null_unik.
+  @@unique([penggunaId, peran, prodiId])
+  @@index([penggunaId])
+  @@index([prodiId])
+  @@map("penugasan_peran")
+}
+
+// ─────────────────────────────────────────────────────────────
+// KEBIJAKAN BEBAN BELAJAR
+// Acuan: docs/03-kebijakan-beban-belajar.md §3
+// Menegakkan invarian: total beban / sks = 45 jam per semester.
+// ─────────────────────────────────────────────────────────────
+
+enum StatusKebijakan {
+  DRAF
+  BERLAKU
+  ARSIP
+}
+
+model KebijakanBebanBelajar {
+  id            String          @id @default(cuid())
+  institusiId   String          @map("institusi_id")
+  nama          String
+  status        StatusKebijakan @default(DRAF)
+  berlakuDari   DateTime        @map("berlaku_dari")
+  berlakuSampai DateTime?       @map("berlaku_sampai")
+
+  mingguPerSemester        Int     @default(16) @map("minggu_per_semester")
+  pertemuanEfektifTeori    Int     @default(14) @map("pertemuan_efektif_teori")
+  pertemuanEfektifPraktik  Int     @default(14) @map("pertemuan_efektif_praktik")
+  /// Bila true, minggu UTS & UAS ikut dihitung sebagai beban belajar.
+  /// Lihat docs/03 §2.1 — bila false, invarian 45 jam/sks tidak akan tercapai.
+  hitungMingguUjian        Boolean @default(true) @map("hitung_minggu_ujian")
+  /// Menit tatap muka pada minggu ujian (pelaksanaan UTS/UAS). Sisa pagu
+  /// minggu ujian jatuh ke belajar mandiri sebagai persiapan ujian.
+  menitTmPerUjian          Int     @default(120) @map("menit_tm_per_ujian")
+  jamPerSksPerSemester     Decimal @default(45) @map("jam_per_sks_per_semester") @db.Decimal(5, 2)
+  toleransiSemesterPersen  Decimal @default(5) @map("toleransi_semester_persen") @db.Decimal(5, 2)
+  toleransiPertemuanPersen Decimal @default(10) @map("toleransi_pertemuan_persen") @db.Decimal(5, 2)
+
+  catatan    String?
+  dibuatPada DateTime @default(now()) @map("dibuat_pada")
+  diubahPada DateTime @updatedAt @map("diubah_pada")
+
+  institusi Institusi         @relation(fields: [institusiId], references: [id], onDelete: Cascade)
+  bentuk    KebijakanBentuk[]
+
+  @@index([institusiId, status])
+  @@map("kebijakan_beban_belajar")
+}
+
+enum BentukPembelajaran {
+  KULIAH
+  RESPONSI
+  TUTORIAL
+  SEMINAR
+  PRAKTIKUM
+  PRAKTIK_STUDIO
+  PRAKTIK_BENGKEL
+  PRAKTIK_LAPANGAN
+  PENELITIAN
+  PKM
+  KKN
+}
+
+/// Menit per sks per minggu, dipecah tiga agar dua pertanyaan berbeda
+/// bisa dijawab dari data yang sama:
+///   menitTm            → kebutuhan slot ruang/lab (penjadwalan)
+///   menitTm+Pt+Bm      → kepatuhan terhadap 45 jam/sks (docs/03 §1.1)
+model KebijakanBentuk {
+  id               String             @id @default(cuid())
+  kebijakanId      String             @map("kebijakan_id")
+  bentuk           BentukPembelajaran
+  menitTmPerSks    Int                @map("menit_tm_per_sks")
+  menitPtPerSks    Int                @map("menit_pt_per_sks")
+  menitBmPerSks    Int                @map("menit_bm_per_sks")
+  tmTerjadwal      Boolean            @default(true) @map("tm_terjadwal")
+  butuhRuangKhusus Boolean            @default(false) @map("butuh_ruang_khusus")
+
+  kebijakan KebijakanBebanBelajar @relation(fields: [kebijakanId], references: [id], onDelete: Cascade)
+
+  @@unique([kebijakanId, bentuk])
+  @@map("kebijakan_bentuk")
+}
+
+// ─────────────────────────────────────────────────────────────
+// AUDIT
+// ─────────────────────────────────────────────────────────────
+
+model LogAudit {
+  id         String   @id @default(cuid())
+  penggunaId String?  @map("pengguna_id")
+  aksi       String
+  entitas    String
+  entitasId  String?  @map("entitas_id")
+  ringkasan  String?
+  data       Json?
+  ip         String?
+  dibuatPada DateTime @default(now()) @map("dibuat_pada")
+
+  pengguna Pengguna? @relation(fields: [penggunaId], references: [id], onDelete: SetNull)
+
+  @@index([entitas, entitasId])
+  @@index([penggunaId])
+  @@index([dibuatPada])
+  @@map("log_audit")
+}
+
+// ─────────────────────────────────────────────────────────────
+// KURIKULUM
+// Acuan: docs/02-template-itts-dan-penyelarasan-industri.md §3.1
+//
+// Ini adalah SUMBER KEBENARAN untuk CPL, CPMK, dan Sub-CPMK.
+// Di penyusun RPKPS ketiganya bersifat read-only; perubahan harus
+// lewat Usulan Revisi Kurikulum ke Ketua Program Studi.
+// ─────────────────────────────────────────────────────────────
+
+enum StatusKurikulum {
+  DRAF
+  BERLAKU
+  ARSIP
+}
+
+model Kurikulum {
+  id          String          @id @default(cuid())
+  prodiId     String          @map("prodi_id")
+  nama        String
+  tahun       Int
+  status      StatusKurikulum @default(DRAF)
+  berlakuDari DateTime?       @map("berlaku_dari")
+  catatan     String?
+  dibuatPada  DateTime        @default(now()) @map("dibuat_pada")
+  diubahPada  DateTime        @updatedAt @map("diubah_pada")
+
+  prodi         Prodi           @relation(fields: [prodiId], references: [id], onDelete: Cascade)
+  profilLulusan ProfilLulusan[]
+  cpl           Cpl[]
+  bahanKajian   BahanKajian[]
+  mataKuliah    MataKuliah[]
+
+  @@unique([prodiId, tahun])
+  @@index([prodiId, status])
+  @@map("kurikulum")
+}
+
+model ProfilLulusan {
+  id          String @id @default(cuid())
+  kurikulumId String @map("kurikulum_id")
+  kode        String // "PL1"
+  deskripsi   String
+  urutan      Int    @default(0)
+
+  kurikulum Kurikulum          @relation(fields: [kurikulumId], references: [id], onDelete: Cascade)
+  cpl       CplProfilLulusan[]
+
+  @@unique([kurikulumId, kode])
+  @@map("profil_lulusan")
+}
+
+/// Ranah CPL menurut SN-Dikti.
+enum RanahCpl {
+  SIKAP
+  PENGETAHUAN
+  KETERAMPILAN_UMUM
+  KETERAMPILAN_KHUSUS
+}
+
+model Cpl {
+  id          String   @id @default(cuid())
+  kurikulumId String   @map("kurikulum_id")
+  kode        String // "CPL06"
+  deskripsi   String
+  deskripsiEn String?  @map("deskripsi_en")
+  ranah       RanahCpl @default(KETERAMPILAN_KHUSUS)
+  tingkatKkni Int?     @map("tingkat_kkni")
+  urutan      Int      @default(0)
+
+  kurikulum     Kurikulum          @relation(fields: [kurikulumId], references: [id], onDelete: Cascade)
+  profilLulusan CplProfilLulusan[]
+  mataKuliah    MatriksCplMk[]
+  cpmk          PetaCpmkCpl[]
+
+  @@unique([kurikulumId, kode])
+  @@map("cpl")
+}
+
+model CplProfilLulusan {
+  cplId           String @map("cpl_id")
+  profilLulusanId String @map("profil_lulusan_id")
+
+  cpl           Cpl           @relation(fields: [cplId], references: [id], onDelete: Cascade)
+  profilLulusan ProfilLulusan @relation(fields: [profilLulusanId], references: [id], onDelete: Cascade)
+
+  @@id([cplId, profilLulusanId])
+  @@map("cpl_profil_lulusan")
+}
+
+model BahanKajian {
+  id          String  @id @default(cuid())
+  kurikulumId String  @map("kurikulum_id")
+  kode        String
+  nama        String
+  deskripsi   String?
+
+  kurikulum Kurikulum @relation(fields: [kurikulumId], references: [id], onDelete: Cascade)
+
+  @@unique([kurikulumId, kode])
+  @@map("bahan_kajian")
+}
+
+enum StatusMataKuliah {
+  WAJIB
+  PILIHAN
+  WAJIB_UMUM
+}
+
+model MataKuliah {
+  id          String           @id @default(cuid())
+  kurikulumId String           @map("kurikulum_id")
+  kode        String // "TI214"
+  nama        String
+  namaEn      String?          @map("nama_en")
+  deskripsi   String?
+  semester    Int
+  status      StatusMataKuliah @default(WAJIB)
+
+  /// sks dipecah teori dan praktik. Totalnya tidak berubah, tetapi beban
+  /// TERJADWAL berbeda jauh — lihat docs/03 §2.2.
+  sksTeori      Int                @map("sks_teori")
+  sksPraktik    Int                @default(0) @map("sks_praktik")
+  bentukTeori   BentukPembelajaran @default(KULIAH) @map("bentuk_teori")
+  bentukPraktik BentukPembelajaran @default(PRAKTIKUM) @map("bentuk_praktik")
+
+  dibuatPada DateTime @default(now()) @map("dibuat_pada")
+  diubahPada DateTime @updatedAt @map("diubah_pada")
+
+  kurikulum            Kurikulum      @relation(fields: [kurikulumId], references: [id], onDelete: Cascade)
+  cpl                  MatriksCplMk[]
+  cpmk                 Cpmk[]
+  prasyarat            MkPrasyarat[]  @relation("MkUtama")
+  menjadiPrasyaratBagi MkPrasyarat[]  @relation("MkPrasyarat")
+  rpkps                Rpkps[]
+
+  @@unique([kurikulumId, kode])
+  @@index([kurikulumId, semester])
+  @@map("mata_kuliah")
+}
+
+enum JenisPrasyarat {
+  PRASYARAT
+  BERSAMAAN
+}
+
+model MkPrasyarat {
+  id            String         @id @default(cuid())
+  mataKuliahId  String         @map("mata_kuliah_id")
+  prasyaratMkId String         @map("prasyarat_mk_id")
+  jenis         JenisPrasyarat @default(PRASYARAT)
+
+  mataKuliah  MataKuliah @relation("MkUtama", fields: [mataKuliahId], references: [id], onDelete: Cascade)
+  prasyaratMk MataKuliah @relation("MkPrasyarat", fields: [prasyaratMkId], references: [id], onDelete: Cascade)
+
+  @@unique([mataKuliahId, prasyaratMkId])
+  @@map("mk_prasyarat")
+}
+
+/// Matriks CPL x MK — CPL mana yang dibebankan pada mata kuliah mana.
+model MatriksCplMk {
+  cplId        String @map("cpl_id")
+  mataKuliahId String @map("mata_kuliah_id")
+
+  cpl        Cpl        @relation(fields: [cplId], references: [id], onDelete: Cascade)
+  mataKuliah MataKuliah @relation(fields: [mataKuliahId], references: [id], onDelete: Cascade)
+
+  @@id([cplId, mataKuliahId])
+  @@map("matriks_cpl_mk")
+}
+
+/// Level taksonomi Bloom revisi. C = kognitif, A = afektif, P = psikomotor.
+enum LevelBloom {
+  C1
+  C2
+  C3
+  C4
+  C5
+  C6
+  A1
+  A2
+  A3
+  A4
+  A5
+  P1
+  P2
+  P3
+  P4
+  P5
+}
+
+/// Asal isi sebuah rumusan. Dipakai menjawab pertanyaan asesor: bagian mana
+/// dari dokumen ini yang dihasilkan AI. Acuan: docs/01 §4.8 field_provenance.
+enum SumberIsi {
+  KURIKULUM
+  AI
+}
+
+model Cpmk {
+  id           String      @id @default(cuid())
+  mataKuliahId String      @map("mata_kuliah_id")
+  kode         String // "CPMK081"
+  rumusan      String
+  rumusanEn    String?     @map("rumusan_en")
+  levelBloom   LevelBloom? @map("level_bloom")
+  urutan       Int         @default(0)
+  sumber       SumberIsi   @default(KURIKULUM)
+
+  mataKuliah MataKuliah    @relation(fields: [mataKuliahId], references: [id], onDelete: Cascade)
+  cpl        PetaCpmkCpl[]
+  subCpmk    SubCpmk[]
+
+  @@unique([mataKuliahId, kode])
+  @@map("cpmk")
+}
+
+model PetaCpmkCpl {
+  cpmkId String @map("cpmk_id")
+  cplId  String @map("cpl_id")
+
+  cpmk Cpmk @relation(fields: [cpmkId], references: [id], onDelete: Cascade)
+  cpl  Cpl  @relation(fields: [cplId], references: [id], onDelete: Cascade)
+
+  @@id([cpmkId, cplId])
+  @@map("peta_cpmk_cpl")
+}
+
+model SubCpmk {
+  id               String      @id @default(cuid())
+  cpmkId           String      @map("cpmk_id")
+  /// ITTS memakai pola "CPMK081-1". Pola kode mengikuti kebiasaan institusi.
+  kode             String
+  rumusan          String
+  rumusanEn        String?     @map("rumusan_en")
+  levelBloom       LevelBloom? @map("level_bloom")
+  kko              String?
+  urutan           Int         @default(0)
+  sumber           SumberIsi   @default(KURIKULUM)
+  /// Usulan minggu pelaksanaan dari kurikulum. RPKPS boleh menyusun ulang.
+  mingguDisarankan Int[]       @map("minggu_disarankan")
+
+  cpmk       Cpmk               @relation(fields: [cpmkId], references: [id], onDelete: Cascade)
+  pertemuan  PertemuanSubCpmk[]
+  tugas      TugasSubCpmk[]
+  butirUjian ButirKisiKisi[]
+
+  @@unique([cpmkId, kode])
+  @@map("sub_cpmk")
+}
+
+// ─────────────────────────────────────────────────────────────
+// RPKPS
+// Acuan: docs/02-template-itts-dan-penyelarasan-industri.md §1.1–1.3
+//
+// Struktur mengikuti template ITTS (bagian A–J). CPL/CPMK/Sub-CPMK TIDAK
+// disalin ke sini — dirujuk dari kurikulum agar tetap satu sumber kebenaran.
+// ─────────────────────────────────────────────────────────────
+
+enum StatusRpkps {
+  DRAF
+  DIAJUKAN
+  DIREVISI
+  DISETUJUI
+  TERBIT
+  ARSIP
+}
+
+model Rpkps {
+  id              String      @id @default(cuid())
+  mataKuliahId    String      @map("mata_kuliah_id")
+  tahunAkademikId String      @map("tahun_akademik_id")
+  status          StatusRpkps @default(DRAF)
+  versi           Int         @default(1)
+
+  /// Bagian A pada template ITTS.
+  deskripsi          String?
+  /// Kalimat pembuka sebelum daftar CPMK, mis. "Setelah menyelesaikan mata
+  /// kuliah ini, mahasiswa akan mampu…". Milik prodi, bukan milik CPMK.
+  kalimatPembukaCpmk String? @map("kalimat_pembuka_cpmk")
+
+  /// Bagian F pada template ITTS.
+  ambangKelulusanMhs     Decimal @default(55) @map("ambang_kelulusan_mhs") @db.Decimal(5, 2)
+  ambangKetercapaianMk   Decimal @default(85) @map("ambang_ketercapaian_mk") @db.Decimal(5, 2)
+  minimalKehadiranPersen Int     @default(80) @map("minimal_kehadiran_persen")
+  catatanEvaluasi        String? @map("catatan_evaluasi")
+
+  dibuatPada DateTime @default(now()) @map("dibuat_pada")
+  diubahPada DateTime @updatedAt @map("diubah_pada")
+
+  mataKuliah    MataKuliah      @relation(fields: [mataKuliahId], references: [id], onDelete: Cascade)
+  tahunAkademik TahunAkademik   @relation(fields: [tahunAkademikId], references: [id], onDelete: Restrict)
+  pengampu      RpkpsPengampu[]
+  pustaka       Pustaka[]
+  pertemuan     Pertemuan[]
+  komponenNilai KomponenNilai[]
+  riwayat       RpkpsRiwayat[]
+  snapshot      RpkpsSnapshot[]
+  kisiKisi      KisiKisi[]
+  tugas         Tugas[]
+
+  @@unique([mataKuliahId, tahunAkademikId])
+  @@index([status])
+  @@map("rpkps")
+}
+
+enum PeranPengampu {
+  KOORDINATOR
+  ANGGOTA
+}
+
+model RpkpsPengampu {
+  id         String        @id @default(cuid())
+  rpkpsId    String        @map("rpkps_id")
+  penggunaId String        @map("pengguna_id")
+  peran      PeranPengampu @default(ANGGOTA)
+  urutan     Int           @default(0)
+
+  rpkps    Rpkps    @relation(fields: [rpkpsId], references: [id], onDelete: Cascade)
+  pengguna Pengguna @relation(fields: [penggunaId], references: [id], onDelete: Cascade)
+
+  @@unique([rpkpsId, penggunaId])
+  @@map("rpkps_pengampu")
+}
+
+/// Bagian G template ITTS. Kategori "TOOLS" tidak ada di format generik
+/// Diktiristek, tetapi penting untuk mata kuliah praktik.
+enum JenisPustaka {
+  UTAMA
+  PENDUKUNG
+  DARING
+  TOOLS
+}
+
+model Pustaka {
+  id      String       @id @default(cuid())
+  rpkpsId String       @map("rpkps_id")
+  jenis   JenisPustaka @default(UTAMA)
+  nomor   Int
+  teks    String
+  url     String?
+  sumber  SumberIsi    @default(KURIKULUM)
+
+  rpkps     Rpkps              @relation(fields: [rpkpsId], references: [id], onDelete: Cascade)
+  pertemuan PertemuanPustaka[]
+
+  @@unique([rpkpsId, jenis, nomor])
+  @@map("pustaka")
+}
+
+enum JenisPertemuan {
+  EFEKTIF
+  UTS
+  UAS
+}
+
+/// Satu baris pada tabel mingguan (bagian H template ITTS).
+model Pertemuan {
+  id      String         @id @default(cuid())
+  rpkpsId String         @map("rpkps_id")
+  minggu  Int
+  jenis   JenisPertemuan @default(EFEKTIF)
+
+  topik    String?
+  subtopik String[]
+
+  /// Narasi bebas pada kolom "Metode dan Aktivitas Pembelajaran".
+  metodeNarasi       String? @map("metode_narasi")
+  aktivitasDosen     String? @map("aktivitas_dosen")
+  aktivitasMahasiswa String? @map("aktivitas_mahasiswa")
+  tugasTerstruktur   String? @map("tugas_terstruktur")
+
+  /// Kolom "Penilaian" bercabang tiga pada template ITTS.
+  penilaianJenis  String? @map("penilaian_jenis")
+  penilaianSistem String? @map("penilaian_sistem")
+  bobot           Decimal @default(0) @db.Decimal(5, 2)
+
+  komponenNilaiId String?   @map("komponen_nilai_id")
+  sumber          SumberIsi @default(KURIKULUM)
+
+  rpkps         Rpkps              @relation(fields: [rpkpsId], references: [id], onDelete: Cascade)
+  komponenNilai KomponenNilai?     @relation(fields: [komponenNilaiId], references: [id], onDelete: SetNull)
+  subCpmk       PertemuanSubCpmk[]
+  aktivitas     AktivitasBelajar[]
+  indikator     Indikator[]
+  pustaka       PertemuanPustaka[]
+
+  @@unique([rpkpsId, minggu])
+  @@index([rpkpsId])
+  @@map("pertemuan")
+}
+
+model PertemuanSubCpmk {
+  pertemuanId String @map("pertemuan_id")
+  subCpmkId   String @map("sub_cpmk_id")
+
+  pertemuan Pertemuan @relation(fields: [pertemuanId], references: [id], onDelete: Cascade)
+  subCpmk   SubCpmk   @relation(fields: [subCpmkId], references: [id], onDelete: Cascade)
+
+  @@id([pertemuanId, subCpmkId])
+  @@map("pertemuan_sub_cpmk")
+}
+
+enum KategoriWaktu {
+  TM
+  PT
+  BM
+}
+
+enum ModePembelajaran {
+  LURING
+  DARING_SINKRON
+  DARING_ASINKRON
+}
+
+/// Butir aktivitas beserta durasinya. Inilah yang dijumlahkan Neraca Waktu
+/// dan dibandingkan dengan pagu dari kebijakan beban belajar.
+model AktivitasBelajar {
+  id          String           @id @default(cuid())
+  pertemuanId String           @map("pertemuan_id")
+  nama        String
+  kategori    KategoriWaktu
+  mode        ModePembelajaran @default(LURING)
+  metode      String?
+  menit       Int
+  urutan      Int              @default(0)
+
+  pertemuan Pertemuan @relation(fields: [pertemuanId], references: [id], onDelete: Cascade)
+
+  @@index([pertemuanId])
+  @@map("aktivitas_belajar")
+}
+
+model Indikator {
+  id          String @id @default(cuid())
+  pertemuanId String @map("pertemuan_id")
+  teks        String
+  urutan      Int    @default(0)
+
+  pertemuan Pertemuan @relation(fields: [pertemuanId], references: [id], onDelete: Cascade)
+
+  @@index([pertemuanId])
+  @@map("indikator")
+}
+
+model PertemuanPustaka {
+  pertemuanId String  @map("pertemuan_id")
+  pustakaId   String  @map("pustaka_id")
+  catatan     String?
+
+  pertemuan Pertemuan @relation(fields: [pertemuanId], references: [id], onDelete: Cascade)
+  pustaka   Pustaka   @relation(fields: [pustakaId], references: [id], onDelete: Cascade)
+
+  @@id([pertemuanId, pustakaId])
+  @@map("pertemuan_pustaka")
+}
+
+/// Bagian E template ITTS: komponen nilai beserta bobotnya. Total wajib 100%.
+model KomponenNilai {
+  id      String    @id @default(cuid())
+  rpkpsId String    @map("rpkps_id")
+  nama    String
+  bobot   Decimal   @db.Decimal(5, 2)
+  urutan  Int       @default(0)
+  sumber  SumberIsi @default(KURIKULUM)
+
+  rpkps     Rpkps       @relation(fields: [rpkpsId], references: [id], onDelete: Cascade)
+  pertemuan Pertemuan[]
+  tugas     Tugas[]
+
+  @@unique([rpkpsId, nama])
+  @@map("komponen_nilai")
+}
+
+/// Bagian J template ITTS: histori revisi.
+model RpkpsRiwayat {
+  id         String      @id @default(cuid())
+  rpkpsId    String      @map("rpkps_id")
+  versi      Int
+  status     StatusRpkps
+  deskripsi  String
+  olehId     String?     @map("oleh_id")
+  dibuatPada DateTime    @default(now()) @map("dibuat_pada")
+
+  rpkps Rpkps @relation(fields: [rpkpsId], references: [id], onDelete: Cascade)
+
+  @@index([rpkpsId])
+  @@map("rpkps_riwayat")
+}
+
+// ─────────────────────────────────────────────────────────────
+// TUGAS / PROYEK — bagian I template ITTS
+// Struktur mengikuti dokumen asli TI214: identitas tugas, uraian,
+// format & luaran, tabel indikator berbobot, dan linimasa mingguan.
+// ─────────────────────────────────────────────────────────────
+
+enum JenisTugas {
+  INDIVIDU
+  KELOMPOK
+}
+
+model Tugas {
+  id      String @id @default(cuid())
+  rpkpsId String @map("rpkps_id")
+  nomor   Int
+
+  nama            String
+  jenis           JenisTugas @default(INDIVIDU)
+  /// Rentang minggu pelaksanaan, mis. 9–16.
+  mingguMulai     Int        @map("minggu_mulai")
+  mingguSelesai   Int        @map("minggu_selesai")
+  /// Bobot terhadap nilai akhir. Terikat ke satu komponen nilai agar
+  /// tidak menjadi bobot ketiga yang berdiri sendiri.
+  komponenNilaiId String?    @map("komponen_nilai_id")
+  bobot           Decimal    @default(0) @db.Decimal(5, 2)
+
+  deskripsi     String
+  uraianTugas   String?   @map("uraian_tugas")
+  formatLuaran  String?   @map("format_luaran")
+  ketentuanLain String?   @map("ketentuan_lain")
+  sumber        SumberIsi @default(KURIKULUM)
+
+  dibuatPada DateTime @default(now()) @map("dibuat_pada")
+  diubahPada DateTime @updatedAt @map("diubah_pada")
+
+  rpkps         Rpkps           @relation(fields: [rpkpsId], references: [id], onDelete: Cascade)
+  komponenNilai KomponenNilai?  @relation(fields: [komponenNilaiId], references: [id], onDelete: SetNull)
+  subCpmk       TugasSubCpmk[]
+  kriteria      KriteriaTugas[]
+  linimasa      LinimasaTugas[]
+
+  @@unique([rpkpsId, nomor])
+  @@index([rpkpsId])
+  @@map("tugas")
+}
+
+model TugasSubCpmk {
+  tugasId   String @map("tugas_id")
+  subCpmkId String @map("sub_cpmk_id")
+
+  tugas   Tugas   @relation(fields: [tugasId], references: [id], onDelete: Cascade)
+  subCpmk SubCpmk @relation(fields: [subCpmkId], references: [id], onDelete: Cascade)
+
+  @@id([tugasId, subCpmkId])
+  @@map("tugas_sub_cpmk")
+}
+
+/// Baris tabel "Indikator, Kriteria, dan Bobot Penilaian". Totalnya wajib 100%.
+model KriteriaTugas {
+  id        String   @id @default(cuid())
+  tugasId   String   @map("tugas_id")
+  nomor     Int
+  indikator String
+  /// Butir-butir penjelas di bawah indikator, dicetak sebagai daftar.
+  rincian   String[]
+  bobot     Decimal  @db.Decimal(5, 2)
+
+  tugas Tugas @relation(fields: [tugasId], references: [id], onDelete: Cascade)
+
+  @@unique([tugasId, nomor])
+  @@map("kriteria_tugas")
+}
+
+/// Baris tabel "Linimasa Proyek/Tugas".
+model LinimasaTugas {
+  id        String @id @default(cuid())
+  tugasId   String @map("tugas_id")
+  minggu    Int
+  tahapan   String
+  aktivitas String
+
+  tugas Tugas @relation(fields: [tugasId], references: [id], onDelete: Cascade)
+
+  @@unique([tugasId, minggu])
+  @@map("linimasa_tugas")
+}
+
+/// Salinan beku RPKPS pada saat diterbitkan.
+///
+/// Tanpa ini, dokumen yang sudah ditandatangani ikut berubah begitu kurikulum
+/// disunting — rumusan CPMK diperbaiki, Sub-CPMK ditambah — sehingga berkas
+/// yang dicetak hari ini tidak lagi sama dengan yang disahkan Kaprodi.
+/// Untuk keperluan akreditasi, itu tidak dapat diterima.
+model RpkpsSnapshot {
+  id         String   @id @default(cuid())
+  rpkpsId    String   @map("rpkps_id")
+  versi      Int
+  /// Seluruh isi dokumen pada saat terbit, termasuk CPL/CPMK/Sub-CPMK.
+  isi        Json
+  /// SHA-256 atas serialisasi kanonik `isi`. Dicetak pada dokumen sebagai
+  /// sidik yang dapat diverifikasi ulang.
+  sidik      String
+  olehId     String?  @map("oleh_id")
+  dibuatPada DateTime @default(now()) @map("dibuat_pada")
+
+  rpkps Rpkps @relation(fields: [rpkpsId], references: [id], onDelete: Cascade)
+
+  @@unique([rpkpsId, versi])
+  @@index([rpkpsId])
+  @@map("rpkps_snapshot")
+}
+
+// ─────────────────────────────────────────────────────────────
+// KISI-KISI UJIAN — lampiran template ITTS
+// Acuan: docs/00-konsep-rpkps.md §3.5
+//
+// Menjembatani rencana dan penilaian: tiap butir soal terikat ke satu
+// Sub-CPMK dan satu level Bloom, sehingga skor butir dapat mengalir
+// langsung ke perhitungan ketercapaian CPMK tanpa pemetaan ulang.
+// ─────────────────────────────────────────────────────────────
+
+enum JenisUjian {
+  UTS
+  UAS
+}
+
+enum BentukSoal {
+  PILIHAN_GANDA
+  ESAI
+  URAIAN_SINGKAT
+  STUDI_KASUS
+  PRAKTIK
+  PROYEK
+  LISAN
+}
+
+model KisiKisi {
+  id          String     @id @default(cuid())
+  rpkpsId     String     @map("rpkps_id")
+  jenis       JenisUjian
+  /// Total skor seluruh butir; lazimnya 100.
+  totalSkor   Decimal    @default(100) @map("total_skor") @db.Decimal(6, 2)
+  durasiMenit Int?       @map("durasi_menit")
+  catatan     String?
+  sumber      SumberIsi  @default(KURIKULUM)
+
+  dibuatPada DateTime @default(now()) @map("dibuat_pada")
+  diubahPada DateTime @updatedAt @map("diubah_pada")
+
+  rpkps Rpkps           @relation(fields: [rpkpsId], references: [id], onDelete: Cascade)
+  butir ButirKisiKisi[]
+
+  @@unique([rpkpsId, jenis])
+  @@map("kisi_kisi")
+}
+
+model ButirKisiKisi {
+  id          String     @id @default(cuid())
+  kisiKisiId  String     @map("kisi_kisi_id")
+  nomor       Int
+  subCpmkId   String     @map("sub_cpmk_id")
+  levelBloom  LevelBloom @map("level_bloom")
+  bentuk      BentukSoal @default(ESAI)
+  /// Berapa butir soal untuk baris ini.
+  jumlahButir Int        @default(1) @map("jumlah_butir")
+  /// Skor total baris ini terhadap totalSkor kisi-kisi.
+  skor        Decimal    @db.Decimal(6, 2)
+  indikator   String?
+
+  kisiKisi KisiKisi @relation(fields: [kisiKisiId], references: [id], onDelete: Cascade)
+  subCpmk  SubCpmk  @relation(fields: [subCpmkId], references: [id], onDelete: Restrict)
+
+  @@unique([kisiKisiId, nomor])
+  @@index([subCpmkId])
+  @@map("butir_kisi_kisi")
+}

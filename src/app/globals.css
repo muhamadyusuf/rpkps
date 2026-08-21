@@ -1,0 +1,430 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ---------------------------------------------------------------------------
+   Bahasa rupa: "Kisi & Cahaya".
+
+   Bukan brosur, melainkan panel instrumen. Kanvas biru-hitam dengan kisi
+   cetak-biru yang nyaris tak terlihat, panel bertepi setipis rambut dengan
+   satu garis kilau di sisi atas — seolah ada cahaya yang menimpanya dari
+   depan. Satu aksen sian dipakai hemat: hanya untuk hal yang sedang aktif,
+   terpilih, atau meminta perhatian. Angka selalu monospace tabular supaya
+   kolom jam dan sks berbaris rapi.
+
+   Tiga aturan yang menjaga rupa ini tetap tenang:
+   1. Cahaya sian tidak pernah jadi hiasan. Kalau tidak menandakan status,
+      jangan dipakai.
+   2. Kedalaman datang dari tepi dan kisi, bukan dari bayangan tebal.
+   3. Gelap adalah rumahnya, tapi terang bukan sisa — keduanya disusun penuh.
+
+   Tema mengikuti pilihan pengguna lewat next-themes (kelas .dark pada <html>).
+--------------------------------------------------------------------------- */
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --font-heading: var(--font-judul);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-cahaya: var(--cahaya);
+  --radius-sm: calc(var(--radius) * 0.5);
+  --radius-md: calc(var(--radius) * 0.7);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.3);
+  --radius-2xl: calc(var(--radius) * 1.7);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 3);
+  --shadow-angkat-sm: var(--bayang-sm);
+  --shadow-angkat: var(--bayang);
+  --shadow-angkat-lg: var(--bayang-lg);
+  --shadow-cahaya: var(--bayang-cahaya);
+  --ease-presisi: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+:root {
+  color-scheme: light;
+
+  /* Inter untuk teks jalan; Space Grotesk hanya untuk judul; JetBrains Mono
+     untuk semua angka, kode mata kuliah, dan label teknis. */
+  --font-sans:
+    var(--font-inter, "Inter"), -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-judul:
+    var(--font-space-grotesk, "Space Grotesk"), var(--font-inter, "Inter"),
+    -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono:
+    var(--font-jetbrains-mono, "JetBrains Mono"), ui-monospace, "SF Mono",
+    SFMono-Regular, Menlo, "Cascadia Mono", monospace;
+
+  --radius: 0.625rem;
+
+  --background: oklch(0.977 0.004 248);
+  --foreground: oklch(0.205 0.022 258);
+  --card: oklch(1 0 0);
+  --card-foreground: var(--foreground);
+  --popover: oklch(1 0 0);
+  --popover-foreground: var(--foreground);
+
+  /* Sian dalam — cukup gelap untuk memikul teks putih (kontras ±4.9:1). */
+  --primary: oklch(0.47 0.105 220);
+  --primary-foreground: oklch(1 0 0);
+
+  --secondary: oklch(0.945 0.008 248);
+  --secondary-foreground: oklch(0.27 0.024 258);
+  --muted: oklch(0.955 0.006 248);
+  --muted-foreground: oklch(0.505 0.02 252);
+  --accent: oklch(0.94 0.014 220);
+  --accent-foreground: oklch(0.27 0.03 240);
+
+  --destructive: oklch(0.545 0.204 25);
+  --destructive-foreground: oklch(1 0 0);
+  --success: oklch(0.52 0.11 168);
+  --success-foreground: oklch(0.34 0.08 168);
+  --warning: oklch(0.55 0.14 68);
+  --warning-foreground: oklch(0.4 0.1 62);
+
+  --border: oklch(0.53 0.035 248 / 18%);
+  --input: oklch(0.53 0.035 248 / 24%);
+  --ring: oklch(0.57 0.125 212);
+
+  --chart-1: oklch(0.62 0.13 212);
+  --chart-2: oklch(0.58 0.12 168);
+  --chart-3: oklch(0.66 0.14 68);
+  --chart-4: oklch(0.55 0.2 25);
+  --chart-5: oklch(0.55 0.16 288);
+
+  --sidebar: oklch(0.992 0.002 248);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.945 0.012 220);
+  --sidebar-accent-foreground: oklch(0.27 0.03 240);
+  --sidebar-border: oklch(0.53 0.035 248 / 14%);
+  --sidebar-ring: var(--ring);
+
+  /* Cahaya: sian murni yang tidak pernah dipakai sebagai latar teks, hanya
+     sebagai pendar tepi, garis aktif, dan bloom latar. Turunan beralfa ditulis
+     eksplisit — bukan lewat color-mix() — supaya peramban tanpa dukungan
+     color-mix tidak jatuh ke sian pekat tanpa transparansi. */
+  --cahaya: oklch(0.6 0.135 209);
+  --cahaya-bloom: oklch(0.6 0.135 209 / 14%);
+  --cahaya-siku: oklch(0.6 0.135 209 / 65%);
+  --cahaya-sorot: oklch(0.6 0.135 209 / 26%);
+  --palang: oklch(0.205 0.022 258 / 16%);
+  --palang-sorot: oklch(0.6 0.135 209 / 55%);
+
+  /* Kisi cetak-biru dan kilau tepi panel. */
+  --kisi: oklch(0.45 0.05 248 / 8%);
+  --kisi-ukuran: 32px;
+  --panel-kilau: oklch(0.55 0.09 216 / 22%);
+
+  /* Material bilah navigasi — tembus pandang, dipadukan backdrop-filter. */
+  --material: oklch(1 0 0 / 76%);
+  --material-tepi: oklch(0.53 0.035 248 / 16%);
+
+  --bayang-sm: 0 1px 2px oklch(0.28 0.04 252 / 0.06);
+  --bayang:
+    0 1px 2px oklch(0.28 0.04 252 / 0.05),
+    0 8px 24px -8px oklch(0.28 0.04 252 / 0.12);
+  --bayang-lg:
+    0 2px 4px oklch(0.28 0.04 252 / 0.05),
+    0 20px 48px -12px oklch(0.28 0.04 252 / 0.18);
+  --bayang-cahaya: 0 0 0 1px oklch(0.57 0.125 212 / 0.28),
+    0 4px 20px -4px oklch(0.57 0.125 212 / 0.3);
+}
+
+.dark {
+  color-scheme: dark;
+
+  --background: oklch(0.155 0.018 258);
+  --foreground: oklch(0.955 0.006 248);
+  --card: oklch(0.204 0.019 258);
+  --card-foreground: var(--foreground);
+  --popover: oklch(0.232 0.021 258);
+  --popover-foreground: var(--foreground);
+
+  /* Sian penuh #22D3EE — bersinar di atas kanvas gelap, memikul teks gelap. */
+  --primary: oklch(0.79 0.128 205);
+  --primary-foreground: oklch(0.17 0.03 250);
+
+  --secondary: oklch(0.268 0.022 258);
+  --secondary-foreground: oklch(0.955 0.006 248);
+  --muted: oklch(0.252 0.02 258);
+  --muted-foreground: oklch(0.7 0.024 252);
+  --accent: oklch(0.3 0.032 240);
+  --accent-foreground: oklch(0.965 0.008 220);
+
+  --destructive: oklch(0.7 0.185 20);
+  --destructive-foreground: oklch(0.17 0.03 250);
+  --success: oklch(0.79 0.145 168);
+  --success-foreground: oklch(0.86 0.11 168);
+  --warning: oklch(0.83 0.135 78);
+  --warning-foreground: oklch(0.89 0.1 82);
+
+  --border: oklch(0.75 0.045 240 / 15%);
+  --input: oklch(0.75 0.045 240 / 20%);
+  --ring: oklch(0.79 0.128 205);
+
+  --chart-1: oklch(0.79 0.128 205);
+  --chart-2: oklch(0.79 0.145 168);
+  --chart-3: oklch(0.83 0.135 78);
+  --chart-4: oklch(0.7 0.185 20);
+  --chart-5: oklch(0.72 0.15 292);
+
+  --sidebar: oklch(0.178 0.019 258);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: oklch(0.17 0.03 250);
+  --sidebar-accent: oklch(0.272 0.028 246);
+  --sidebar-accent-foreground: oklch(0.965 0.008 220);
+  --sidebar-border: oklch(0.75 0.045 240 / 12%);
+  --sidebar-ring: var(--ring);
+
+  --cahaya: oklch(0.79 0.128 205);
+  --cahaya-bloom: oklch(0.79 0.128 205 / 16%);
+  --cahaya-siku: oklch(0.79 0.128 205 / 65%);
+  --cahaya-sorot: oklch(0.79 0.128 205 / 32%);
+  --palang: oklch(0.955 0.006 248 / 16%);
+  --palang-sorot: oklch(0.79 0.128 205 / 55%);
+
+  --kisi: oklch(0.8 0.06 232 / 7%);
+  --panel-kilau: oklch(0.9 0.07 216 / 30%);
+
+  --material: oklch(0.185 0.019 258 / 72%);
+  --material-tepi: oklch(0.75 0.045 240 / 14%);
+
+  --bayang-sm: 0 1px 2px oklch(0 0 0 / 0.35);
+  --bayang: 0 1px 2px oklch(0 0 0 / 0.3), 0 8px 24px -8px oklch(0 0 0 / 0.5);
+  --bayang-lg: 0 2px 4px oklch(0 0 0 / 0.3), 0 20px 48px -12px oklch(0 0 0 / 0.6);
+  --bayang-cahaya: 0 0 0 1px oklch(0.79 0.128 205 / 0.35),
+    0 4px 24px -4px oklch(0.79 0.128 205 / 0.28);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    @apply font-sans;
+    background-color: var(--background);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply text-foreground;
+    background-color: transparent;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Kisi cetak-biru. Dipasang sekali di ::before badan halaman supaya tidak
+     ikut tergulir dan tidak menambah satu pun simpul DOM. Topengnya membuat
+     kisi paling terlihat di kepala halaman lalu meluruh — kesan "bidang
+     kerja" tanpa mengganggu keterbacaan tabel di bawah. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image:
+      linear-gradient(to right, var(--kisi) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--kisi) 1px, transparent 1px);
+    background-size: var(--kisi-ukuran) var(--kisi-ukuran);
+    -webkit-mask-image: radial-gradient(
+      ellipse 120% 70% at 50% -10%,
+      #000 15%,
+      transparent 75%
+    );
+    mask-image: radial-gradient(
+      ellipse 120% 70% at 50% -10%,
+      #000 15%,
+      transparent 75%
+    );
+  }
+
+  /* Pendar sian tipis di kepala halaman — satu-satunya sumber "cahaya". */
+  body::after {
+    content: "";
+    position: fixed;
+    inset-inline: 0;
+    top: 0;
+    height: 60vh;
+    z-index: -1;
+    pointer-events: none;
+    background: radial-gradient(
+      60rem 26rem at 50% -14%,
+      var(--cahaya-bloom),
+      transparent 70%
+    );
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-judul);
+    letter-spacing: -0.02em;
+  }
+
+  /* Angka selalu berbaris: kolom jam, sks, dan bobot tidak pernah bergoyang
+     saat nilainya berubah. */
+  :is(td, th, input[type="number"]) {
+    font-variant-numeric: tabular-nums;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  ::selection {
+    background-color: var(--cahaya-sorot);
+  }
+
+  ::-webkit-scrollbar {
+    width: 9px;
+    height: 9px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--palang);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--palang-sorot);
+    background-clip: content-box;
+  }
+}
+
+@layer components {
+  /* Bilah tembus pandang untuk kepala halaman yang menempel. */
+  .material {
+    background-color: var(--material);
+    border-color: var(--material-tepi);
+  }
+
+  @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+    .material {
+      -webkit-backdrop-filter: saturate(150%) blur(20px);
+      backdrop-filter: saturate(150%) blur(20px);
+    }
+  }
+
+  /* Tanda tangan rupa ini: satu garis kilau setipis rambut di sisi atas
+     panel, meredup ke kedua ujungnya. Membuat kartu terbaca sebagai bidang
+     yang tertimpa cahaya, bukan kotak putih yang ditempel. */
+  .panel {
+    position: relative;
+  }
+  .panel::before {
+    content: "";
+    position: absolute;
+    inset-inline: 15%;
+    top: 0;
+    height: 1px;
+    pointer-events: none;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      var(--panel-kilau),
+      transparent
+    );
+  }
+
+  /* Kisi lokal untuk bidang yang berdiri sendiri (mis. halaman masuk). */
+  .kisi {
+    background-image:
+      linear-gradient(to right, var(--kisi) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--kisi) 1px, transparent 1px);
+    background-size: var(--kisi-ukuran) var(--kisi-ukuran);
+  }
+
+  /* Siku penanda di dua sudut berseberangan — dipakai hemat, hanya pada
+     bidang utama sebuah halaman. Keempat goresnya digambar sebagai latar
+     majemuk pada satu ::after, supaya ::before tetap bebas untuk `panel`. */
+  .siku {
+    position: relative;
+    --siku-warna: var(--cahaya-siku);
+    --siku-panjang: 0.875rem;
+  }
+  .siku::after {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    pointer-events: none;
+    background-image:
+      linear-gradient(var(--siku-warna), var(--siku-warna)),
+      linear-gradient(var(--siku-warna), var(--siku-warna)),
+      linear-gradient(var(--siku-warna), var(--siku-warna)),
+      linear-gradient(var(--siku-warna), var(--siku-warna));
+    background-repeat: no-repeat;
+    background-size:
+      var(--siku-panjang) 1px,
+      1px var(--siku-panjang),
+      var(--siku-panjang) 1px,
+      1px var(--siku-panjang);
+    background-position:
+      left top,
+      left top,
+      right bottom,
+      right bottom;
+  }
+
+  /* Label teknis: monospace, huruf besar, spasi lebar. Dipakai untuk nama
+     kolom dan keterangan kartu angka. */
+  .label-teknis {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+}

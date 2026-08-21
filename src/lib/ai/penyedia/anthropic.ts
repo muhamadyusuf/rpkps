@@ -1,0 +1,115 @@
+import Anthropic from "@anthropic-ai/sdk";
+import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
+import { GalatAi } from "../galat";
+import type { JawabanPenyedia, PermintaanPenyedia, Penyedia } from "./tipe";
+
+/**
+ * Adapter Anthropic (Claude). Penyedia utama menurut docs/01 §2.4.
+ *
+ * Satu-satunya adapter yang mendukung prompt caching: blok panduan dikirim
+ * dengan cache_control sehingga panggilan kedua dan seterusnya hanya membayar
+ * sebagian kecil untuknya.
+ *
+ * SELALU memakai streaming, meski hasilnya baru dipakai setelah lengkap. SDK
+ * menolak permintaan NON-streaming yang diperkirakan berjalan lebih dari 10
+ * menit, dan perkiraannya semata-mata dari max_tokens:
+ * (60 menit x max_tokens) / 128000. Ambangnya jatuh di max_tokens 21.333 —
+ * di atas itu SDK melempar AnthropicError sebelum permintaan terkirim.
+ * Menyusun draf RPKPS utuh butuh jauh lebih banyak dari itu.
+ */
+
+let klien: Anthropic | null = null;
+
+export function penyediaAnthropic(apiKey: string): Penyedia {
+  klien ??= new Anthropic({ apiKey });
+
+  return {
+    kode: "anthropic",
+    modelBawaan: "claude-opus-5",
+
+    async chat<T>(p: PermintaanPenyedia<T>): Promise<JawabanPenyedia<T>> {
+      let respons;
+      try {
+        const aliran = klien!.beta.messages.stream({
+          model: p.model,
+          max_tokens: p.maxTokens,
+          // Penalaran akademik lintas CPL/CPMK/Sub-CPMK bukan tugas dangkal.
+          thinking: { type: "adaptive" },
+          // Bila model menolak, penyedia mengulang sendiri ke model cadangan
+          // dalam panggilan yang sama.
+          betas: ["server-side-fallback-2026-07-01"],
+          fallbacks: "default",
+          system: [
+            { type: "text", text: p.panduan, cache_control: { type: "ephemeral" } },
+          ],
+          messages: [{ role: "user", content: p.permintaan }],
+          output_config: { format: zodOutputFormat(p.skema) },
+        });
+        respons = await aliran.finalMessage();
+      } catch (galat) {
+        throw new GalatAi(pesanGalat(galat));
+      }
+
+      const pemakaian = {
+        tokenMasuk: respons.usage.input_tokens,
+        tokenKeluar: respons.usage.output_tokens,
+        tokenCacheBaca: respons.usage.cache_read_input_tokens,
+        tokenCacheTulis: respons.usage.cache_creation_input_tokens,
+      };
+
+      if (respons.stop_reason === "refusal") {
+        return { data: null, alasan: "DITOLAK", pemakaian };
+      }
+      if (respons.stop_reason === "max_tokens") {
+        return { data: null, alasan: "TERPOTONG", pemakaian };
+      }
+      if (!respons.parsed_output) {
+        return { data: null, alasan: "SKEMA_GAGAL", pemakaian };
+      }
+      return { data: respons.parsed_output, alasan: "SELESAI", pemakaian };
+    },
+  };
+}
+
+/** Memetakan galat SDK jadi pesan Indonesia tanpa membocorkan kunci. */
+function pesanGalat(galat: unknown): string {
+  if (galat instanceof Anthropic.AuthenticationError) {
+    return "Kunci API Anthropic ditolak penyedia. Periksa ANTHROPIC_API_KEY di server.";
+  }
+  if (galat instanceof Anthropic.PermissionDeniedError) {
+    return "Kunci API Anthropic tidak berwenang memakai model ini.";
+  }
+  if (galat instanceof Anthropic.RateLimitError) {
+    return "Batas pemakaian Anthropic tercapai. Coba lagi beberapa saat lagi.";
+  }
+  if (galat instanceof Anthropic.BadRequestError) {
+    console.error("[ai:anthropic] permintaan ditolak:", galat.message);
+    // Ditolak SEBELUM model berjalan, karena skema keluaran terlalu rumit
+    // untuk dikompilasi menjadi grammar. Pesan aslinya berbahasa Inggris dan
+    // menyebut "tool schemas" — padahal yang perlu disederhanakan di sini
+    // adalah skema keluaran. Lihat src/lib/ai/skema-draf.ts.
+    if (galat.message.includes("compiled grammar is too large")) {
+      return (
+        "Skema keluaran terlalu rumit untuk structured output Anthropic. " +
+        "Sederhanakan skemanya — kurangi percabangan (nullable/union) — atau " +
+        "pecah tugasnya menjadi beberapa panggilan."
+      );
+    }
+    return "Permintaan ke Anthropic ditolak. Periksa log server.";
+  }
+  if (galat instanceof Anthropic.APIConnectionError) {
+    return "Server tidak dapat menghubungi Anthropic.";
+  }
+  if (galat instanceof Anthropic.APIError) {
+    return `Anthropic mengembalikan galat ${galat.status ?? ""}.`.trim();
+  }
+  // AnthropicError adalah induk semua galat SDK, termasuk yang dilempar
+  // SEBELUM permintaan terkirim. Tanpa cabang ini pesannya jatuh ke
+  // "galat tak terduga" dan penyebabnya hanya terlihat di log server.
+  if (galat instanceof Anthropic.AnthropicError) {
+    console.error("[ai:anthropic] permintaan ditolak SDK:", galat.message);
+    return `Permintaan ditolak SDK Anthropic: ${galat.message}`;
+  }
+  console.error("[ai:anthropic] galat tak terduga:", galat);
+  return "Terjadi galat saat memanggil Anthropic. Periksa log server.";
+}
