@@ -1,19 +1,25 @@
 import { notFound } from "next/navigation";
-import { ArrowLeft, CalendarDays, ClipboardList, Download, ListChecks, Lock, ShieldCheck } from "lucide-react";
+import { ArrowLeft, CalendarDays, ClipboardList, Download, ListChecks, Lock, Scale, ShieldCheck, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { prisma } from "@/lib/prisma";
-import { cakupanProdi, punyaPeran, wajibAktif } from "@/lib/otorisasi";
+import { wajibAktif } from "@/lib/otorisasi";
+import { wenangAtasRpkps } from "@/lib/rpkps/wenang";
 import { keRpkpsInput, muatKebijakan, muatRpkps, namaLengkapPengampu } from "@/lib/rpkps/muat";
 import { validasiRpkps } from "@/domain/rpkps/validator";
+import { keSumberPeta } from "@/domain/evaluasi/pemetaan";
+import { susunPetaAsesmen } from "@/domain/evaluasi/peta-asesmen";
 import { ambilSnapshot, periksaPergeseran } from "@/lib/rpkps/snapshot";
 import { sidikRingkas } from "@/domain/rpkps/sidik";
 import { formatMenit, paguPertemuanEfektif } from "@/domain/beban-belajar/kalkulator";
 import { PanelValidasi } from "./panel-validasi";
 import { PanelDraf } from "./panel-draf";
-import { aiTersedia } from "@/lib/ai/klien";
+import { daftarKredensial } from "@/lib/ai/kredensial";
 import { FormulirIdentitas, PengelolaKomponenNilai, PengelolaPustaka } from "./formulir";
+import { PanelBagikan, TimPengampu, ZonaKelola } from "./pengelola";
+import { muatDataKelola } from "@/lib/rpkps/kelola";
+import { jalurRpkpsPublik, urlSitus } from "@/lib/publik/tautan";
 import { TombolAjukan, TombolPutusan } from "../tombol";
 
 export const dynamic = "force-dynamic";
@@ -38,11 +44,12 @@ export default async function HalamanRpkpsDetail({
   const rpkps = await muatRpkps(id);
   if (!rpkps) notFound();
 
-  const cakupan = cakupanProdi(sesi);
-  if (cakupan !== null && !cakupan.includes(rpkps.mataKuliah.kurikulum.prodiId)) notFound();
+  const wenang = wenangAtasRpkps(sesi, rpkps);
+  if (!wenang.bolehLihat) notFound();
 
   const { kebijakan, dariDatabase } = await muatKebijakan();
   const hasil = validasiRpkps(keRpkpsInput(rpkps), kebijakan);
+  const peta = susunPetaAsesmen(keSumberPeta(rpkps));
 
   const pagu = paguPertemuanEfektif(kebijakan, {
     sksTeori: rpkps.mataKuliah.sksTeori,
@@ -52,8 +59,32 @@ export default async function HalamanRpkpsDetail({
   });
 
   const bisaSunting = rpkps.status === "DRAF" || rpkps.status === "DIREVISI";
-  const bisaMemutuskan =
-    rpkps.status === "DIAJUKAN" && punyaPeran(sesi, "ADMIN", "KAPRODI", "GPM");
+  const bisaMemutuskan = rpkps.status === "DIAJUKAN" && wenang.pengelola;
+
+  /**
+   * Hanya koordinator dan pengelola prodi yang melihat panel pengelolaan —
+   * dan hanya untuk mereka daftar seluruh dosen serta seluruh mata kuliah
+   * ikut dimuat.
+   */
+  const bolehKelola = wenang.koordinator || wenang.pengelola;
+  const dataKelola = bolehKelola ? await muatDataKelola(sesi, id) : null;
+
+  // Kunci AI milik dosen yang sedang membuka halaman — bukan milik pengampu
+  // lain, dan bukan kunci institusi (docs/08). Daftar kosong berarti panel
+  // menawarkan mendaftarkan kunci, bukan tombol yang pasti gagal.
+  const kredensialAi = bisaSunting && wenang.boleh ? await daftarKredensial(sesi.id) : [];
+
+  /**
+   * Alamat publik hanya ada untuk dokumen yang benar-benar terbit. Status lain
+   * — termasuk ARSIP, yang justru berarti ditarik dari katalog — tidak punya
+   * halaman publik, dan panel Bagikan harus mengatakannya, bukan menampilkan
+   * tautan yang berakhir 404.
+   */
+  const urlPublik =
+    rpkps.status === "TERBIT"
+      ? urlSitus() +
+        jalurRpkpsPublik(rpkps.mataKuliah.kurikulum.prodi.kode, rpkps.mataKuliah.kode)
+      : null;
 
   const [snapshot, pergeseran] =
     rpkps.status === "TERBIT"
@@ -126,6 +157,14 @@ export default async function HalamanRpkpsDetail({
             <Download />
             Unduh DOCX
           </ButtonLink>
+          <ButtonLink variant="outline" href={`/rpkps/${id}/kelas`}>
+            <Users />
+            Kelas &amp; nilai
+          </ButtonLink>
+          <ButtonLink variant="outline" href={`/rpkps/${id}/asesmen`}>
+            <Scale />
+            Peta asesmen
+          </ButtonLink>
           <ButtonLink variant="outline" href={`/rpkps/${id}/kisi-kisi`}>
             <ListChecks />
             Kisi-kisi
@@ -193,9 +232,35 @@ export default async function HalamanRpkpsDetail({
         </Card>
       ) : null}
 
-      {bisaSunting && aiTersedia() ? <PanelDraf rpkpsId={id} /> : null}
+      {bisaSunting && wenang.boleh ? (
+        <PanelDraf rpkpsId={id} kredensial={kredensialAi} />
+      ) : null}
 
       <PanelValidasi hasil={hasil} />
+
+      <Card className={peta.lolos ? undefined : "border-l-2 border-l-warning bg-warning/8"}>
+        <CardHeader>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <CardTitle className="text-base">
+                {peta.lolos
+                  ? "Peta asesmen tertutup"
+                  : `Peta asesmen belum siap dipakai menghitung capaian`}
+              </CardTitle>
+              <CardDescription className="mt-1">
+                {peta.ringkasan.jumlahAsesmen} asesmen · total{" "}
+                {peta.ringkasan.totalBobot}% · {peta.ringkasan.subCpmkTerukur} dari{" "}
+                {peta.ringkasan.subCpmkSeluruh} Sub-CPMK terukur ·{" "}
+                {peta.ringkasan.cplTerukur} dari {peta.ringkasan.cplDibebankan} CPL terukur
+                {peta.lolos ? null : ` · ${peta.pemblokir.length} temuan`}
+              </CardDescription>
+            </div>
+            <ButtonLink variant="outline" size="sm" href={`/rpkps/${id}/asesmen`}>
+              Lihat peta
+            </ButtonLink>
+          </div>
+        </CardHeader>
+      </Card>
 
       <div className="flex flex-wrap items-center gap-3">
         {bisaSunting ? <TombolAjukan id={id} aktif={hasil.lolos} /> : null}
@@ -345,34 +410,34 @@ export default async function HalamanRpkpsDetail({
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Tim pengampu</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ul className="space-y-1.5 text-sm">
-            {rpkps.pengampu.map((p) => (
-              <li key={p.id} className="flex flex-wrap items-center gap-2">
-                <span>{namaLengkapPengampu(p.pengguna)}</span>
-                {p.pengguna.nidn ? (
-                  <span className="text-xs text-muted-foreground">
-                    NIDN {p.pengguna.nidn}
-                  </span>
-                ) : (
-                  <Badge variant="outline" className="text-[10px]">
-                    NIDN belum diisi
-                  </Badge>
-                )}
-                {p.peran === "KOORDINATOR" ? (
-                  <Badge variant="secondary" className="text-[10px]">
-                    Koordinator
-                  </Badge>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        </CardContent>
-      </Card>
+      <TimPengampu
+        rpkpsId={id}
+        bolehKelola={bolehKelola}
+        calon={dataKelola?.calon ?? []}
+        pengampu={rpkps.pengampu.map((p) => ({
+          penggunaId: p.penggunaId,
+          nama: namaLengkapPengampu(p.pengguna),
+          nidn: p.pengguna.nidn,
+          koordinator: p.peran === "KOORDINATOR",
+        }))}
+      />
+
+      <PanelBagikan
+        rpkpsId={id}
+        urlPublik={urlPublik}
+        statusLabel={LABEL_STATUS[rpkps.status] ?? rpkps.status}
+      />
+
+      {dataKelola ? (
+        <ZonaKelola
+          rpkpsId={id}
+          status={rpkps.status}
+          kodeMk={rpkps.mataKuliah.kode}
+          alasanTakDapatDihapus={dataKelola.alasanTakDapatDihapus}
+          sasaran={dataKelola.sasaran}
+          tahun={dataKelola.tahun}
+        />
+      ) : null}
 
       {riwayat.length > 0 ? (
         <Card>

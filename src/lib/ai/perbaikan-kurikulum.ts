@@ -3,6 +3,7 @@ import { z } from "zod";
 import { KKO_TIDAK_TERUKUR, LEVEL_BLOOM } from "@/domain/kurikulum/bloom";
 import type { UsulanPerbaikan } from "@/domain/kurikulum/perbaikan";
 import { jalankanTugasAi } from "./gerbang";
+import { pakaiKredensial } from "./kredensial";
 
 /**
  * Tugas AI: mengusulkan perbaikan atas temuan validator saat impor kurikulum.
@@ -145,10 +146,13 @@ export interface HasilUsulan {
 export async function usulkanPerbaikan(opsi: {
   penggunaId: string;
   konteks: unknown;
+  /** Kosong berarti kunci bawaan dosen. */
+  kredensialId?: string | null;
 }): Promise<HasilUsulan> {
   const hasil = await jalankanTugasAi({
     kodeTugas: "PERBAIKAN_IMPOR",
     penggunaId: opsi.penggunaId,
+    terpilih: await pakaiKredensial(opsi.penggunaId, opsi.kredensialId),
     panduan: PANDUAN,
     permintaan:
       "Berikut kurikulum yang sedang diimpor beserta temuan validatornya. " +

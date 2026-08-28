@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Lock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
-import { cakupanProdi, wajibAktif } from "@/lib/otorisasi";
+import { wajibAktif } from "@/lib/otorisasi";
+import { wenangAtasRpkps } from "@/lib/rpkps/wenang";
 import { muatKebijakan, muatRpkps } from "@/lib/rpkps/muat";
 import { EditorTugas } from "./editor";
 
@@ -19,8 +20,8 @@ export default async function HalamanEditorTugas({
   const rpkps = await muatRpkps(id);
   if (!rpkps) notFound();
 
-  const cakupan = cakupanProdi(sesi);
-  if (cakupan !== null && !cakupan.includes(rpkps.mataKuliah.kurikulum.prodiId)) notFound();
+  const wenang = wenangAtasRpkps(sesi, rpkps);
+  if (!wenang.bolehLihat) notFound();
 
   const tugas = rpkps.tugas.find((t) => t.id === tugasId);
   if (!tugas) notFound();

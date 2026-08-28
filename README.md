@@ -73,7 +73,7 @@ Lewati bila belum diperlukan — tanpa kunci, seluruh tombol AI tidak dirender d
 sisa aplikasi berjalan utuh.
 
 ```bash
-AI_PENYEDIA="anthropic"      # atau "mistral"
+AI_PENYEDIA="anthropic"      # atau "mistral" / "gemini"
 ANTHROPIC_API_KEY="sk-ant-…" # console.anthropic.com → API keys
 AI_MODEL=""                  # kosongkan: tiap penyedia memakai bawaannya
 ```
@@ -290,12 +290,13 @@ lingkungan, bukan kunci per dosen. `docs/01` merancang cakupan
 `user | prodi | institusi`; bila kelak BYOK per dosen dibangun, lapisannya masuk
 di `src/lib/ai/klien.ts` saja dan tanda tangan pemanggil tidak berubah.
 
-`src/lib/ai/penyedia/` memuat adapter Anthropic dan Mistral di balik satu
-antarmuka sempit: satu blok panduan yang stabil, satu blok permintaan yang
+`src/lib/ai/penyedia/` memuat adapter Anthropic, Mistral, dan Gemini di balik
+satu antarmuka sempit: satu blok panduan yang stabil, satu blok permintaan yang
 berubah, satu skema keluaran. Fitur khas satu penyedia — prompt caching
-Anthropic, `reasoning_effort` Mistral — diurus di dalam adapternya dan tidak
-bocor ke pemanggil, sehingga mengganti penyedia tidak menyentuh satu pun aturan
-akademik di `src/domain`.
+Anthropic, `reasoning_effort` Mistral, `responseSchema` Gemini yang hanya
+menerima sebagian JSON Schema — diurus di dalam adapternya dan tidak bocor ke
+pemanggil, sehingga mengganti penyedia tidak menyentuh satu pun aturan akademik
+di `src/domain`.
 
 Seluruh panggilan melewati satu gerbang, `src/lib/ai/gerbang.ts`, yang mencatat
 penyedia, model, status berhenti, latensi, dan pemakaian token ke `log_audit` —
@@ -436,7 +437,7 @@ Yang harus diisi di **Vercel → Settings → Environment Variables**:
 | `NEXT_PUBLIC_FIREBASE_*` | ya | Empat nilai; ikut terkirim ke peramban |
 | `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` | ya | Service account |
 | `ADMIN_BOOTSTRAP_EMAILS` | ya | Tanpa ini tidak ada yang bisa menjadi admin |
-| `AI_PENYEDIA`, `ANTHROPIC_API_KEY` / `MISTRAL_API_KEY` | tidak | Tombol AI tersembunyi bila kosong |
+| `AI_PENYEDIA`, `ANTHROPIC_API_KEY` / `MISTRAL_API_KEY` / `GEMINI_API_KEY` | tidak | Tombol AI tersembunyi bila kosong |
 
 `FIREBASE_PRIVATE_KEY` memuat baris baru. Tempelkan sebagai satu baris dengan
 `\n` literal — bukan baris baru sungguhan, yang akan terpotong di kotak isian

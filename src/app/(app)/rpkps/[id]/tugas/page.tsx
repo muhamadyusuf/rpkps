@@ -4,7 +4,8 @@ import { ArrowLeft, ClipboardList } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { cakupanProdi, wajibAktif } from "@/lib/otorisasi";
+import { wajibAktif } from "@/lib/otorisasi";
+import { wenangAtasRpkps } from "@/lib/rpkps/wenang";
 import { muatRpkps } from "@/lib/rpkps/muat";
 import { TombolBuatTugas, TombolHapusTugas } from "./tombol";
 
@@ -21,8 +22,8 @@ export default async function HalamanTugas({
   const rpkps = await muatRpkps(id);
   if (!rpkps) notFound();
 
-  const cakupan = cakupanProdi(sesi);
-  if (cakupan !== null && !cakupan.includes(rpkps.mataKuliah.kurikulum.prodiId)) notFound();
+  const wenang = wenangAtasRpkps(sesi, rpkps);
+  if (!wenang.bolehLihat) notFound();
 
   const bisaSunting = rpkps.status === "DRAF" || rpkps.status === "DIREVISI";
 

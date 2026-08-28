@@ -37,10 +37,32 @@ import { BENTUK_SOAL, JENIS_PUSTAKA, JENIS_TUGAS } from "@/domain/rpkps/draf";
  * Perhatikan baris ketiga: skema yang LEBIH PENDEK tetap ditolak. Mengecilkan
  * jumlah aksara tidak menolong; mengurangi percabangan yang menolong.
  *
- * Sisa ruangnya tipis — kira-kira empat field teks. Bila skema ini kelak perlu
- * tumbuh lagi, jangan menambal: pecah penyusunan draf menjadi beberapa
- * panggilan (mis. dokumen+pertemuan, lalu tugas+kisi-kisi), masing-masing
- * dengan skema sendiri. skema-draf.test.ts menjaga ambang ini.
+ * # Pemecahan menjadi tiga tahap
+ *
+ * Saran pada catatan di atas — "pecah penyusunan draf menjadi beberapa
+ * panggilan, masing-masing dengan skema sendiri" — sudah dijalankan. Bukan
+ * karena skemanya tumbuh, melainkan karena satu panggilan 32.000 token
+ * keluaran memakan kuota gratis penyedia dengan cara yang paling boros:
+ * ketika ia gagal di tengah, SELURUH anggaran itu hangus tanpa menghasilkan
+ * apa pun, dan pada penyedia yang menghitung `max_tokens` terhadap batas
+ * token-per-menit, memesan 32.000 untuk kebutuhan nyata ~7.000 ikut membakar
+ * jatah yang tidak pernah dipakai.
+ *
+ * Tiga tahap, masing-masing dengan skema sendiri:
+ *
+ *   1. KERANGKA   — deskripsi, kalimat pembuka, komponen nilai, pustaka baru,
+ *                   dan alokasi bobot tiap minggu. Seluruh ARITMETIKA
+ *                   diputuskan di sini, sekali, dalam panggilan terkecil.
+ *   2. PERTEMUAN  — isi tiap minggu efektif. Bobotnya DIBERIKAN dari tahap 1,
+ *                   jadi tahap ini murni prosa dan tidak dapat merusak jumlah.
+ *   3. TUGAS+KISI — lembar rencana tugas dan kisi-kisi UTS/UAS, memakai
+ *                   komponen nilai yang sudah ditetapkan tahap 1.
+ *
+ * Ikutan yang menyenangkan: tiap grammar kini jauh di bawah ambang, sehingga
+ * larangan `.nullable()` sebenarnya sudah longgar. Larangan itu tetap
+ * dipertahankan agar bentuk sentinel-nya seragam di ketiga tahap dan
+ * susunDraf() tidak perlu menangani dua konvensi sekaligus.
+ * skema-draf.test.ts menjaga ambang ini untuk tiap tahap.
  *
  * # Sentinel pengganti null
  *
@@ -62,7 +84,8 @@ const LEVEL = z.enum([
   "P1", "P2", "P3", "P4", "P5",
 ]);
 
-export const SkemaKeluaranDraf = z.object({
+/** Tahap 1 — kerangka dokumen dan seluruh keputusan aritmetika. */
+export const SkemaKerangka = z.object({
   deskripsi: z.string(),
   kalimat_pembuka_cpmk: z.string(),
   komponen_nilai: z.array(z.object({ nama: z.string(), bobot: z.number() })),
@@ -75,6 +98,19 @@ export const SkemaKeluaranDraf = z.object({
       url: z.string(),
     }),
   ),
+  /**
+   * Alokasi bobot penilaian tiap minggu efektif. Jumlahnya wajib 100 dan sama
+   * dengan total komponen_nilai — dua angka yang harus cocok, diputuskan
+   * bersamaan dalam satu panggilan agar model tidak perlu mengingat
+   * keputusannya sendiri lintas panggilan.
+   */
+  bobot_minggu: z.array(
+    z.object({ minggu: z.number().int(), bobot: z.number() }),
+  ),
+});
+
+/** Tahap 2 — isi tiap minggu efektif. Bobot TIDAK ada di sini; ia diberikan. */
+export const SkemaPertemuan = z.object({
   pertemuan: z.array(
     z.object({
       minggu: z.number().int(),
@@ -88,11 +124,14 @@ export const SkemaKeluaranDraf = z.object({
       /** Keduanya "" bila minggu itu tidak dinilai. */
       penilaian_jenis: z.string(),
       penilaian_sistem: z.string(),
-      bobot: z.number(),
       indikator: z.array(z.string()),
       pustaka_ref: z.array(z.string()),
     }),
   ),
+});
+
+/** Tahap 3 — lembar rencana tugas dan kisi-kisi ujian. */
+export const SkemaTugasKisi = z.object({
   tugas: z.array(
     z.object({
       nomor: z.number().int(),
@@ -137,4 +176,7 @@ export const SkemaKeluaranDraf = z.object({
   ),
 });
 
-export type KeluaranDraf = z.infer<typeof SkemaKeluaranDraf>;
+export type KeluaranKerangka = z.infer<typeof SkemaKerangka>;
+export type KeluaranPertemuan = z.infer<typeof SkemaPertemuan>;
+export type KeluaranTugasKisi = z.infer<typeof SkemaTugasKisi>;
+

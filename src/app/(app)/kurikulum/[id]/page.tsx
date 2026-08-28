@@ -51,6 +51,14 @@ export default async function HalamanDetailKurikulum({
           _count: { select: { cpmk: true } },
         },
       },
+      daftarRevisi: {
+        orderBy: { revisiKe: "desc" },
+        include: {
+          oleh: { select: { nama: true } },
+          berlakuMulaiTa: { select: { kode: true } },
+          usulan: { select: { id: true, judul: true } },
+        },
+      },
     },
   });
 
@@ -90,6 +98,9 @@ export default async function HalamanDetailKurikulum({
                   ? "Draf"
                   : "Arsip"}
             </Badge>
+            {kurikulum.revisi > 0 ? (
+              <Badge variant="secondary">Revisi {kurikulum.revisi}</Badge>
+            ) : null}
           </div>
           <p className="mt-1.5 text-sm text-muted-foreground">
             {kurikulum.prodi.nama} ({kurikulum.prodi.kode}) · Tahun {kurikulum.tahun}
@@ -130,6 +141,58 @@ export default async function HalamanDetailKurikulum({
               adalah janji yang tidak dibayar oleh satu pun capaian.
             </CardDescription>
           </CardHeader>
+        </Card>
+      ) : null}
+
+      {kurikulum.daftarRevisi.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              Riwayat revisi ({kurikulum.daftarRevisi.length})
+            </CardTitle>
+            <CardDescription>
+              Amandemen yang disahkan lewat Usulan Revisi Kurikulum. Inilah
+              jawaban atas pertanyaan asesor: bagaimana kurikulum ini dijaga
+              tetap mutakhir.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {kurikulum.daftarRevisi.map((r) => (
+              <div key={r.id} className="border-b pb-3 text-sm last:border-0 last:pb-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="secondary">Revisi {r.revisiKe}</Badge>
+                  {r.berlakuMulaiTa ? (
+                    <Badge variant="outline" className="text-[10px]">
+                      berlaku {r.berlakuMulaiTa.kode}
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-[10px]">
+                      ralat · berlaku segera
+                    </Badge>
+                  )}
+                  {r.disahkanSendiri ? (
+                    <Badge variant="outline" className="text-[10px]">
+                      diajukan &amp; disahkan orang yang sama
+                    </Badge>
+                  ) : null}
+                </div>
+                <p className="mt-1.5">
+                  <Link href={`/usulan/${r.usulan.id}`} className="hover:underline">
+                    {r.usulan.judul}
+                  </Link>
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {r.ringkasan}
+                  {r.oleh ? ` · disahkan ${r.oleh.nama}` : ""} ·{" "}
+                  {r.dibuatPada.toLocaleDateString("id-ID", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  })}
+                </p>
+              </div>
+            ))}
+          </CardContent>
         </Card>
       ) : null}
 

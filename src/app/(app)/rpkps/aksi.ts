@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { cakupanProdi, punyaPeran, wajibAktif, wajibPeran } from "@/lib/otorisasi";
+import { cakupanProdi, wajibPeran } from "@/lib/otorisasi";
+import { wenangRpkps } from "@/lib/rpkps/wenang";
 import {
   muatKebijakan,
   muatRpkps,
@@ -18,27 +19,8 @@ import type { KategoriWaktu } from "@/generated/prisma";
 
 export type Hasil = { ok: boolean; pesan: string; id?: string };
 
-/** Memastikan pengguna berwenang atas RPKPS tertentu. */
-async function pastikanWenang(rpkpsId: string) {
-  const sesi = await wajibAktif();
-  const rpkps = await prisma.rpkps.findUnique({
-    where: { id: rpkpsId },
-    select: {
-      id: true,
-      status: true,
-      mataKuliah: { select: { kurikulum: { select: { prodiId: true } } } },
-      pengampu: { select: { penggunaId: true } },
-    },
-  });
-  if (!rpkps) return { sesi, rpkps: null as null, boleh: false };
-
-  const prodiId = rpkps.mataKuliah.kurikulum.prodiId;
-  const cakupan = cakupanProdi(sesi);
-  const dalamCakupan = cakupan === null || cakupan.includes(prodiId);
-  const pengampu = rpkps.pengampu.some((p) => p.penggunaId === sesi.id);
-
-  return { sesi, rpkps, boleh: dalamCakupan && (pengampu || punyaPeran(sesi, "ADMIN", "KAPRODI", "GPM")) };
-}
+/** Memastikan pengguna berwenang atas RPKPS tertentu. Aturannya di lib/rpkps/wenang.ts. */
+const pastikanWenang = wenangRpkps;
 
 /**
  * Membuat RPKPS baru dan langsung MENYUSUN KERANGKANYA:
@@ -456,7 +438,18 @@ export async function putuskanRpkps(
   keputusan: "SETUJU" | "REVISI",
   catatan?: string,
 ): Promise<Hasil> {
-  const sesi = await wajibPeran("ADMIN", "KAPRODI", "GPM");
+  /**
+   * `wenang.pengelola` — bukan sekadar `punyaPeran(KAPRODI)`. Peran saja tidak
+   * menyebut prodi mana; tanpa cakupan, Kaprodi prodi A dapat mengesahkan
+   * dokumen prodi B hanya dengan menebak alamatnya.
+   */
+  const { pengelola, sesi } = await pastikanWenang(id);
+  if (!pengelola) {
+    return {
+      ok: false,
+      pesan: "Hanya Kaprodi, penjaminan mutu, atau admin program studi ini yang dapat memutuskan.",
+    };
+  }
 
   const rpkps = await prisma.rpkps.findUnique({
     where: { id },

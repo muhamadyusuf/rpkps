@@ -2,15 +2,22 @@ import "server-only";
 import type { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { GalatAi } from "./galat";
-import { pilihPenyedia } from "./klien";
+import type { PenyediaTerpilih } from "./klien";
 import type { AlasanBerhenti, PemakaianToken } from "./penyedia/tipe";
 
 /**
  * Gerbang AI — satu-satunya jalan keluar menuju penyedia LLM.
  *
- * Alur docs/01 §4.1: resolusi kredensial → panggil penyedia → validasi
- * keluaran terhadap skema → catat pemakaian. Otorisasi dan perakitan konteks
- * dikerjakan pemanggil, karena keduanya bergantung pada domain.
+ * Alur docs/01 §4.1: panggil penyedia → validasi keluaran terhadap skema →
+ * catat pemakaian. Otorisasi dan perakitan konteks dikerjakan pemanggil,
+ * karena keduanya bergantung pada domain.
+ *
+ * Kredensial juga diresolusi PEMANGGIL, sekali, lalu diteruskan ke sini
+ * (docs/08 §4). Sebelumnya gerbang yang memanggil `pilihPenyedia()` sendiri;
+ * dengan kunci milik dosen itu berarti draf tiga tahap mendekripsi kunci yang
+ * sama tiga kali — dan, lebih buruk, membuka peluang tahap kedua memakai
+ * kredensial berbeda dari tahap pertama bila dosen menggantinya di tengah
+ * jalan.
  *
  * Gerbang tidak tahu penyedia mana yang dipakai. Itu yang membuat penggantian
  * penyedia tidak menyentuh satu pun aturan akademik di src/domain.
@@ -33,6 +40,8 @@ export interface PermintaanAi<T> {
   permintaan: string;
   skema: z.ZodType<T>;
   maxTokens?: number;
+  /** Kredensial dosen yang sudah dibuka — lihat `pakaiKredensial()`. */
+  terpilih: PenyediaTerpilih;
 }
 
 export interface HasilAi<T> {
@@ -50,7 +59,7 @@ const PESAN_GAGAL: Record<Exclude<AlasanBerhenti, "SELESAI">, string> = {
 };
 
 export async function jalankanTugasAi<T>(p: PermintaanAi<T>): Promise<HasilAi<T>> {
-  const { penyedia, model } = pilihPenyedia();
+  const { penyedia, model, kredensialId } = p.terpilih;
   const mulai = Date.now();
 
   const jawaban = await penyedia.chat({
@@ -62,7 +71,7 @@ export async function jalankanTugasAi<T>(p: PermintaanAi<T>): Promise<HasilAi<T>
   });
 
   const latensiMs = Date.now() - mulai;
-  await catat(p, penyedia.kode, model, latensiMs, jawaban.pemakaian, jawaban.alasan);
+  await catat(p, penyedia.kode, model, kredensialId, latensiMs, jawaban.pemakaian, jawaban.alasan);
 
   if (jawaban.alasan !== "SELESAI" || !jawaban.data) {
     throw new GalatAi(
@@ -77,14 +86,16 @@ export async function jalankanTugasAi<T>(p: PermintaanAi<T>): Promise<HasilAi<T>
 /**
  * Mencatat pemakaian ke log audit.
  *
- * docs/01 §4.8 merancang tabel ai_usage_log tersendiri; selama kunci masih
- * satu milik institusi, log_audit sudah memuat semua yang dibutuhkan untuk
- * menjawab "siapa memanggil apa, dengan penyedia mana, dan berapa tokennya".
+ * docs/01 §4.8 merancang tabel ai_usage_log tersendiri; log_audit masih memuat
+ * semua yang dibutuhkan untuk menjawab "siapa memanggil apa, dengan kunci dan
+ * penyedia mana, dan berapa tokennya". Yang dicatat adalah ID kredensial —
+ * tidak pernah kuncinya.
  */
 async function catat<T>(
   p: PermintaanAi<T>,
   penyedia: string,
   model: string,
+  kredensialId: string,
   latensiMs: number,
   pemakaian: PemakaianToken | null,
   status: AlasanBerhenti,
@@ -97,7 +108,7 @@ async function catat<T>(
         entitas: "ai",
         entitasId: p.entitasId ?? null,
         ringkasan: `${penyedia}/${model} · ${status} · ${latensiMs} ms`,
-        data: { penyedia, model, status, latensiMs, ...(pemakaian ?? {}) },
+        data: { penyedia, model, kredensialId, status, latensiMs, ...(pemakaian ?? {}) },
       },
     });
   } catch (galat) {

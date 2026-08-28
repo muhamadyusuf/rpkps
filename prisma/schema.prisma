@@ -71,6 +71,7 @@ model Prodi {
   fakultas  Fakultas         @relation(fields: [fakultasId], references: [id], onDelete: Restrict)
   penugasan PenugasanPeran[]
   kurikulum Kurikulum[]
+  mahasiswa Mahasiswa[]
 
   @@index([fakultasId])
   @@map("prodi")
@@ -94,6 +95,12 @@ model TahunAkademik {
   dibuatPada   DateTime     @default(now()) @map("dibuat_pada")
   diubahPada   DateTime     @updatedAt @map("diubah_pada")
   rpkps        Rpkps[]
+
+  usulanBerlaku  UsulanRevisi[]    @relation("UsulanBerlaku")
+  revisiBerlaku  RevisiKurikulum[] @relation("RevisiBerlaku")
+  temuanSasaran  TemuanEvaluasi[]  @relation("TemuanSasaran")
+  cpmkPensiun    Cpmk[]            @relation("CpmkPensiun")
+  subCpmkPensiun SubCpmk[]         @relation("SubCpmkPensiun")
 
   @@index([aktif])
   @@map("tahun_akademik")
@@ -129,9 +136,18 @@ model Pengguna {
   dibuatPada    DateTime       @default(now()) @map("dibuat_pada")
   diubahPada    DateTime       @updatedAt @map("diubah_pada")
 
-  penugasan     PenugasanPeran[]
-  logAudit      LogAudit[]
-  pengampuRpkps RpkpsPengampu[]
+  penugasan          PenugasanPeran[]
+  logAudit           LogAudit[]
+  pengampuRpkps      RpkpsPengampu[]
+  usulanDiajukan     UsulanRevisi[]    @relation("UsulanDiajukan")
+  usulanDiputuskan   UsulanRevisi[]    @relation("UsulanDiputuskan")
+  catatanUsulan      CatatanUsulan[]
+  revisiKurikulum    RevisiKurikulum[]
+  kelasDiampu        Kelas[]           @relation("KelasDosen")
+  evaluasiDitutup    EvaluasiMk[]      @relation("EvaluasiDitutup")
+  temuanDitanggung   TemuanEvaluasi[]  @relation("TemuanPenanggungJawab")
+  temuanDiverifikasi TemuanEvaluasi[]  @relation("TemuanDiverifikasi")
+  kredensialAi       KredensialAi[]
 
   @@index([status])
   @@map("pengguna")
@@ -273,6 +289,52 @@ model LogAudit {
   @@map("log_audit")
 }
 
+/// Penyedia LLM yang adapternya ada di src/lib/ai/penyedia/.
+enum PenyediaAi {
+  ANTHROPIC
+  MISTRAL
+  GEMINI
+}
+
+/// Kunci API milik SATU dosen — BYOK Mode A, docs/08.
+///
+/// Kolom `scope` yang dirancang docs/01 §2.1 sengaja TIDAK dibuat: Mode A
+/// hanya mengenal kunci pengguna, dan kolom yang selalu bernilai sama adalah
+/// kolom mati. Ia ditambahkan bersama jalur cadangan yang memakainya, bukan
+/// sekarang sebagai ornamen.
+model KredensialAi {
+  id         String     @id @default(cuid())
+  penggunaId String     @map("pengguna_id")
+  penyedia   PenyediaAi
+  /// Nama yang dosen kenali, mis. "Kunci pribadi saya".
+  label      String
+
+  /// Enkripsi amplop AES-256-GCM; tata letaknya di src/lib/kripto/amplop.ts.
+  /// Tidak pernah dapat dibaca kembali lewat antarmuka mana pun, hanya diganti.
+  kunciTerenkripsi Bytes @map("kunci_terenkripsi")
+  /// Empat karakter terakhir, teks biasa. Cukup untuk mengenali kunci yang
+  /// mana, tidak cukup untuk memakainya.
+  ekor             String
+
+  /// Kosong berarti memakai model bawaan adapter penyedianya. Model melekat di
+  /// sini, bukan di variabel lintas-penyedia, karena namanya tidak pernah
+  /// cocok antar penyedia.
+  model String?
+
+  bawaan          Boolean   @default(false)
+  aktif           Boolean   @default(true)
+  terakhirDipakai DateTime? @map("terakhir_dipakai")
+
+  dibuatPada DateTime @default(now()) @map("dibuat_pada")
+  diubahPada DateTime @updatedAt @map("diubah_pada")
+
+  pengguna Pengguna @relation(fields: [penggunaId], references: [id], onDelete: Cascade)
+
+  @@unique([penggunaId, penyedia, label])
+  @@index([penggunaId])
+  @@map("kredensial_ai")
+}
+
 // ─────────────────────────────────────────────────────────────
 // KURIKULUM
 // Acuan: docs/02-template-itts-dan-penyelarasan-industri.md §3.1
@@ -296,14 +358,19 @@ model Kurikulum {
   status      StatusKurikulum @default(DRAF)
   berlakuDari DateTime?       @map("berlaku_dari")
   catatan     String?
+  /// Penghitung amandemen yang disahkan. Naik satu tiap Usulan Revisi
+  /// diterapkan; jejak rincinya di RevisiKurikulum (doc 04 §2.5).
+  revisi      Int             @default(0)
   dibuatPada  DateTime        @default(now()) @map("dibuat_pada")
   diubahPada  DateTime        @updatedAt @map("diubah_pada")
 
-  prodi         Prodi           @relation(fields: [prodiId], references: [id], onDelete: Cascade)
+  prodi         Prodi             @relation(fields: [prodiId], references: [id], onDelete: Cascade)
   profilLulusan ProfilLulusan[]
   cpl           Cpl[]
   bahanKajian   BahanKajian[]
   mataKuliah    MataKuliah[]
+  usulan        UsulanRevisi[]
+  daftarRevisi  RevisiKurikulum[]
 
   @@unique([prodiId, tahun])
   @@index([prodiId, status])
@@ -407,6 +474,7 @@ model MataKuliah {
   prasyarat            MkPrasyarat[]  @relation("MkUtama")
   menjadiPrasyaratBagi MkPrasyarat[]  @relation("MkPrasyarat")
   rpkps                Rpkps[]
+  usulan               UsulanRevisi[]
 
   @@unique([kurikulumId, kode])
   @@index([kurikulumId, semester])
@@ -480,9 +548,17 @@ model Cpmk {
   urutan       Int         @default(0)
   sumber       SumberIsi   @default(KURIKULUM)
 
-  mataKuliah MataKuliah    @relation(fields: [mataKuliahId], references: [id], onDelete: Cascade)
-  cpl        PetaCpmkCpl[]
-  subCpmk    SubCpmk[]
+  /// Null = masih aktif. Terisi berarti CPMK ini tidak lagi ditawarkan
+  /// untuk RPKPS mulai tahun akademik tersebut. TIDAK PERNAH dihapus:
+  /// Sub-CPMK-nya dirujuk pertemuan, tugas, dan kisi-kisi RPKPS lama
+  /// dengan onDelete Cascade (doc 04 §2.4).
+  pensiunSejakTaId String? @map("pensiun_sejak_ta_id")
+
+  mataKuliah     MataKuliah     @relation(fields: [mataKuliahId], references: [id], onDelete: Cascade)
+  pensiunSejakTa TahunAkademik? @relation("CpmkPensiun", fields: [pensiunSejakTaId], references: [id], onDelete: SetNull)
+  cpl            PetaCpmkCpl[]
+  subCpmk        SubCpmk[]
+  butirUsulan    ButirUsulan[]
 
   @@unique([mataKuliahId, kode])
   @@map("cpmk")
@@ -513,10 +589,15 @@ model SubCpmk {
   /// Usulan minggu pelaksanaan dari kurikulum. RPKPS boleh menyusun ulang.
   mingguDisarankan Int[]       @map("minggu_disarankan")
 
-  cpmk       Cpmk               @relation(fields: [cpmkId], references: [id], onDelete: Cascade)
-  pertemuan  PertemuanSubCpmk[]
-  tugas      TugasSubCpmk[]
-  butirUjian ButirKisiKisi[]
+  /// Lihat catatan pensiun pada Cpmk.
+  pensiunSejakTaId String? @map("pensiun_sejak_ta_id")
+
+  cpmk           Cpmk               @relation(fields: [cpmkId], references: [id], onDelete: Cascade)
+  pensiunSejakTa TahunAkademik?     @relation("SubCpmkPensiun", fields: [pensiunSejakTaId], references: [id], onDelete: SetNull)
+  pertemuan      PertemuanSubCpmk[]
+  tugas          TugasSubCpmk[]
+  butirUjian     ButirKisiKisi[]
+  butirUsulan    ButirUsulan[]
 
   @@unique([cpmkId, kode])
   @@map("sub_cpmk")
@@ -571,6 +652,7 @@ model Rpkps {
   snapshot      RpkpsSnapshot[]
   kisiKisi      KisiKisi[]
   tugas         Tugas[]
+  kelas         Kelas[]
 
   @@unique([mataKuliahId, tahunAkademikId])
   @@index([status])
@@ -930,10 +1012,479 @@ model ButirKisiKisi {
   skor        Decimal    @db.Decimal(6, 2)
   indikator   String?
 
-  kisiKisi KisiKisi @relation(fields: [kisiKisiId], references: [id], onDelete: Cascade)
-  subCpmk  SubCpmk  @relation(fields: [subCpmkId], references: [id], onDelete: Restrict)
+  kisiKisi KisiKisi     @relation(fields: [kisiKisiId], references: [id], onDelete: Cascade)
+  subCpmk  SubCpmk      @relation(fields: [subCpmkId], references: [id], onDelete: Restrict)
+  nilai    NilaiButir[]
 
   @@unique([kisiKisiId, nomor])
   @@index([subCpmkId])
   @@map("butir_kisi_kisi")
+}
+
+// ─────────────────────────────────────────────────────────────
+// USULAN REVISI KURIKULUM
+// Acuan: docs/04-usulan-revisi-kurikulum.md
+//
+// Satu-satunya pintu resmi mengubah CPMK/Sub-CPMK. Dosen mengusulkan,
+// domain memeriksa, Kaprodi memutuskan per butir, sistem menerapkan.
+// Usulan disimpan BERBUTIR (bukan prosa) supaya pengesahan dapat
+// diterapkan kode secara deterministik — lihat doc 04 §2.1.
+// ─────────────────────────────────────────────────────────────
+
+enum StatusUsulan {
+  DRAF
+  DIAJUKAN
+  DIREVISI
+  DISETUJUI
+  DITERAPKAN
+  DITOLAK
+  DITARIK
+}
+
+/// Keputusan Kaprodi atas satu butir. DISESUAIKAN = diterima setelah
+/// rumusannya disunting Kaprodi, sehingga kalimat akhir tetap miliknya.
+enum StatusButir {
+  BARU
+  DITERIMA
+  DISESUAIKAN
+  DITOLAK
+}
+
+enum JenisButir {
+  CPMK_BARU
+  CPMK_RUMUSAN
+  CPMK_PETA_CPL
+  CPMK_PENSIUN
+  SUB_BARU
+  SUB_RUMUSAN
+  SUB_MINGGU
+  SUB_PENSIUN
+  /// Usulan yang menyentuh CPL/profil lulusan — DI LUAR kewenangan URK.
+  /// Tidak pernah diterapkan otomatis; hanya bahan evaluasi kurikulum
+  /// berikutnya (doc 04 §2.2).
+  CATATAN_CPL
+}
+
+/// Dari mana sebuah butir mendapat pembenarannya. Butir tanpa satu pun
+/// dasar ditolak validator sebelum sampai ke Kaprodi (doc 04 §2.3) —
+/// inilah yang memisahkan revisi berbasis bukti dari karangan model.
+enum JenisDasar {
+  TEMUAN_VALIDATOR
+  SINYAL_INDUSTRI
+  MASUKAN_DUDI
+  TRACER
+  CATATAN_DOSEN
+  /// Temuan evaluasi ketercapaian (doc 05 §5.6). `ref` berisi id
+  /// TemuanEvaluasi — inilah sambungan yang menutup siklus PPEPP.
+  TEMUAN_EVALUASI
+}
+
+model UsulanRevisi {
+  id           String @id @default(cuid())
+  kurikulumId  String @map("kurikulum_id")
+  mataKuliahId String @map("mata_kuliah_id")
+  judul        String
+  /// Latar belakang: mengapa revisi ini perlu. Dibaca Kaprodi lebih dulu.
+  latar        String
+
+  status StatusUsulan @default(DRAF)
+
+  /// Jalur ralat: perbaikan ejaan yang TIDAK mengubah makna, boleh berlaku
+  /// segera. Syaratnya ditegakkan kode, bukan janji pengusul — lihat
+  /// `periksaJalurRalat` di src/domain/kurikulum/usulan.ts.
+  jalurRalat Boolean @default(false) @map("jalur_ralat")
+
+  diajukanOlehId   String    @map("diajukan_oleh_id")
+  diajukanPada     DateTime? @map("diajukan_pada")
+  diputuskanOlehId String?   @map("diputuskan_oleh_id")
+  diputuskanPada   DateTime? @map("diputuskan_pada")
+  catatanPemutus   String?   @map("catatan_pemutus")
+
+  /// Tahun akademik mulai berlakunya revisi. Baku: TA aktif berikutnya,
+  /// agar semester berjalan tidak terganggu (doc 04 §2.5).
+  berlakuMulaiTaId String?   @map("berlaku_mulai_ta_id")
+  diterapkanPada   DateTime? @map("diterapkan_pada")
+
+  dibuatPada DateTime @default(now()) @map("dibuat_pada")
+  diubahPada DateTime @updatedAt @map("diubah_pada")
+
+  kurikulum      Kurikulum        @relation(fields: [kurikulumId], references: [id], onDelete: Cascade)
+  mataKuliah     MataKuliah       @relation(fields: [mataKuliahId], references: [id], onDelete: Cascade)
+  diajukanOleh   Pengguna         @relation("UsulanDiajukan", fields: [diajukanOlehId], references: [id], onDelete: Restrict)
+  diputuskanOleh Pengguna?        @relation("UsulanDiputuskan", fields: [diputuskanOlehId], references: [id], onDelete: SetNull)
+  berlakuMulaiTa TahunAkademik?   @relation("UsulanBerlaku", fields: [berlakuMulaiTaId], references: [id], onDelete: Restrict)
+  butir          ButirUsulan[]
+  catatan        CatatanUsulan[]
+  revisi         RevisiKurikulum?
+  temuanEvaluasi TemuanEvaluasi[]
+
+  @@index([kurikulumId, status])
+  @@index([mataKuliahId])
+  @@index([status])
+  @@map("usulan_revisi")
+}
+
+model ButirUsulan {
+  id       String      @id @default(cuid())
+  usulanId String      @map("usulan_id")
+  urutan   Int         @default(0)
+  jenis    JenisButir
+  status   StatusButir @default(BARU)
+
+  /// Sasaran butir. Untuk CPMK_BARU/SUB_BARU ini kode yang DIUSULKAN;
+  /// untuk jenis lain, kode yang sudah ada di kurikulum.
+  cpmkKode    String  @map("cpmk_kode")
+  subCpmkKode String? @map("sub_cpmk_kode")
+
+  rumusan          String?
+  rumusanEn        String?     @map("rumusan_en")
+  levelBloom       LevelBloom? @map("level_bloom")
+  kko              String?
+  /// Untuk CPMK_BARU dan CPMK_PETA_CPL.
+  cplKode          String[]    @map("cpl_kode")
+  /// Untuk SUB_BARU dan SUB_MINGGU.
+  mingguDisarankan Int[]       @map("minggu_disarankan")
+
+  /// Mengapa butir ini diusulkan. Wajib — Kaprodi perlu dasar menilai.
+  alasan         String
+  catatanPemutus String? @map("catatan_pemutus")
+
+  /// KURIKULUM = disusun manusia, AI = lahir dari draf model. Ditahan apa
+  /// adanya setelah disahkan; asesor berhak tahu (docs/01 §4.8).
+  sumber SumberIsi @default(KURIKULUM)
+
+  /// Terisi saat butir diterapkan — jejak balik dari kurikulum ke usulannya.
+  cpmkId    String? @map("cpmk_id")
+  subCpmkId String? @map("sub_cpmk_id")
+
+  dibuatPada DateTime @default(now()) @map("dibuat_pada")
+  diubahPada DateTime @updatedAt @map("diubah_pada")
+
+  usulan  UsulanRevisi @relation(fields: [usulanId], references: [id], onDelete: Cascade)
+  dasar   DasarButir[]
+  cpmk    Cpmk?        @relation(fields: [cpmkId], references: [id], onDelete: SetNull)
+  subCpmk SubCpmk?     @relation(fields: [subCpmkId], references: [id], onDelete: SetNull)
+
+  @@index([usulanId])
+  @@map("butir_usulan")
+}
+
+model DasarButir {
+  id      String     @id @default(cuid())
+  butirId String     @map("butir_id")
+  jenis   JenisDasar
+  /// Id entitas sumber (sinyal industri, masukan DUDI, tracer) atau kode
+  /// temuan validator. Kosong hanya untuk CATATAN_DOSEN.
+  ref     String?
+  kutipan String
+
+  butir ButirUsulan @relation(fields: [butirId], references: [id], onDelete: Cascade)
+
+  @@index([butirId])
+  @@map("dasar_butir")
+}
+
+/// Diskusi pada usulan. Kanal catatan mutu GPM (yang tidak memblokir),
+/// sekaligus tempat pengusul menjawab.
+model CatatanUsulan {
+  id         String   @id @default(cuid())
+  usulanId   String   @map("usulan_id")
+  olehId     String?  @map("oleh_id")
+  isi        String
+  dibuatPada DateTime @default(now()) @map("dibuat_pada")
+
+  usulan UsulanRevisi @relation(fields: [usulanId], references: [id], onDelete: Cascade)
+  oleh   Pengguna?    @relation(fields: [olehId], references: [id], onDelete: SetNull)
+
+  @@index([usulanId])
+  @@map("catatan_usulan")
+}
+
+/// Ledger penerapan: satu baris per usulan yang disahkan. Sumber angka
+/// "Revisi ke-N" pada halaman kurikulum dan bahan jawaban asesor.
+model RevisiKurikulum {
+  id               String   @id @default(cuid())
+  kurikulumId      String   @map("kurikulum_id")
+  revisiKe         Int      @map("revisi_ke")
+  usulanId         String   @unique @map("usulan_id")
+  ringkasan        String
+  /// Diisi bila pengaju dan pengesah adalah orang yang sama. Bukan
+  /// larangan — penandaan (doc 04 §8.1).
+  disahkanSendiri  Boolean  @default(false) @map("disahkan_sendiri")
+  olehId           String?  @map("oleh_id")
+  berlakuMulaiTaId String?  @map("berlaku_mulai_ta_id")
+  dibuatPada       DateTime @default(now()) @map("dibuat_pada")
+
+  kurikulum      Kurikulum      @relation(fields: [kurikulumId], references: [id], onDelete: Cascade)
+  usulan         UsulanRevisi   @relation(fields: [usulanId], references: [id], onDelete: Cascade)
+  oleh           Pengguna?      @relation(fields: [olehId], references: [id], onDelete: SetNull)
+  berlakuMulaiTa TahunAkademik? @relation("RevisiBerlaku", fields: [berlakuMulaiTaId], references: [id], onDelete: Restrict)
+
+  @@unique([kurikulumId, revisiKe])
+  @@index([kurikulumId])
+  @@map("revisi_kurikulum")
+}
+
+// ─────────────────────────────────────────────────────────────
+// KELAS, MAHASISWA, DAN NILAI
+// Acuan: docs/05-evaluasi-ketercapaian-mk.md §5.1–5.2, tahap E2.
+//
+// Ketercapaian SELALU milik kelas, bukan milik dokumen rencana: satu RPKPS
+// dipakai kelas A/B/C dengan dosen berbeda, dan menggabungkan nilainya
+// menyembunyikan justru temuan yang paling berguna — rencana yang sama
+// menghasilkan capaian yang jauh berbeda berarti yang bermasalah adalah
+// pelaksanaan, bukan rancangan (doc 05 §4.1b).
+//
+// Data mahasiswa sengaja dibatasi empat kolom. Cukup untuk menghitung sebaran
+// dan menelusuri sampel jawaban saat asesor bertanya; tidak cukup untuk
+// berubah menjadi SIAKAD bayangan.
+// ─────────────────────────────────────────────────────────────
+
+model Kelas {
+  id      String  @id @default(cuid())
+  rpkpsId String  @map("rpkps_id")
+  /// "A", "B", "Pagi" — mengikuti kebiasaan prodi.
+  kode    String
+  dosenId String? @map("dosen_id")
+
+  dibuatPada DateTime @default(now()) @map("dibuat_pada")
+  diubahPada DateTime @updatedAt @map("diubah_pada")
+
+  rpkps    Rpkps          @relation(fields: [rpkpsId], references: [id], onDelete: Cascade)
+  dosen    Pengguna?      @relation("KelasDosen", fields: [dosenId], references: [id], onDelete: SetNull)
+  peserta  PesertaKelas[]
+  evaluasi EvaluasiMk?
+
+  @@unique([rpkpsId, kode])
+  @@index([rpkpsId])
+  @@map("kelas")
+}
+
+model Mahasiswa {
+  id       String @id @default(cuid())
+  prodiId  String @map("prodi_id")
+  nim      String
+  nama     String
+  /// Opsional: banyak berkas nilai hanya memuat NIM dan nama.
+  angkatan Int?
+
+  dibuatPada DateTime @default(now()) @map("dibuat_pada")
+  diubahPada DateTime @updatedAt @map("diubah_pada")
+
+  prodi Prodi          @relation(fields: [prodiId], references: [id], onDelete: Cascade)
+  kelas PesertaKelas[]
+
+  @@unique([prodiId, nim])
+  @@index([prodiId, angkatan])
+  @@map("mahasiswa")
+}
+
+model PesertaKelas {
+  id          String @id @default(cuid())
+  kelasId     String @map("kelas_id")
+  mahasiswaId String @map("mahasiswa_id")
+
+  kelas      Kelas          @relation(fields: [kelasId], references: [id], onDelete: Cascade)
+  mahasiswa  Mahasiswa      @relation(fields: [mahasiswaId], references: [id], onDelete: Cascade)
+  nilai      NilaiAsesmen[]
+  nilaiButir NilaiButir[]
+
+  @@unique([kelasId, mahasiswaId])
+  @@index([kelasId])
+  @@map("peserta_kelas")
+}
+
+/// Skor mentah satu mahasiswa pada satu asesmen, skala 0–100.
+///
+/// `asesmenKode` sengaja BUKAN relasi. Asesmen adalah proyeksi yang disusun
+/// `susunPetaAsesmen` dari tabel mingguan, lembar tugas, dan kisi-kisi — ia
+/// tidak punya baris sendiri, dan tidak boleh punya, atau bobot mendapat
+/// tempat penyimpanan keempat (doc 05 §5.3). Kodenya stabil karena diturunkan
+/// dari nomor minggu dan nomor tugas: `M5`, `T1`, `UTS`, `UAS`.
+model NilaiAsesmen {
+  id             String  @id @default(cuid())
+  pesertaKelasId String  @map("peserta_kelas_id")
+  asesmenKode    String  @map("asesmen_kode")
+  skor           Decimal @db.Decimal(6, 2)
+
+  dibuatPada DateTime @default(now()) @map("dibuat_pada")
+  diubahPada DateTime @updatedAt @map("diubah_pada")
+
+  peserta PesertaKelas @relation(fields: [pesertaKelasId], references: [id], onDelete: Cascade)
+
+  @@unique([pesertaKelasId, asesmenKode])
+  @@index([pesertaKelasId])
+  @@map("nilai_asesmen")
+}
+
+// ─────────────────────────────────────────────────────────────
+// EVALUASI KETERCAPAIAN DAN TINDAK LANJUT
+// Acuan: docs/05-evaluasi-ketercapaian-mk.md §5.5–5.6, tahap E3–E4.
+//
+// Evaluasi menempel pada KELAS, bukan pada RPKPS: satu dokumen rencana
+// dipakai beberapa kelas, dan sebaran antar kelas itu sendiri adalah temuan.
+//
+// Hasil evaluasi TIDAK PERNAH masuk `proyeksiIsi()`. Menambahkannya akan
+// menggeser sidik SHA-256 seluruh RPKPS terbit dan memunculkan peringatan
+// pergeseran palsu. Evaluasi adalah dokumen BERDAMPINGAN dengan sidiknya
+// sendiri, bukan bagian dari RPKPS.
+// ─────────────────────────────────────────────────────────────
+
+enum StatusEvaluasi {
+  DRAF
+  DIHITUNG
+  DITUTUP
+}
+
+enum TingkatCapaian {
+  SUB_CPMK
+  CPMK
+  CPL
+}
+
+enum StatusVerifikasi {
+  BELUM
+  TERCAPAI
+  TIDAK_TERCAPAI
+}
+
+model EvaluasiMk {
+  id      String         @id @default(cuid())
+  kelasId String         @unique @map("kelas_id")
+  status  StatusEvaluasi @default(DRAF)
+  versi   Int            @default(1)
+
+  /// Ambang DISALIN saat evaluasi ditutup, tidak dibaca ulang dari RPKPS.
+  /// Kalau prodi mengubah ambangnya tahun depan, catatan tahun ini tetap
+  /// dapat dibaca dengan aturan yang berlaku saat itu.
+  ambangKelulusanMhs   Decimal @default(55) @map("ambang_kelulusan_mhs") @db.Decimal(5, 2)
+  ambangKetercapaianMk Decimal @default(85) @map("ambang_ketercapaian_mk") @db.Decimal(5, 2)
+
+  /// Refleksi dosen atas pelaksanaan: apa yang berjalan, apa yang tidak.
+  /// Inilah lapisan L3 pada doc 05 §2 — yang tidak dapat dihitung mesin.
+  catatanProses String? @map("catatan_proses")
+
+  ditutupOlehId String?   @map("ditutup_oleh_id")
+  ditutupPada   DateTime? @map("ditutup_pada")
+
+  dibuatPada DateTime @default(now()) @map("dibuat_pada")
+  diubahPada DateTime @updatedAt @map("diubah_pada")
+
+  kelas       Kelas              @relation(fields: [kelasId], references: [id], onDelete: Cascade)
+  ditutupOleh Pengguna?          @relation("EvaluasiDitutup", fields: [ditutupOlehId], references: [id], onDelete: SetNull)
+  hasil       HasilCapaian[]
+  temuan      TemuanEvaluasi[]
+  snapshot    EvaluasiSnapshot[]
+
+  @@index([status])
+  @@map("evaluasi_mk")
+}
+
+/// Capaian per butir pada saat evaluasi ditutup. Disimpan sebagai baris, bukan
+/// hanya di dalam snapshot, supaya agregasi tingkat prodi (E5) dapat mengkueri
+/// tanpa membongkar JSON satu per satu.
+model HasilCapaian {
+  id            String         @id @default(cuid())
+  evaluasiId    String         @map("evaluasi_id")
+  tingkat       TingkatCapaian
+  kode          String
+  rerata        Decimal?       @db.Decimal(6, 2)
+  persenLulus   Decimal?       @map("persen_lulus") @db.Decimal(5, 2)
+  tercapai      Boolean        @default(false)
+  pita          String
+  jumlahDinilai Int            @default(0) @map("jumlah_dinilai")
+
+  evaluasi EvaluasiMk @relation(fields: [evaluasiId], references: [id], onDelete: Cascade)
+
+  @@unique([evaluasiId, tingkat, kode])
+  @@index([evaluasiId])
+  @@map("hasil_capaian")
+}
+
+/// Salinan beku hasil evaluasi. Nilai berubah setelah remedial, ralat entri,
+/// atau susulan; laporan akreditasi harus dapat diulang persis.
+model EvaluasiSnapshot {
+  id         String   @id @default(cuid())
+  evaluasiId String   @map("evaluasi_id")
+  versi      Int
+  isi        Json
+  /// SHA-256 atas serialisasi kanonik `isi`, dihitung mesin sidik yang sama
+  /// dengan RPKPS — tetapi atas ruang yang terpisah sama sekali.
+  sidik      String
+  olehId     String?  @map("oleh_id")
+  dibuatPada DateTime @default(now()) @map("dibuat_pada")
+
+  evaluasi EvaluasiMk @relation(fields: [evaluasiId], references: [id], onDelete: Cascade)
+
+  @@unique([evaluasiId, versi])
+  @@index([evaluasiId])
+  @@map("evaluasi_snapshot")
+}
+
+/// Temuan beserta rencana tindak lanjutnya — huruf P kedua dan ketiga pada
+/// PPEPP. Inilah satu-satunya bagian yang tidak dapat dihitung mesin, dan
+/// yang paling dicari asesor (doc 05 §2, §5.6).
+model TemuanEvaluasi {
+  id         String         @id @default(cuid())
+  evaluasiId String         @map("evaluasi_id")
+  tingkat    TingkatCapaian
+  kode       String
+
+  /// Persen mahasiswa lulus saat temuan dibuat. Dibekukan di sini agar
+  /// verifikasi semester berikutnya punya pembanding yang jelas.
+  capaianTerukur Decimal? @map("capaian_terukur") @db.Decimal(5, 2)
+
+  akarMasalah String @map("akar_masalah")
+  tindakan    String
+
+  penanggungJawabId String? @map("penanggung_jawab_id")
+  /// Tahun akademik saat tindakan ini dijadwalkan berlaku.
+  taSasaranId       String? @map("ta_sasaran_id")
+
+  statusVerifikasi   StatusVerifikasi @default(BELUM) @map("status_verifikasi")
+  catatanVerifikasi  String?          @map("catatan_verifikasi")
+  diverifikasiPada   DateTime?        @map("diverifikasi_pada")
+  diverifikasiOlehId String?          @map("diverifikasi_oleh_id")
+
+  /// Terisi bila temuan ini diteruskan menjadi Usulan Revisi Kurikulum.
+  /// Inilah sambungan yang menutup siklus (doc 05 §5.6).
+  usulanId String? @map("usulan_id")
+
+  dibuatPada DateTime @default(now()) @map("dibuat_pada")
+  diubahPada DateTime @updatedAt @map("diubah_pada")
+
+  evaluasi         EvaluasiMk     @relation(fields: [evaluasiId], references: [id], onDelete: Cascade)
+  penanggungJawab  Pengguna?      @relation("TemuanPenanggungJawab", fields: [penanggungJawabId], references: [id], onDelete: SetNull)
+  taSasaran        TahunAkademik? @relation("TemuanSasaran", fields: [taSasaranId], references: [id], onDelete: SetNull)
+  diverifikasiOleh Pengguna?      @relation("TemuanDiverifikasi", fields: [diverifikasiOlehId], references: [id], onDelete: SetNull)
+  usulan           UsulanRevisi?  @relation(fields: [usulanId], references: [id], onDelete: SetNull)
+
+  @@unique([evaluasiId, tingkat, kode])
+  @@index([evaluasiId])
+  @@index([statusVerifikasi])
+  @@map("temuan_evaluasi")
+}
+
+/// Skor satu mahasiswa pada satu baris kisi-kisi — bahan analisis butir (E6).
+///
+/// Terpisah dari `NilaiAsesmen` dengan sengaja. `NilaiAsesmen` menyimpan skor
+/// UTS sebagai satu angka karena itulah yang masuk perhitungan capaian;
+/// analisis butir butuh angka per soal, dan itu data yang jauh lebih rinci
+/// serta OPSIONAL — banyak dosen tidak merekamnya, dan capaian tetap dapat
+/// dihitung tanpanya.
+model NilaiButir {
+  id              String  @id @default(cuid())
+  pesertaKelasId  String  @map("peserta_kelas_id")
+  butirKisiKisiId String  @map("butir_kisi_kisi_id")
+  skor            Decimal @db.Decimal(6, 2)
+
+  dibuatPada DateTime @default(now()) @map("dibuat_pada")
+  diubahPada DateTime @updatedAt @map("diubah_pada")
+
+  peserta PesertaKelas  @relation(fields: [pesertaKelasId], references: [id], onDelete: Cascade)
+  butir   ButirKisiKisi @relation(fields: [butirKisiKisiId], references: [id], onDelete: Cascade)
+
+  @@unique([pesertaKelasId, butirKisiKisiId])
+  @@index([butirKisiKisiId])
+  @@map("nilai_butir")
 }

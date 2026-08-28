@@ -26,21 +26,37 @@ Lima prinsip yang mengikat seluruh desain di bawah:
 | **B — Kunci institusi** | Admin memasukkan satu kunci, semua dosen memakainya dengan kuota per pengguna | Kampus yang berlangganan; dosen tidak perlu tahu soal API |
 | **C — Hibrida** | Kunci institusi sebagai bawaan, dosen boleh menimpanya dengan kuncinya sendiri | **Rekomendasi.** Superset dari A dan B |
 
-> **Status implementasi (Agustus 2026).** Yang sudah dibangun adalah jalur
-> paling ringkas: SATU kunci institusi per penyedia dari variabel lingkungan,
-> tanpa halaman pengaturan, tanpa tabel `ai_credential`, dan tanpa enkripsi di
-> basis data. Resolusi kunci terkumpul di `src/lib/ai/klien.ts` sehingga Mode
-> A/B/C tinggal menambah lapis di sana.
+> **Status implementasi (24 Agustus 2026): MODE A TERPASANG.** Kunci institusi
+> lewat variabel lingkungan sudah **dicabut** — `AI_PENYEDIA`, `AI_MODEL`, dan
+> ketiga `*_API_KEY` tidak lagi dibaca. Setiap dosen mendaftarkan kuncinya
+> sendiri di **Pengaturan → Kunci AI**, tersimpan terenkripsi amplop AES-256-GCM
+> pada tabel `kredensial_ai`, dan resolusinya ada di `src/lib/ai/kredensial.ts`.
+> Spesifikasi lengkapnya di [docs/08](./08-kunci-ai-per-pengguna.md); §2.2 dan
+> §2.3 di bawah adalah rancangan yang dipakai apa adanya. Mode B dan C belum
+> ada, dan kolom `scope` sengaja belum dibuat.
 > Penyedia dipilih lewat `AI_PENYEDIA`: **Anthropic** (bawaan, satu-satunya
-> yang mendukung prompt caching) atau **Mistral**. Adapternya ada di
-> `src/lib/ai/penyedia/`, di balik antarmuka `Penyedia` — menambah OpenAI atau
-> Gemini (§2.4) berarti menambah satu berkas di folder itu, tanpa menyentuh
-> gerbang maupun domain.
+> dengan prompt caching yang dapat diatur sendiri), **Mistral**, atau
+> **Gemini** (caching-nya implisit, berjalan tanpa pengaturan). Adapternya ada
+> di `src/lib/ai/penyedia/`, di balik antarmuka `Penyedia` — dan penambahan
+> Gemini membuktikan janji §2.4: satu berkas baru plus satu baris di
+> `klien.ts`, tanpa menyentuh gerbang, skema draf, maupun domain.
 > Fitur yang memakainya baru satu: usulan perbaikan temuan saat impor
 > kurikulum (§3.1 T1–T3, dipersempit) — lihat `src/lib/ai/perbaikan-kurikulum.ts`.
 > Keputusan prodi yang menyertainya: **AI boleh mengusulkan Sub-CPMK dan
 > pemetaan CPL yang belum ada**, tidak hanya memperbaiki rumusan. Isi hasil
 > usulan yang diterima ditandai `sumber = AI` pada tabel `cpmk`/`sub_cpmk`.
+>
+> **Draf RPKPS disusun tiga tahap (Agustus 2026).** Semula satu panggilan
+> dengan anggaran 32.000 token keluaran. Bentuk itu paling boros terhadap kuota
+> gratis: kegagalan di menit terakhir menghanguskan seluruh anggaran, dan
+> penyedia yang menghitung `max_tokens` yang DIMINTA terhadap batas
+> token-per-menit ikut membakar jatah yang tak pernah dipakai. Sekarang
+> kerangka (4.000) → pertemuan (14.000) → tugas dan kisi-kisi (10.000), berurutan.
+> Seluruh aritmetika diputuskan di tahap pertama, sehingga dua tahap berikutnya
+> tidak dapat merusak jumlah bobot. Yang dibayar: permintaan naik dari satu
+> menjadi tiga — memburuk bagi penyedia yang batasnya permintaan-per-hari.
+> Blok panduan dasar (~515 token) sengaja identik sebagai awalan ketiga tahap
+> agar kena prompt caching. `periksaDraf()` tetap memeriksa draf GABUNGAN.
 >
 > Fitur kedua: **penyusunan draf RPKPS utuh** (T4–T11 dipersempit) —
 > `src/lib/ai/draf-rpkps.ts` dan `src/domain/rpkps/draf.ts`. Menyimpang dari
@@ -110,10 +126,11 @@ Satu antarmuka internal, banyak adapter. Aplikasi berbicara dalam istilah `chat(
 
 | Penyedia | Status | Catatan |
 |---|---|---|
-| **Anthropic (Claude)** | Utama | Kualitas terbaik untuk penalaran akademik berbahasa Indonesia; dukungan *structured output* dan *prompt caching* matang |
-| OpenAI | Didukung | Banyak dosen sudah punya kunci |
-| Google Gemini | Didukung | Kuota gratis yang murah hati membantu adopsi awal |
-| OpenAI-compatible | Didukung | Menampung DeepSeek, Qwen, Ollama lokal, atau server kampus — penting untuk kampus dengan kebijakan data ketat |
+| **Anthropic (Claude)** | **Terpasang** (bawaan) | Kualitas terbaik untuk penalaran akademik berbahasa Indonesia; dukungan *structured output* dan *prompt caching* matang |
+| Mistral | **Terpasang** | REST langsung, tanpa SDK. Tanpa prompt caching |
+| **Google Gemini** | **Terpasang** | REST langsung. Caching implisit pada model 2.5 ke atas; `responseSchema` hanya menerima sebagian JSON Schema, jadi skema Zod disaring lebih dulu |
+| OpenAI | Rencana | Banyak dosen sudah punya kunci |
+| OpenAI-compatible | Rencana | Menampung DeepSeek, Qwen, Ollama lokal, atau server kampus — penting untuk kampus dengan kebijakan data ketat |
 
 Model Claude yang relevan (harga per 1 juta token, masukan/keluaran):
 
@@ -350,7 +367,7 @@ Menempel pada roadmap induk, bukan jalur terpisah:
 | **AI-2 — Perencanaan** | T4 materi, T5 metode, T6 aktivitas+durasi (terikat neraca waktu) | AI-1 |
 | **AI-3 — Asesmen** | T9 rubrik, T10 kisi-kisi, T11 butir soal, T12 tinjauan soal | F3 |
 | **AI-4 — Penjaminan mutu** | T13 reviewer virtual, T14 bilingual | F4 |
-| **AI-5 — Multi-penyedia** | Adapter OpenAI, Gemini, OpenAI-compatible; Mode B & C; kuota institusi | AI-1 |
+| **AI-5 — Multi-penyedia** | Gemini dan Mistral **terpasang**; tersisa OpenAI, OpenAI-compatible, Mode B & C, kuota institusi | AI-1 |
 | **AI-6 — Evaluasi** | T15 analisis capaian CPL, T16 analisis butir | F7 |
 | **AI-7 — Bahan ajar** | T17–T19, unggah pustaka + ringkasan | F5 |
 

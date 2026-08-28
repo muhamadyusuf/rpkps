@@ -1,55 +1,64 @@
-import Link from "next/link";
-import { ArrowRight, CircleAlert, Timer, Users } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { CircleAlert } from "lucide-react";
 import { ButtonLink } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { prisma } from "@/lib/prisma";
-import { wajibAktif, punyaPeran, LABEL_PERAN } from "@/lib/otorisasi";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { LABEL_PERAN, punyaPeran, wajibAktif } from "@/lib/otorisasi";
+import { muatDasbor } from "@/lib/dasbor/muat";
+import { AntrianKerja } from "./antrian";
+import { PanelAdmin } from "./panel-admin";
+import { PanelAsesor } from "./panel-asesor";
+import { PanelDosen } from "./panel-dosen";
+import { PanelMahasiswa } from "./panel-mahasiswa";
+import { PanelMutu } from "./panel-mutu";
+import { PanelProdi } from "./panel-prodi";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Dasbor" };
 
+/**
+ * Dasbor — docs/07-dasbor-peran.md.
+ *
+ * Panel dipilih menurut peran yang dipegang akun, dan BERTUMPUK: Kaprodi yang
+ * juga mengampu mata kuliah melihat panel prodi dan panel dosen sekaligus.
+ * Tidak ada "peran tertinggi" yang menelan peran lain — justru itu yang akan
+ * menyembunyikan sebagian pekerjaan orangnya.
+ *
+ * Halaman ini hanya MEMBACA. Setiap kartu adalah pintu ke halaman modul yang
+ * berwenang, sehingga otorisasi tetap tinggal di satu tempat.
+ */
 export default async function HalamanDasbor() {
   const sesi = await wajibAktif();
-  const bolehKelola = punyaPeran(sesi, "ADMIN", "GPM");
+  const data = await muatDasbor(sesi);
 
-  const [jumlahProdi, jumlahPengguna, menungguVerifikasi, tahunAktif, kebijakan] =
-    await Promise.all([
-      prisma.prodi.count({ where: { aktif: true } }),
-      prisma.pengguna.count(),
-      prisma.pengguna.count({ where: { status: "MENUNGGU_VERIFIKASI" } }),
-      prisma.tahunAkademik.findFirst({ where: { aktif: true } }),
-      prisma.kebijakanBebanBelajar.findFirst({
-        orderBy: { dibuatPada: "desc" },
-        select: { id: true, nama: true, status: true },
-      }),
-    ]);
+  const bolehKelolaKebijakan = punyaPeran(sesi, "ADMIN", "GPM");
+  const tanpaPanel =
+    data.prodi.length === 0 &&
+    !data.mutu &&
+    !data.dosen &&
+    !data.admin &&
+    !data.asesor &&
+    !data.mahasiswa;
 
   return (
-    <div className="mx-auto max-w-5xl">
-      <header className="mb-8">
+    <div className="mx-auto max-w-6xl space-y-10">
+      <header>
         <p className="label-teknis mb-2 text-muted-foreground/70">Dasbor</p>
         <h1 className="font-heading text-2xl font-semibold tracking-tight">
           Selamat datang, {sesi.nama.split(" ")[0]}
         </h1>
         <p className="mt-1.5 text-sm text-muted-foreground">
-          {tahunAktif
-            ? `Tahun akademik aktif: ${tahunAktif.kode.replace("-", " ")}`
+          {data.tahunAktif
+            ? `Tahun akademik aktif: ${data.tahunAktif.kode.replace("-", " ")}`
             : "Belum ada tahun akademik yang ditandai aktif."}
           {sesi.daftarPeran.length > 0
-            ? ` · Peran Anda: ${sesi.daftarPeran.map((p) => LABEL_PERAN[p]).join(", ")}`
+            ? ` · ${sesi.daftarPeran.map((p) => LABEL_PERAN[p]).join(", ")}`
             : null}
         </p>
       </header>
 
-      {kebijakan?.status === "DRAF" && bolehKelola ? (
-        <Card className="mb-6 border-l-2 border-l-warning bg-warning/8">
+      <AntrianKerja butir={data.antrian} />
+
+      {data.kebijakan?.status === "DRAF" && bolehKelolaKebijakan ? (
+        <Card className="panel border-l-2 border-l-warning bg-warning/8">
           <CardHeader>
             <div className="flex items-start gap-3">
               <CircleAlert className="mt-0.5 size-5 shrink-0 text-warning-foreground" />
@@ -68,114 +77,32 @@ export default async function HalamanDasbor() {
           <CardContent>
             <ButtonLink variant="outline" href="/kebijakan">
               Tinjau kebijakan
-              <ArrowRight />
             </ButtonLink>
           </CardContent>
         </Card>
       ) : null}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <KartuAngka
-          judul="Program studi"
-          angka={jumlahProdi}
-          keterangan="prodi aktif"
-          href={punyaPeran(sesi, "ADMIN") ? "/master/prodi" : undefined}
-        />
-        <KartuAngka
-          judul="Pengguna terdaftar"
-          angka={jumlahPengguna}
-          keterangan={
-            menungguVerifikasi > 0
-              ? `${menungguVerifikasi} menunggu verifikasi`
-              : "semua terverifikasi"
-          }
-          sorot={menungguVerifikasi > 0}
-          ikon={<Users className="size-4" />}
-          href={punyaPeran(sesi, "ADMIN") ? "/pengguna" : undefined}
-        />
-        <KartuAngka
-          judul="Kebijakan beban belajar"
-          angka={kebijakan ? 1 : 0}
-          keterangan={
-            kebijakan
-              ? kebijakan.status === "BERLAKU"
-                ? "berlaku"
-                : "masih draf"
-              : "belum ada — jalankan npm run db:seed"
-          }
-          ikon={<Timer className="size-4" />}
-          href={bolehKelola ? "/kebijakan" : undefined}
-        />
-      </div>
+      {data.prodi.map((p) => (
+        <PanelProdi key={p.prodi.id} data={p} />
+      ))}
 
-      <Card className="mt-8">
-        <CardHeader>
-          <CardTitle className="text-base">Tahap berikutnya</CardTitle>
-          <CardDescription>
-            Fondasi (F0) sudah terpasang. Modul kurikulum dan penyusun RPKPS
-            menyusul setelah kebijakan beban belajar dikunci.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ol className="ml-4 list-decimal space-y-2 text-sm text-muted-foreground marker:font-mono marker:text-cahaya/70">
-            <li>Konfirmasi kebijakan beban belajar ke Penjaminan Mutu, lalu ubah statusnya menjadi Berlaku.</li>
-            <li>Lengkapi program studi dan tahun akademik.</li>
-            <li>Verifikasi pengguna: isikan NIDN/NIP, peran, dan prodi.</li>
-            <li>Impor buku kurikulum: CPL, mata kuliah, CPMK, dan Sub-CPMK.</li>
-            <li>F2 — penyusun RPKPS di atas kurikulum yang sudah terkunci.</li>
-          </ol>
-        </CardContent>
-      </Card>
+      {data.mutu ? <PanelMutu data={data.mutu} /> : null}
+      {data.dosen ? <PanelDosen data={data.dosen} /> : null}
+      {data.admin ? <PanelAdmin data={data.admin} /> : null}
+      {data.asesor ? <PanelAsesor data={data.asesor} /> : null}
+      {data.mahasiswa ? <PanelMahasiswa data={data.mahasiswa} /> : null}
+
+      {tanpaPanel ? (
+        <Card className="panel">
+          <CardHeader>
+            <CardTitle className="text-base">Akun Anda belum punya peran</CardTitle>
+            <CardDescription className="mt-1">
+              Administrator perlu mengisi NIDN/NIP, peran, dan program studi
+              sebelum modul kurikulum, RPKPS, dan evaluasi terbuka untuk Anda.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      ) : null}
     </div>
-  );
-}
-
-function KartuAngka({
-  judul,
-  angka,
-  keterangan,
-  href,
-  sorot,
-  ikon,
-}: {
-  judul: string;
-  angka: number;
-  keterangan: string;
-  href?: string;
-  sorot?: boolean;
-  ikon?: React.ReactNode;
-}) {
-  const isi = (
-    <Card
-      className={
-        href
-          ? "transition-colors hover:border-cahaya/40 hover:bg-cahaya/4"
-          : undefined
-      }
-    >
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between gap-2">
-          <CardDescription className="label-teknis flex items-center gap-1.5 text-muted-foreground/80">
-            {ikon}
-            {judul}
-          </CardDescription>
-          {sorot ? <Badge variant="outline">perlu tindakan</Badge> : null}
-        </div>
-      </CardHeader>
-      <CardContent>
-        <p className="font-mono text-3xl leading-none font-semibold tabular-nums">
-          {angka}
-        </p>
-        <p className="mt-1.5 text-xs text-muted-foreground">{keterangan}</p>
-      </CardContent>
-    </Card>
-  );
-
-  return href ? (
-    <Link href={href} className="block">
-      {isi}
-    </Link>
-  ) : (
-    isi
   );
 }

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { cakupanProdi, punyaPeran, wajibAktif } from "@/lib/otorisasi";
+import { wenangRpkps } from "@/lib/rpkps/wenang";
 import { GalatAi } from "@/lib/ai/galat";
 import { susunDraf } from "@/lib/ai/draf-rpkps";
 import {
@@ -28,32 +28,20 @@ export interface HasilDraf {
   model?: string;
   /** Durasi nyata, dilaporkan setelah selesai — bukan perkiraan di muka. */
   msModel?: number;
+  /**
+   * Penyesuaian aritmetika yang dilakukan server atas keluaran model.
+   * Ditampilkan apa adanya: yang menyetujui dokumen adalah dosen, dan ia
+   * berhak tahu angka mana yang bukan lagi angka model.
+   */
+  catatan?: string[];
 }
 
 async function pastikanWenang(rpkpsId: string) {
-  const sesi = await wajibAktif();
-  const rpkps = await prisma.rpkps.findUnique({
-    where: { id: rpkpsId },
-    select: {
-      id: true,
-      status: true,
-      mataKuliah: { select: { kurikulum: { select: { prodiId: true } } } },
-      pengampu: { select: { penggunaId: true } },
-    },
-  });
-  if (!rpkps) return { sesi, boleh: false, dapatDisunting: false };
-
-  const cakupan = cakupanProdi(sesi);
-  const dalamCakupan =
-    cakupan === null || cakupan.includes(rpkps.mataKuliah.kurikulum.prodiId);
-  const pengampu = rpkps.pengampu.some((p) => p.penggunaId === sesi.id);
-  const boleh =
-    dalamCakupan && (pengampu || punyaPeran(sesi, "ADMIN", "KAPRODI", "GPM"));
-
+  const { sesi, boleh, status } = await wenangRpkps(rpkpsId);
   return {
     sesi,
     boleh,
-    dapatDisunting: rpkps.status === "DRAF" || rpkps.status === "DIREVISI",
+    dapatDisunting: status === "DRAF" || status === "DIREVISI",
   };
 }
 
@@ -193,7 +181,11 @@ export async function periksaKesiapanDraf(rpkpsId: string): Promise<HasilKesiapa
  * Persetujuan dosen berupa satu tombol untuk seluruh dokumen, jadi draf yang
  * melanggar invarian dikembalikan beserta temuannya dan tidak dapat diterapkan.
  */
-export async function susunDrafRpkps(rpkpsId: string): Promise<HasilDraf> {
+export async function susunDrafRpkps(
+  rpkpsId: string,
+  /** Kunci AI yang dipilih dosen; kosong berarti kunci bawaannya. */
+  kredensialId?: string | null,
+): Promise<HasilDraf> {
   const { boleh, dapatDisunting, sesi } = await pastikanWenang(rpkpsId);
   if (!boleh) return { ok: false, pesan: "Anda tidak berwenang atas RPKPS ini." };
   if (!dapatDisunting) return { ok: false, pesan: "RPKPS sudah diajukan atau terbit." };
@@ -203,9 +195,10 @@ export async function susunDrafRpkps(rpkpsId: string): Promise<HasilDraf> {
 
   const mulai = Date.now();
   try {
-    const { draf, penyedia, model } = await susunDraf({
+    const { draf, penyedia, model, catatan } = await susunDraf({
       penggunaId: sesi.id,
       rpkpsId,
+      kredensialId,
       konteks: {
         mataKuliah: {
           kode: k.mataKuliah.kode,
@@ -235,7 +228,7 @@ export async function susunDrafRpkps(rpkpsId: string): Promise<HasilDraf> {
 
     const msModel = Date.now() - mulai;
     const temuan = periksaDraf(konteksDomain(k), draf);
-    return { ok: temuan.length === 0, draf, temuan, penyedia, model, msModel };
+    return { ok: temuan.length === 0, draf, temuan, penyedia, model, msModel, catatan };
   } catch (galat) {
     if (galat instanceof GalatAi) return { ok: false, pesan: galat.message };
     console.error("[rpkps] gagal menyusun draf:", galat);

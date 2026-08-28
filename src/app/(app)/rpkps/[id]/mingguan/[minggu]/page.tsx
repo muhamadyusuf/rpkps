@@ -1,11 +1,21 @@
 import { notFound } from "next/navigation";
-import { ArrowLeft, ArrowRight, Lock } from "lucide-react";
+import Link from "next/link";
+import { ArrowLeft, ArrowRight, ListChecks, Lock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
-import { cakupanProdi, wajibAktif } from "@/lib/otorisasi";
+import { wajibAktif } from "@/lib/otorisasi";
+import { wenangAtasRpkps } from "@/lib/rpkps/wenang";
 import { muatKebijakan, muatRpkps } from "@/lib/rpkps/muat";
 import { susunRencanaSemester } from "@/domain/beban-belajar/kalkulator";
 import { EditorPertemuan } from "./editor";
+
+function Tautan({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <Link href={href} className="underline underline-offset-2 hover:text-foreground">
+      {children}
+    </Link>
+  );
+}
 
 export const dynamic = "force-dynamic";
 
@@ -22,8 +32,8 @@ export default async function HalamanPertemuan({
   const rpkps = await muatRpkps(id);
   if (!rpkps) notFound();
 
-  const cakupan = cakupanProdi(sesi);
-  if (cakupan !== null && !cakupan.includes(rpkps.mataKuliah.kurikulum.prodiId)) notFound();
+  const wenang = wenangAtasRpkps(sesi, rpkps);
+  if (!wenang.bolehLihat) notFound();
 
   const pertemuan = rpkps.pertemuan.find((p) => p.minggu === minggu);
   if (!pertemuan) notFound();
@@ -47,6 +57,24 @@ export default async function HalamanPertemuan({
   const subCpmkTersedia = rpkps.mataKuliah.cpmk.flatMap((c) =>
     c.subCpmk.map((s) => ({ id: s.id, kode: s.kode, rumusan: s.rumusan })),
   );
+
+  /**
+   * Baris ujian hampir selalu punya komponen nilai bernama sama ("UTS", "UAS")
+   * — dan hampir selalu lupa ditunjuk, karena penyusun mengira bobot ujian
+   * sudah terwakili kisi-kisi. Akibatnya bobot ujian menggantung: tidak masuk
+   * komponen mana pun, tidak muncul pada tabel distribusi, dan menjadi temuan
+   * PA-TANPA-KOMPONEN pada peta asesmen.
+   *
+   * Usulan ini hanya nilai awal penyunting, bukan tulisan ke basis data —
+   * penyusun tetap yang menyimpan, dan tetap bisa memilih yang lain.
+   */
+  const komponenUsulan =
+    pertemuan.komponenNilaiId ??
+    (pertemuan.jenis === "EFEKTIF"
+      ? null
+      : (rpkps.komponenNilai.find(
+          (k) => k.nama.trim().toUpperCase() === pertemuan.jenis,
+        )?.id ?? null));
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -85,6 +113,19 @@ export default async function HalamanPertemuan({
         </p>
       </header>
 
+      {pertemuan.jenis !== "EFEKTIF" ? (
+        <div className="flex items-start gap-2.5 rounded-lg border bg-muted/40 p-4 text-sm">
+          <ListChecks className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+          <p className="text-muted-foreground">
+            Sub-CPMK yang diuji {pertemuan.jenis} diambil dari{" "}
+            <Tautan href={`/rpkps/${id}/kisi-kisi`}>kisi-kisi</Tautan>, bukan
+            dari daftar di bawah — porsinya mengikuti skor butir. Yang penting
+            diisi di halaman ini adalah bobot dan komponen nilainya, supaya
+            bobot ujian tidak menggantung di luar komponen mana pun.
+          </p>
+        </div>
+      ) : null}
+
       {bisaSunting ? (
         <EditorPertemuan
           pertemuanId={pertemuan.id}
@@ -114,7 +155,7 @@ export default async function HalamanPertemuan({
             penilaianJenis: pertemuan.penilaianJenis,
             penilaianSistem: pertemuan.penilaianSistem,
             bobot: Number(pertemuan.bobot),
-            komponenNilaiId: pertemuan.komponenNilaiId,
+            komponenNilaiId: komponenUsulan,
             subCpmkId: pertemuan.subCpmk.map((s) => s.subCpmkId),
             indikator: pertemuan.indikator.map((i) => i.teks),
             aktivitas: pertemuan.aktivitas.map((a) => ({

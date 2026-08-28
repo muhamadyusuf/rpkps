@@ -15,16 +15,21 @@ export type ButirMenu = {
 export type KunciIkon =
   | "dasbor"
   | "kurikulum"
+  | "usulan"
+  | "evaluasi"
   | "rpkps"
   | "beban"
   | "prodi"
   | "tahun"
-  | "pengguna";
+  | "pengguna"
+  | "kunci";
 
 export const MENU: readonly ButirMenu[] = [
   { href: "/dashboard", label: "Dasbor", ikon: "dasbor", peran: null },
   { href: "/kurikulum", label: "Kurikulum", ikon: "kurikulum", peran: null },
+  { href: "/usulan", label: "Usulan Revisi", ikon: "usulan", peran: null },
   { href: "/rpkps", label: "RPKPS", ikon: "rpkps", peran: null },
+  { href: "/evaluasi", label: "Evaluasi Capaian", ikon: "evaluasi", peran: null },
   {
     href: "/kebijakan",
     label: "Beban Belajar",
@@ -44,4 +49,6 @@ export const MENU: readonly ButirMenu[] = [
     peran: ["ADMIN"],
   },
   { href: "/pengguna", label: "Pengguna", ikon: "pengguna", peran: ["ADMIN"] },
+  // Kunci AI milik masing-masing pengguna (docs/08), bukan pengaturan admin.
+  { href: "/pengaturan/ai", label: "Kunci AI", ikon: "kunci", peran: null },
 ];

@@ -3,35 +3,17 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { cakupanProdi, punyaPeran, wajibAktif } from "@/lib/otorisasi";
+import { wenangRpkps } from "@/lib/rpkps/wenang";
 import { saringSubCpmkMilikRpkps } from "@/lib/rpkps/muat";
 
 export type Hasil = { ok: boolean; pesan: string; id?: string };
 
 async function pastikanWenang(rpkpsId: string) {
-  const sesi = await wajibAktif();
-  const rpkps = await prisma.rpkps.findUnique({
-    where: { id: rpkpsId },
-    select: {
-      id: true,
-      status: true,
-      mataKuliah: { select: { kurikulum: { select: { prodiId: true } } } },
-      pengampu: { select: { penggunaId: true } },
-    },
-  });
-  if (!rpkps) return { sesi, boleh: false, dapatDisunting: false };
-
-  const cakupan = cakupanProdi(sesi);
-  const dalamCakupan =
-    cakupan === null || cakupan.includes(rpkps.mataKuliah.kurikulum.prodiId);
-  const pengampu = rpkps.pengampu.some((p) => p.penggunaId === sesi.id);
-  const boleh =
-    dalamCakupan && (pengampu || punyaPeran(sesi, "ADMIN", "KAPRODI", "GPM"));
-
+  const { sesi, boleh, status } = await wenangRpkps(rpkpsId);
   return {
     sesi,
     boleh,
-    dapatDisunting: rpkps.status === "DRAF" || rpkps.status === "DIREVISI",
+    dapatDisunting: status === "DRAF" || status === "DIREVISI",
   };
 }
 

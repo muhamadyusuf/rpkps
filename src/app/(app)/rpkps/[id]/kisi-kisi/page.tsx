@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Lock } from "lucide-react";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { cakupanProdi, wajibAktif } from "@/lib/otorisasi";
+import { wajibAktif } from "@/lib/otorisasi";
+import { wenangAtasRpkps } from "@/lib/rpkps/wenang";
 import { muatKebijakan, muatRpkps } from "@/lib/rpkps/muat";
 import { posisiMingguUjian } from "@/domain/beban-belajar/kalkulator";
 import type { KonteksKisiKisi } from "@/domain/rpkps/kisi-kisi";
@@ -22,8 +23,8 @@ export default async function HalamanKisiKisi({
   const rpkps = await muatRpkps(id);
   if (!rpkps) notFound();
 
-  const cakupan = cakupanProdi(sesi);
-  if (cakupan !== null && !cakupan.includes(rpkps.mataKuliah.kurikulum.prodiId)) notFound();
+  const wenang = wenangAtasRpkps(sesi, rpkps);
+  if (!wenang.bolehLihat) notFound();
 
   const { kebijakan } = await muatKebijakan();
   const bisaSunting = rpkps.status === "DRAF" || rpkps.status === "DIREVISI";

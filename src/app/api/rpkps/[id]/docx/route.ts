@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { cakupanProdi } from "@/lib/otorisasi";
+import { wenangAtasRpkps } from "@/lib/rpkps/wenang";
 import { sesiSaatIni } from "@/lib/sesi";
 import { siapkanUnduhanRpkps } from "@/lib/dokumen/siapkan-unduhan";
 
@@ -22,18 +22,20 @@ export async function GET(
 
   const { id } = await params;
 
-  // Cakupan prodi diperiksa lebih dulu, dengan kueri murah: menyusun DOCX
-  // lengkap untuk kemudian menolaknya adalah kerja yang terbuang.
+  // Wewenang diperiksa lebih dulu, dengan kueri murah: menyusun DOCX lengkap
+  // untuk kemudian menolaknya adalah kerja yang terbuang.
   const rpkps = await prisma.rpkps.findUnique({
     where: { id },
-    select: { mataKuliah: { select: { kurikulum: { select: { prodiId: true } } } } },
+    select: {
+      mataKuliah: { select: { kurikulum: { select: { prodiId: true } } } },
+      pengampu: { select: { penggunaId: true, peran: true } },
+    },
   });
   if (!rpkps) {
     return NextResponse.json({ pesan: "RPKPS tidak ditemukan." }, { status: 404 });
   }
 
-  const cakupan = cakupanProdi(sesi);
-  if (cakupan !== null && !cakupan.includes(rpkps.mataKuliah.kurikulum.prodiId)) {
+  if (!wenangAtasRpkps(sesi, rpkps).bolehLihat) {
     return NextResponse.json({ pesan: "Tidak berwenang." }, { status: 403 });
   }
 

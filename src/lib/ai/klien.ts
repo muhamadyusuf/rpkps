@@ -1,77 +1,58 @@
 import "server-only";
 import { GalatAi } from "./galat";
 import { penyediaAnthropic } from "./penyedia/anthropic";
+import { penyediaGemini } from "./penyedia/gemini";
 import { penyediaMistral } from "./penyedia/mistral";
 import type { Penyedia } from "./penyedia/tipe";
+import type { PenyediaAi } from "@/generated/prisma";
 
 /**
- * Resolusi penyedia dan kredensial AI.
+ * Pemetaan penyedia → adapter.
  *
- * Tahap ini memakai SATU kunci institusi per penyedia, dari variabel
- * lingkungan — bukan kunci per dosen. docs/01 §2.1 merancang `scope`
- * ('user' | 'prodi' | 'institusi'); bila kelak BYOK per dosen dibangun,
- * lapisannya masuk di fungsi ini saja dan tanda tangan pemanggil tidak
- * berubah, karena pemanggil sudah menyerahkan penggunaId ke gerbang.
+ * Sejak docs/08 (Mode A), berkas ini TIDAK LAGI membaca variabel lingkungan.
+ * `ANTHROPIC_API_KEY`, `MISTRAL_API_KEY`, `GEMINI_API_KEY`, `AI_PENYEDIA`, dan
+ * `AI_MODEL` sudah pensiun: kunci dan model melekat pada kredensial milik
+ * dosen, dan resolusinya ada di `kredensial.ts`. Yang tersisa di sini semata
+ * pembuatan adapter dari kunci yang sudah dibuka.
  */
 
 export { GalatAi };
 
-const PENYEDIA = {
-  anthropic: { env: "ANTHROPIC_API_KEY", buat: penyediaAnthropic },
-  mistral: { env: "MISTRAL_API_KEY", buat: penyediaMistral },
-} as const;
+const ADAPTER: Record<PenyediaAi, (apiKey: string) => Penyedia> = {
+  ANTHROPIC: penyediaAnthropic,
+  MISTRAL: penyediaMistral,
+  GEMINI: penyediaGemini,
+};
 
-export type KodePenyedia = keyof typeof PENYEDIA;
+export const LABEL_PENYEDIA: Record<PenyediaAi, string> = {
+  ANTHROPIC: "Anthropic (Claude)",
+  MISTRAL: "Mistral",
+  GEMINI: "Google Gemini",
+};
 
-const BAWAAN: KodePenyedia = "anthropic";
+/** Petunjuk tempat membuat kunci, ditampilkan di halaman pengaturan. */
+export const ASAL_KUNCI: Record<PenyediaAi, string> = {
+  ANTHROPIC: "console.anthropic.com → API Keys",
+  MISTRAL: "console.mistral.ai → API Keys",
+  GEMINI: "aistudio.google.com → Get API key",
+};
 
-function kodePenyedia(): KodePenyedia {
-  const nilai = process.env.AI_PENYEDIA?.trim().toLowerCase();
-  if (!nilai) return BAWAAN;
-  if (nilai in PENYEDIA) return nilai as KodePenyedia;
-  // Salah ketik tidak boleh diam-diam jatuh ke penyedia lain: dosen bisa
-  // mengira sedang memakai Mistral padahal tagihannya jalan di Anthropic.
-  console.error(`[ai] AI_PENYEDIA="${nilai}" tidak dikenal; fitur AI dimatikan.`);
-  return BAWAAN;
+export const DAFTAR_PENYEDIA = Object.keys(ADAPTER) as PenyediaAi[];
+
+export function buatPenyedia(kode: PenyediaAi, apiKey: string): Penyedia {
+  const buat = ADAPTER[kode];
+  if (!buat) throw new GalatAi(`Penyedia ${kode} tidak dikenal.`);
+  return buat(apiKey);
 }
 
-function penyediaSah(): boolean {
-  const nilai = process.env.AI_PENYEDIA?.trim().toLowerCase();
-  return !nilai || nilai in PENYEDIA;
-}
-
-function kunci(kode: KodePenyedia): string | null {
-  const nilai = process.env[PENYEDIA[kode].env]?.trim();
-  return nilai ? nilai : null;
-}
-
-/** Dipakai halaman untuk menyembunyikan tombol AI bila kunci belum dipasang. */
-export function aiTersedia(): boolean {
-  return penyediaSah() && kunci(kodePenyedia()) !== null;
+/** Model bawaan adapter, dipakai bila dosen tidak menyebut model sendiri. */
+export function modelBawaan(kode: PenyediaAi): string {
+  return buatPenyedia(kode, "tanpa-kunci").modelBawaan;
 }
 
 export interface PenyediaTerpilih {
   penyedia: Penyedia;
   model: string;
-}
-
-export function pilihPenyedia(): PenyediaTerpilih {
-  if (!penyediaSah()) {
-    throw new GalatAi(
-      `AI_PENYEDIA tidak dikenal. Pilihannya: ${Object.keys(PENYEDIA).join(", ")}.`,
-    );
-  }
-
-  const kode = kodePenyedia();
-  const apiKey = kunci(kode);
-  if (!apiKey) {
-    throw new GalatAi(
-      `Fitur AI belum aktif. Admin perlu mengisi ${PENYEDIA[kode].env} di server.`,
-    );
-  }
-
-  const penyedia = PENYEDIA[kode].buat(apiKey);
-  // AI_MODEL berlaku lintas penyedia; kosongkan agar tiap penyedia memakai
-  // model bawaannya sendiri, karena nama modelnya jelas tidak saling cocok.
-  return { penyedia, model: process.env.AI_MODEL?.trim() || penyedia.modelBawaan };
+  /** Kredensial milik dosen yang menanggung panggilan ini. */
+  kredensialId: string;
 }

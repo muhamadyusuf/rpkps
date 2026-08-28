@@ -11,6 +11,14 @@ import { susunRencanaSemester } from "@/domain/beban-belajar/kalkulator";
 import { validasiRpkps } from "@/domain/rpkps/validator";
 import { validasiKurikulum } from "@/domain/kurikulum/validator";
 import { validasiKisiKisi } from "@/domain/rpkps/kisi-kisi";
+import { periksaKelayakanHapus, statusSetelahPulih } from "@/domain/rpkps/daur-hidup";
+import { periksaPenerapan, periksaUsulanRevisi } from "@/domain/kurikulum/usulan";
+import {
+  keUsulanInput,
+  muatKurikulumInput,
+  muatUsulan,
+  terapkanUsulan,
+} from "@/lib/kurikulum/usulan-inti";
 import type { KategoriWaktu } from "@/generated/prisma";
 
 function cek(nama: string, syarat: boolean, detail?: string) {
@@ -506,6 +514,273 @@ async function main() {
     !xmlBeku.includes("rumusan direvisi prodi"),
   );
   cek("dokumen resmi mencantumkan sidik", xmlBeku.includes(sidikSebelum.slice(0, 8)));
+
+  // ── 9 · Usulan Revisi Kurikulum: usul → putus → sahkan ─────────
+  // Doc 04. Yang dibuktikan di sini bukan sekadar "data tersimpan", melainkan
+  // dua janji yang paling mudah dilanggar: pensiun TIDAK menghapus baris RPKPS
+  // yang merujuknya, dan salinan beku RPKPS terbit tidak ikut berubah.
+  const tahunDepan = await prisma.tahunAkademik.create({
+    data: {
+      kode: "2026/2027-GANJIL",
+      tahunMulai: 2026,
+      tahunSelesai: 2027,
+      semester: "GANJIL",
+    },
+  });
+
+  const subDiubah = await prisma.subCpmk.findFirstOrThrow({ where: { kode: "CPMK082-3" } });
+  const subDipensiun = await prisma.subCpmk.findFirstOrThrow({ where: { kode: "CPMK082-7" } });
+  const rujukanSebelum = await prisma.pertemuanSubCpmk.count({
+    where: { subCpmkId: subDipensiun.id },
+  });
+
+  const usulanBaru = await prisma.usulanRevisi.create({
+    data: {
+      kurikulumId: kurikulum.id,
+      mataKuliahId: mk.id,
+      judul: "Penyegaran capaian normalisasi",
+      latar:
+        "Rumusan CPMK082-3 belum menyebut sampai bentuk normal keberapa mahasiswa dituntut bekerja, sehingga penilaiannya tidak konsisten antar-dosen.",
+      diajukanOlehId: pengguna.id,
+      butir: {
+        create: [
+          {
+            urutan: 1,
+            jenis: "SUB_RUMUSAN",
+            cpmkKode: "CPMK082",
+            subCpmkKode: "CPMK082-3",
+            rumusan:
+              "Mahasiswa mampu menjelaskan normalisasi hingga bentuk normal ketiga pada skema relasional.",
+            levelBloom: "C2",
+            alasan: "Rumusan lama tidak menyebut batas bentuk normal yang dituntut.",
+            dasar: {
+              create: {
+                jenis: "CATATAN_DOSEN",
+                kutipan: "Tiga dosen pengampu menilai batas normalisasi berbeda-beda.",
+              },
+            },
+          },
+          {
+            urutan: 2,
+            jenis: "SUB_PENSIUN",
+            cpmkKode: "CPMK082",
+            subCpmkKode: "CPMK082-7",
+            alasan: "Materinya sudah ditampung Sub-CPMK lain sejak tabel mingguan disusun ulang.",
+            dasar: {
+              create: {
+                jenis: "CATATAN_DOSEN",
+                kutipan: "Tumpang tindih dengan CPMK082-5 pada dua semester terakhir.",
+              },
+            },
+          },
+          {
+            urutan: 3,
+            jenis: "CATATAN_CPL",
+            cpmkKode: "CPMK082",
+            alasan: "Gudang data belum tertampung CPL mana pun; perlu dibahas di evaluasi kurikulum.",
+            dasar: {
+              create: {
+                jenis: "CATATAN_DOSEN",
+                kutipan: "Permintaan kompetensi OLAP muncul berulang pada masukan mitra.",
+              },
+            },
+          },
+        ],
+      },
+    },
+    select: { id: true },
+  });
+
+  const kurikulumInput = await muatKurikulumInput(prisma, kurikulum.id);
+  const usulanDiajukan = await muatUsulan(prisma, usulanBaru.id);
+  const periksaAjuan = periksaUsulanRevisi(kurikulumInput!, keUsulanInput(usulanDiajukan!));
+  cek(
+    "usulan lolos pemeriksaan pengajuan",
+    periksaAjuan.lolos,
+    periksaAjuan.pemblokir.map((t) => t.kode).join(",") || "tanpa pemblokir",
+  );
+
+  // Kaprodi memutuskan: dua butir diterima, catatan CPL dibiarkan sebagai bahan
+  // evaluasi kurikulum — ia memang tidak pernah diterapkan.
+  await prisma.usulanRevisi.update({
+    where: { id: usulanBaru.id },
+    data: { status: "DIAJUKAN", diajukanPada: new Date() },
+  });
+  await prisma.butirUsulan.updateMany({
+    where: { usulanId: usulanBaru.id, jenis: { not: "CATATAN_CPL" } },
+    data: { status: "DITERIMA" },
+  });
+
+  const usulanDiputus = await muatUsulan(prisma, usulanBaru.id);
+  const periksaTerap = periksaPenerapan(kurikulumInput!, keUsulanInput(usulanDiputus!));
+  cek("penerapan lolos pemeriksaan akibat", periksaTerap.lolos);
+
+  const hasilTerap = await terapkanUsulan(
+    prisma,
+    usulanDiputus!,
+    pengguna.id,
+    tahunDepan.id,
+  );
+  cek("revisi tercatat sebagai revisi ke-1", hasilTerap.revisiKe === 1, hasilTerap.ringkasan);
+
+  const kurikulumSesudah = await prisma.kurikulum.findUniqueOrThrow({
+    where: { id: kurikulum.id },
+    include: { daftarRevisi: true },
+  });
+  cek("penghitung revisi kurikulum naik", kurikulumSesudah.revisi === 1);
+  cek(
+    "ledger revisi terisi dan menandai pengesahan mandiri",
+    kurikulumSesudah.daftarRevisi.length === 1 &&
+      kurikulumSesudah.daftarRevisi[0].disahkanSendiri &&
+      kurikulumSesudah.daftarRevisi[0].berlakuMulaiTaId === tahunDepan.id,
+  );
+
+  const subSesudah = await prisma.subCpmk.findUniqueOrThrow({ where: { id: subDiubah.id } });
+  cek("rumusan Sub-CPMK ikut berubah", subSesudah.rumusan.includes("bentuk normal ketiga"));
+
+  const pensiunSesudah = await prisma.subCpmk.findUniqueOrThrow({
+    where: { id: subDipensiun.id },
+  });
+  cek("Sub-CPMK dipensiunkan sejak TA berlaku", pensiunSesudah.pensiunSejakTaId === tahunDepan.id);
+
+  const rujukanSesudah = await prisma.pertemuanSubCpmk.count({
+    where: { subCpmkId: subDipensiun.id },
+  });
+  cek(
+    "pensiun tidak menghapus baris RPKPS yang merujuknya",
+    rujukanSebelum > 0 && rujukanSesudah === rujukanSebelum,
+    `${rujukanSesudah} pertemuan tetap utuh`,
+  );
+
+  const kurikulumBerlaku = await muatKurikulumInput(prisma, kurikulum.id);
+  const subAktif = kurikulumBerlaku!.mataKuliah[0].cpmk.flatMap((c) => c.subCpmk.map((s) => s.kode));
+  cek(
+    "capaian pensiun tidak lagi ditawarkan untuk RPKPS baru",
+    !subAktif.includes("CPMK082-7") && subAktif.includes("CPMK082-3"),
+  );
+
+  const butirSesudah = await prisma.butirUsulan.findMany({
+    where: { usulanId: usulanBaru.id },
+    orderBy: { urutan: "asc" },
+  });
+  cek(
+    "butir tertaut balik ke capaian hasilnya",
+    butirSesudah[0].subCpmkId === subDiubah.id && butirSesudah[2].subCpmkId === null,
+  );
+
+  const snapshotSesudahRevisi = await prisma.rpkpsSnapshot.findUniqueOrThrow({
+    where: { rpkpsId_versi: { rpkpsId: rpkps.id, versi: 1 } },
+  });
+  cek(
+    "salinan beku RPKPS tidak tersentuh revisi kurikulum",
+    snapshotSesudahRevisi.sidik === sidikSebelum,
+  );
+
+  const usulanAkhir = await prisma.usulanRevisi.findUniqueOrThrow({
+    where: { id: usulanBaru.id },
+  });
+  cek("usulan berstatus diterapkan", usulanAkhir.status === "DITERAPKAN");
+
+  // ── 9 · Daur hidup: hapus, arsip, salin (docs/06) ──────────────
+  const sensusTerbit = await prisma.rpkps.findUniqueOrThrow({
+    where: { id: rpkps.id },
+    select: {
+      status: true,
+      _count: { select: { snapshot: true } },
+      kelas: {
+        select: {
+          kode: true,
+          evaluasi: { select: { id: true } },
+          peserta: { select: { _count: { select: { nilai: true } } } },
+        },
+      },
+    },
+  });
+  const kelayakanTerbit = periksaKelayakanHapus({
+    status: sensusTerbit.status,
+    jumlahSnapshot: sensusTerbit._count.snapshot,
+    kelas: sensusTerbit.kelas.map((k) => ({
+      kode: k.kode,
+      jumlahPeserta: k.peserta.length,
+      jumlahNilai: k.peserta.reduce((n, x) => n + x._count.nilai, 0),
+      adaEvaluasi: k.evaluasi !== null,
+    })),
+  });
+  cek(
+    "RPKPS bersalinan beku ditolak untuk dihapus",
+    !kelayakanTerbit.boleh && kelayakanTerbit.alasan.some((a) => a.includes("SHA-256")),
+    kelayakanTerbit.alasan.length + " alasan",
+  );
+
+  // Draf bersih pada tahun berikutnya: satu-satunya bentuk yang boleh dihapus.
+  const drafBersih = await prisma.rpkps.create({
+    data: {
+      mataKuliahId: mk.id,
+      tahunAkademikId: tahunDepan.id,
+      status: "DRAF",
+      pertemuan: { create: [{ minggu: 1, topik: "Pendahuluan" }, { minggu: 2 }] },
+      komponenNilai: { create: [{ nama: "UTS", bobot: 40, urutan: 0 }] },
+      kelas: { create: [{ kode: "A" }] },
+    },
+    select: { id: true },
+  });
+
+  const sensusDraf = await prisma.rpkps.findUniqueOrThrow({
+    where: { id: drafBersih.id },
+    select: {
+      status: true,
+      _count: { select: { snapshot: true } },
+      kelas: {
+        select: {
+          kode: true,
+          evaluasi: { select: { id: true } },
+          peserta: { select: { _count: { select: { nilai: true } } } },
+        },
+      },
+    },
+  });
+  cek(
+    "draf berkelas KOSONG tetap boleh dihapus",
+    periksaKelayakanHapus({
+      status: sensusDraf.status,
+      jumlahSnapshot: sensusDraf._count.snapshot,
+      kelas: sensusDraf.kelas.map((k) => ({
+        kode: k.kode,
+        jumlahPeserta: k.peserta.length,
+        jumlahNilai: 0,
+        adaEvaluasi: k.evaluasi !== null,
+      })),
+    }).boleh,
+  );
+
+  await prisma.rpkps.delete({ where: { id: drafBersih.id } });
+  const sisa =
+    (await prisma.pertemuan.count({ where: { rpkpsId: drafBersih.id } })) +
+    (await prisma.komponenNilai.count({ where: { rpkpsId: drafBersih.id } })) +
+    (await prisma.kelas.count({ where: { rpkpsId: drafBersih.id } }));
+  cek("penghapusan menyapu bersih seluruh anak lewat cascade", sisa === 0);
+
+  // Arsip menarik dari katalog publik tanpa melenyapkan apa pun.
+  const snapshotSebelumArsip = await prisma.rpkpsSnapshot.count({
+    where: { rpkpsId: rpkps.id },
+  });
+  await prisma.rpkps.update({ where: { id: rpkps.id }, data: { status: "ARSIP" } });
+  const takTampilPublik = await prisma.rpkps.count({
+    where: { id: rpkps.id, status: "TERBIT" },
+  });
+  const snapshotSesudahArsip = await prisma.rpkpsSnapshot.count({
+    where: { rpkpsId: rpkps.id },
+  });
+  cek(
+    "arsip menghilangkan RPKPS dari saringan publik tanpa menyentuh salinan beku",
+    takTampilPublik === 0 && snapshotSesudahArsip === snapshotSebelumArsip,
+    `${snapshotSesudahArsip} salinan beku utuh`,
+  );
+  cek(
+    "pemulihan mengembalikan status TERBIT karena salinan beku versi ini ada",
+    statusSetelahPulih(snapshotSesudahArsip > 0) === "TERBIT",
+  );
+  await prisma.rpkps.update({ where: { id: rpkps.id }, data: { status: "TERBIT" } });
 
   writeFileSync("uji/keluaran-rpkps.docx", buffer);
   console.log("     dokumen contoh: uji/keluaran-rpkps.docx");

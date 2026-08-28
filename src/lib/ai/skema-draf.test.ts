@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
-import { SkemaKeluaranDraf } from "./skema-draf";
+import { SkemaKerangka, SkemaPertemuan, SkemaTugasKisi } from "./skema-draf";
 
 /**
  * Penjaga batas grammar structured output.
@@ -13,8 +13,13 @@ import { SkemaKeluaranDraf } from "./skema-draf";
  *
  * Angka di bawah berasal dari pengukuran langsung ke API pada 2026-08-21
  * (claude-opus-5); rinciannya di kepala skema-draf.ts. Bila salah satu uji ini
- * gagal, JANGAN sekadar menaikkan angkanya — pecah penyusunan draf menjadi
- * beberapa panggilan, masing-masing dengan skema sendiri.
+ * gagal, JANGAN sekadar menaikkan angkanya — pecah tahap yang bersangkutan
+ * menjadi dua panggilan, seperti yang sudah dilakukan pada draf utuh.
+ *
+ * Sejak draf dipecah tiga tahap, tiap grammar jauh di bawah ambang. Anggaran
+ * di sini karena itu dipasang per tahap dan longgar: yang dijaga bukan lagi
+ * "muat atau tidak", melainkan supaya satu tahap tidak diam-diam tumbuh
+ * kembali sampai seukuran skema tunggal yang dulu.
  */
 
 interface Ukuran {
@@ -45,32 +50,43 @@ function ukur(skema: unknown): Ukuran {
   return u;
 }
 
-const ukuran = ukur(zodOutputFormat(SkemaKeluaranDraf).schema);
+const TAHAP = [
+  { nama: "kerangka", skema: SkemaKerangka },
+  { nama: "pertemuan", skema: SkemaPertemuan },
+  { nama: "tugas dan kisi-kisi", skema: SkemaTugasKisi },
+] as const;
 
-test("skema draf tidak memuat percabangan anyOf", () => {
-  // Satu .nullable() menjadi satu anyOf. Percabangan jauh lebih mahal bagi
-  // grammar daripada field biasa: sembilan .nullable() itulah yang dulu
-  // membuat permintaan draf ditolak seluruhnya.
-  assert.equal(
-    ukuran.cabang,
-    0,
-    "Ada .nullable()/union baru di skema draf. Pakai sentinel (\"\" atau 0) " +
-      "seperti field lain, lalu kembalikan menjadi null di susunDraf().",
-  );
-});
+/** Anggaran per tahap. Skema tunggal yang dulu: 51 properti, 12 larik. */
+const ANGGARAN = { properti: 40, larik: 9 };
 
-test("jumlah properti skema draf masih di dalam anggaran grammar", () => {
-  // Diukur: 51 properti lolos, +4 field teks masih lolos, +8 ditolak.
-  assert.ok(
-    ukuran.properti <= 55,
-    `Skema draf memuat ${ukuran.properti} properti; anggarannya 55.`,
-  );
-});
+for (const { nama, skema } of TAHAP) {
+  const ukuran = ukur(zodOutputFormat(skema).schema);
 
-test("jumlah larik skema draf masih di dalam anggaran grammar", () => {
-  // Diukur: 12 larik lolos, +2 larik ditolak. Tidak ada ruang untuk tumbuh.
-  assert.ok(
-    ukuran.larik <= 12,
-    `Skema draf memuat ${ukuran.larik} larik; anggarannya 12.`,
-  );
-});
+  test(`skema tahap ${nama} tidak memuat percabangan anyOf`, () => {
+    // Satu .nullable() menjadi satu anyOf. Percabangan jauh lebih mahal bagi
+    // grammar daripada field biasa: sembilan .nullable() itulah yang dulu
+    // membuat permintaan draf ditolak seluruhnya. Larangannya dipertahankan
+    // meski ruangnya kini longgar, supaya bentuk sentinel seragam di ketiga
+    // tahap dan susunDraf() tidak perlu menangani dua konvensi.
+    assert.equal(
+      ukuran.cabang,
+      0,
+      `Ada .nullable()/union baru di skema tahap ${nama}. Pakai sentinel ` +
+        `("" atau 0) seperti field lain, lalu kembalikan menjadi null saat digabung.`,
+    );
+  });
+
+  test(`jumlah properti skema tahap ${nama} masih di dalam anggaran`, () => {
+    assert.ok(
+      ukuran.properti <= ANGGARAN.properti,
+      `Tahap ${nama} memuat ${ukuran.properti} properti; anggarannya ${ANGGARAN.properti}.`,
+    );
+  });
+
+  test(`jumlah larik skema tahap ${nama} masih di dalam anggaran`, () => {
+    assert.ok(
+      ukuran.larik <= ANGGARAN.larik,
+      `Tahap ${nama} memuat ${ukuran.larik} larik; anggarannya ${ANGGARAN.larik}.`,
+    );
+  });
+}

@@ -2,10 +2,17 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Check, CircleAlert, Loader2, Sparkles, TriangleAlert } from "lucide-react";
+import { Check, CircleAlert, KeyRound, Loader2, Scale, Sparkles, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ringkasDraf, type DrafRpkps, type TemuanDraf } from "@/domain/rpkps/draf";
 import {
@@ -101,7 +108,8 @@ function DaftarTahap({
         <p className="mt-2.5 border-t pt-2.5 text-xs text-muted-foreground">
           {ringkas.mingguEfektif} pertemuan efektif · {ringkas.subCpmk} Sub-CPMK ·{" "}
           {ringkas.pustaka} pustaka · {ringkas.komponenNilai} komponen nilai.
-          Penyusunan biasanya berjalan satu sampai tiga menit.
+          Penyusunan berjalan tiga tahap berurutan — kerangka, isi pertemuan,
+          lalu tugas dan kisi-kisi — dan biasanya memakan dua sampai lima menit.
         </p>
       ) : null}
     </div>
@@ -133,9 +141,37 @@ function KerangkaPratinjau() {
  * karena satu tombol persetujuan berarti ini satu-satunya kesempatan dosen
  * membaca apa yang akan tertulis atas namanya.
  */
-export function PanelDraf({ rpkpsId }: { rpkpsId: string }) {
+export type KunciPilihan = {
+  id: string;
+  penyedia: "ANTHROPIC" | "MISTRAL" | "GEMINI";
+  label: string;
+  ekor: string;
+  modelEfektif: string;
+  bawaan: boolean;
+  aktif: boolean;
+};
+
+const NAMA_PENYEDIA: Record<KunciPilihan["penyedia"], string> = {
+  ANTHROPIC: "Anthropic",
+  MISTRAL: "Mistral",
+  GEMINI: "Gemini",
+};
+
+export function PanelDraf({
+  rpkpsId,
+  kredensial,
+}: {
+  rpkpsId: string;
+  /**
+   * Kunci AI milik dosen yang membuka halaman. Bentuknya ditulis ulang di
+   * berkas ini, bukan diimpor dari `@/lib/ai/kredensial`, supaya komponen
+   * klien tidak pernah menarik modul `server-only`.
+   */
+  kredensial: KunciPilihan[];
+}) {
   const [draf, setDraf] = useState<DrafRpkps | null>(null);
   const [temuan, setTemuan] = useState<TemuanDraf[]>([]);
+  const [catatan, setCatatan] = useState<string[]>([]);
   const [asal, setAsal] = useState<string | null>(null);
   // SENGAJA tanpa useTransition. Pembaruan state di dalam startTransition
   // bersifat non-urgent: React menahan UI lama sampai transisi selesai, jadi
@@ -150,6 +186,18 @@ export function PanelDraf({ rpkpsId }: { rpkpsId: string }) {
   useDenyutDetik(berjalan === "susun", setDetik);
   const [menerapkan, mulaiTerap] = useTransition();
   const router = useRouter();
+
+  /**
+   * Panggilan ini memakai kunci API MILIK DOSEN dan menagih ke akunnya sendiri
+   * (docs/08). Karena itu kunci yang akan dipakai tertulis di panel, bukan
+   * tersembunyi di halaman pengaturan: yang menanggung biaya berhak melihatnya
+   * sebelum menekan tombol. Bawaannya sudah terpilih, jadi tetap satu klik.
+   */
+  const aktif = kredensial.filter((k) => k.aktif);
+  const [kunciId, setKunciId] = useState<string>(
+    () => (aktif.find((k) => k.bawaan) ?? aktif[0])?.id ?? "",
+  );
+  const kunci = aktif.find((k) => k.id === kunciId) ?? null;
 
   const sedangSusun = berjalan !== null;
   const ringkas = draf ? ringkasDraf(draf) : null;
@@ -175,12 +223,58 @@ export function PanelDraf({ rpkpsId }: { rpkpsId: string }) {
       </CardHeader>
 
       <CardContent className="space-y-4">
+        {aktif.length === 0 ? (
+          <div className="rounded-lg border border-warning/25 bg-warning/10 p-3">
+            <div className="flex items-start gap-2">
+              <KeyRound className="mt-0.5 size-4 shrink-0 text-warning-foreground" />
+              <div className="min-w-0 space-y-2">
+                <p className="text-sm">
+                  <strong>Anda belum mendaftarkan kunci AI.</strong> Penyusunan
+                  draf memakai kunci API milik Anda sendiri dan menagih ke akun
+                  Anda — aplikasi ini tidak menyediakan kunci bersama.
+                </p>
+                <ButtonLink size="sm" variant="outline" href="/pengaturan/ai">
+                  <KeyRound />
+                  Daftarkan kunci AI
+                </ButtonLink>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="w-72 space-y-1.5">
+              <label htmlFor="kunci-ai" className="label-teknis text-muted-foreground/80">
+                Kunci yang dipakai
+              </label>
+              <Select value={kunciId} onValueChange={(v) => setKunciId(v ?? "")}>
+                <SelectTrigger id="kunci-ai" disabled={sedangSusun}>
+                  <SelectValue placeholder="Pilih kunci…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {aktif.map((k) => (
+                    <SelectItem key={k.id} value={k.id}>
+                      {NAMA_PENYEDIA[k.penyedia]} · {k.label} · …{k.ekor}
+                      {k.bawaan ? " (bawaan)" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {kunci ? (
+              <p className="pb-2 font-mono text-[11px] text-muted-foreground">
+                {kunci.modelEfektif}
+              </p>
+            ) : null}
+          </div>
+        )}
+
         <Button
           variant={draf ? "outline" : "default"}
-          disabled={sedangSusun}
+          disabled={sedangSusun || kunci === null}
           onClick={async () => {
             setDraf(null);
             setTemuan([]);
+            setCatatan([]);
             setMsModel(null);
             setSelesai(new Set());
             setKesiapan(undefined);
@@ -197,12 +291,13 @@ export function PanelDraf({ rpkpsId }: { rpkpsId: string }) {
 
             setBerjalan("susun");
             setDetik(0);
-            const hasil = await susunDrafRpkps(rpkpsId);
+            const hasil = await susunDrafRpkps(rpkpsId, kunciId || null);
             setBerjalan(null);
             setSelesai(new Set<Tahap>(["kesiapan", "susun", "periksa"]));
 
             setDraf(hasil.draf ?? null);
             setTemuan(hasil.temuan ?? []);
+            setCatatan(hasil.catatan ?? []);
             setMsModel(hasil.msModel ?? null);
             setAsal(hasil.model ? `${hasil.penyedia} · ${hasil.model}` : null);
             if (!hasil.draf) toast.error(hasil.pesan ?? "Gagal menyusun draf.");
@@ -257,6 +352,27 @@ export function PanelDraf({ rpkpsId }: { rpkpsId: string }) {
             </ul>
             <p className="mt-2 text-xs text-muted-foreground">
               Tekan “Susun ulang” untuk mencoba lagi.
+            </p>
+          </div>
+        ) : null}
+
+        {catatan.length > 0 ? (
+          <div className="rounded-lg border border-border bg-muted/40 p-3">
+            <div className="mb-2 flex items-center gap-2">
+              <Scale className="size-4 shrink-0 text-muted-foreground" />
+              <p className="text-sm font-medium">
+                {catatan.length} angka dirapikan sistem
+              </p>
+            </div>
+            <ul className="space-y-1 text-sm text-muted-foreground">
+              {catatan.map((c, i) => (
+                <li key={i}>{c}</li>
+              ))}
+            </ul>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Bobot wajib berjumlah tepat 100%. Yang meleset diskalakan ulang
+              dengan perbandingan antar angka dipertahankan — periksa angkanya
+              di bawah sebelum menyetujui.
             </p>
           </div>
         ) : null}

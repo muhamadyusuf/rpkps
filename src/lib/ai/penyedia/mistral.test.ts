@@ -126,7 +126,10 @@ describe("adapter Mistral — galat", () => {
       () => penyediaMistral("kunci-rahasia").chat(permintaan()),
       (galat: unknown) => {
         assert.ok(galat instanceof GalatAi);
-        assert.match(galat.message, /MISTRAL_API_KEY/);
+        // Sejak Mode A (docs/08) kunci milik dosen, bukan env: pesan harus
+        // mengarahkan ke halaman pengaturannya, bukan ke MISTRAL_API_KEY.
+        assert.match(galat.message, /Pengaturan → Kunci AI/);
+        assert.doesNotMatch(galat.message, /MISTRAL_API_KEY/);
         assert.doesNotMatch(galat.message, /kunci-rahasia/);
         return true;
       },

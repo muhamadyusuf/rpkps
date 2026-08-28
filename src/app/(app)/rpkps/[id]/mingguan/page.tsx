@@ -12,7 +12,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { cakupanProdi, wajibAktif } from "@/lib/otorisasi";
+import { wajibAktif } from "@/lib/otorisasi";
+import { wenangAtasRpkps } from "@/lib/rpkps/wenang";
 import { muatKebijakan, muatRpkps } from "@/lib/rpkps/muat";
 import { formatMenit, susunRencanaSemester, bulatkan } from "@/domain/beban-belajar/kalkulator";
 
@@ -29,8 +30,8 @@ export default async function HalamanMingguan({
   const rpkps = await muatRpkps(id);
   if (!rpkps) notFound();
 
-  const cakupan = cakupanProdi(sesi);
-  if (cakupan !== null && !cakupan.includes(rpkps.mataKuliah.kurikulum.prodiId)) notFound();
+  const wenang = wenangAtasRpkps(sesi, rpkps);
+  if (!wenang.bolehLihat) notFound();
 
   const { kebijakan } = await muatKebijakan();
   const rencana = susunRencanaSemester(kebijakan, {

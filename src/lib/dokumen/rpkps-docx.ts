@@ -23,6 +23,8 @@ import {
 import { formatMenit } from "@/domain/beban-belajar/kalkulator";
 import { sidikRingkas } from "@/domain/rpkps/sidik";
 import { namaLengkapPengampu } from "@/domain/rpkps/pemetaan";
+import { keSumberPeta } from "@/domain/evaluasi/pemetaan";
+import { petaKomponenSubCpmk, susunPetaAsesmen } from "@/domain/evaluasi/peta-asesmen";
 import type { RpkpsLengkap } from "@/lib/rpkps/muat";
 
 /**
@@ -312,19 +314,15 @@ function bagianEvaluasi(r: RpkpsLengkap): (Paragraph | Table)[] {
   }
 
   // Tabel distribusi penilaian: CPL x CPMK x Sub-CPMK x komponen.
-  // Tanda centang diturunkan dari kaitan pertemuan ke komponen nilai — di
-  // basis data tersimpan sebagai bobot numerik, bukan sekadar centang, agar
-  // ketercapaian CPMK dapat dihitung (lihat docs/02 §2.2 temuan W7).
+  // Tanda centang diturunkan dari PETA ASESMEN, bukan langsung dari kaitan
+  // pertemuan → komponen. Bedanya menentukan: Sub-CPMK yang diuji UTS/UAS
+  // tersimpan di kisi-kisi, bukan di baris mingguan, sehingga penurunan
+  // langsung membuat kolom ujian selalu kosong — dokumen lalu menyatakan
+  // ujian tidak mengukur capaian apa pun. Di basis data yang tersimpan tetap
+  // bobot numerik, bukan sekadar centang, agar ketercapaian CPMK dapat
+  // dihitung (docs/02 §2.2 temuan W7; docs/05 §5.7).
   const komponen = r.komponenNilai;
-  const petaSub = new Map<string, Set<string>>();
-  for (const p of r.pertemuan) {
-    if (!p.komponenNilaiId) continue;
-    for (const s of p.subCpmk) {
-      const set = petaSub.get(s.subCpmk.id) ?? new Set<string>();
-      set.add(p.komponenNilaiId);
-      petaSub.set(s.subCpmk.id, set);
-    }
-  }
+  const petaSub = petaKomponenSubCpmk(susunPetaAsesmen(keSumberPeta(r)));
 
   isi.push(
     paragraf([teks("Tabel: Distribusi Penilaian Capaian Pembelajaran", { tebal: true })], {
@@ -355,7 +353,6 @@ function bagianEvaluasi(r: RpkpsLengkap): (Paragraph | Table)[] {
   for (const c of r.mataKuliah.cpmk) {
     const kodeCpl = c.cpl.map((x) => x.cpl.kode).join(", ");
     for (const [i, s] of c.subCpmk.entries()) {
-      const dipakai = petaSub.get(s.id) ?? new Set<string>();
       barisTabel.push(
         new TableRow({
           children: [
@@ -363,7 +360,7 @@ function bagianEvaluasi(r: RpkpsLengkap): (Paragraph | Table)[] {
             sel(i === 0 ? c.kode : "", { lebar: 10, rata: AlignmentType.CENTER }),
             sel([paragraf(`${s.kode}  ${s.rumusan}`, { spasi: { after: 0 } })], { lebar: 36 }),
             ...komponen.map((k) =>
-              sel(dipakai.has(k.id) ? "√" : "", {
+              sel(petaSub.get(k.nama)?.has(s.kode) ? "√" : "", {
                 lebar: lebarKomponen,
                 rata: AlignmentType.CENTER,
               }),

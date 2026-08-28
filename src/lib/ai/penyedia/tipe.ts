@@ -11,8 +11,9 @@ import type { z } from "zod";
  *
  * Kontraknya sengaja sempit: satu blok panduan yang stabil, satu blok
  * permintaan yang berubah, dan satu skema keluaran. Fitur khas satu penyedia
- * (prompt caching Anthropic, reasoning_effort Mistral) diurus di dalam
- * adapternya, tidak bocor ke pemanggil.
+ * (prompt caching Anthropic, reasoning_effort Mistral, responseSchema Gemini
+ * yang hanya menerima sebagian JSON Schema) diurus di dalam adapternya, tidak
+ * bocor ke pemanggil.
  */
 
 export interface PermintaanPenyedia<T> {

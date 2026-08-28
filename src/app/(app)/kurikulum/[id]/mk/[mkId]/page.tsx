@@ -1,5 +1,6 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Lock, Sparkles } from "lucide-react";
+import { ArrowLeft, GitPullRequestArrow, Lock, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,7 +30,7 @@ export default async function HalamanMataKuliah({
   const sesi = await wajibAktif();
   const { id, mkId } = await params;
 
-  const [mk, kebijakanBaris] = await Promise.all([
+  const [mk, kebijakanBaris, usulanTerbuka] = await Promise.all([
     prisma.mataKuliah.findUnique({
       where: { id: mkId },
       include: {
@@ -49,6 +50,16 @@ export default async function HalamanMataKuliah({
     prisma.kebijakanBebanBelajar.findFirst({
       orderBy: [{ status: "asc" }, { dibuatPada: "desc" }],
       include: { bentuk: true },
+    }),
+    // Usulan yang masih bergerak. Ditampilkan di sini supaya dosen yang
+    // menemukan rumusan janggal tahu apakah sudah ada yang mengusulkannya.
+    prisma.usulanRevisi.findMany({
+      where: {
+        mataKuliahId: mkId,
+        status: { in: ["DRAF", "DIAJUKAN", "DIREVISI"] },
+      },
+      orderBy: { diubahPada: "desc" },
+      select: { id: true, judul: true, status: true },
     }),
   ]);
 
@@ -111,14 +122,36 @@ export default async function HalamanMataKuliah({
         </p>
       </header>
 
-      <div className="flex items-start gap-2.5 rounded-lg border bg-muted/40 p-3 text-sm">
+      <div className="flex flex-wrap items-start gap-2.5 rounded-lg border bg-muted/40 p-3 text-sm">
         <Lock className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-        <p className="text-muted-foreground">
+        <p className="min-w-0 flex-1 text-muted-foreground">
           CPL, CPMK, dan Sub-CPMK di halaman ini bersifat <strong>read-only</strong>{" "}
           bagi penyusun RPKPS. Perubahan rumusan harus melalui usulan revisi
           kurikulum kepada Ketua Program Studi.
         </p>
+        <ButtonLink size="sm" variant="outline" href={`/usulan/baru?mk=${mk.id}`}>
+          <GitPullRequestArrow />
+          Usulkan revisi
+        </ButtonLink>
       </div>
+
+      {usulanTerbuka.length > 0 ? (
+        <div className="rounded-lg border bg-muted/40 p-3 text-sm">
+          <p className="label-teknis text-muted-foreground/80">
+            Usulan revisi berjalan ({usulanTerbuka.length})
+          </p>
+          <ul className="mt-1.5 space-y-1">
+            {usulanTerbuka.map((u) => (
+              <li key={u.id}>
+                <Link href={`/usulan/${u.id}`} className="hover:underline">
+                  {u.judul}
+                </Link>
+                <span className="text-muted-foreground"> · {u.status.toLowerCase()}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       {pagu ? (
         <Card>
@@ -180,6 +213,7 @@ export default async function HalamanMataKuliah({
                   </Badge>
                 ))}
                 {c.sumber === "AI" ? <LencanaAi /> : null}
+                {c.pensiunSejakTaId ? <LencanaPensiun /> : null}
               </div>
               <CardDescription className="mt-2 text-foreground">
                 {c.rumusan}
@@ -204,6 +238,7 @@ export default async function HalamanMataKuliah({
                           </span>
                         ) : null}
                         {s.sumber === "AI" ? <LencanaAi /> : null}
+                        {s.pensiunSejakTaId ? <LencanaPensiun /> : null}
                       </div>
                       <p className="min-w-0 flex-1 pt-0.5">{s.rumusan}</p>
                     </li>
@@ -235,6 +270,18 @@ function LencanaAi() {
     <Badge variant="outline" className="gap-1 text-[10px]" title="Dari usulan AI yang diterima saat impor">
       <Sparkles className="size-2.5" />
       AI
+    </Badge>
+  );
+}
+
+/**
+ * Capaian yang sudah dipensiunkan lewat usulan revisi. Tetap ditampilkan —
+ * RPKPS lama merujuknya, dan asesor perlu melihat riwayatnya.
+ */
+function LencanaPensiun() {
+  return (
+    <Badge variant="outline" className="text-[10px]" title="Tidak ditawarkan lagi untuk RPKPS baru">
+      Pensiun
     </Badge>
   );
 }

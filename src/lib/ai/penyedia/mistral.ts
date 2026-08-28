@@ -140,11 +140,11 @@ async function kirim(apiKey: string, badan: unknown): Promise<unknown> {
 function pesanGalat(status: number): string {
   switch (status) {
     case 401:
-      return "Kunci API Mistral ditolak. Periksa MISTRAL_API_KEY di server.";
+      return `Mistral menolak kunci API Anda (401). Perbarui di Pengaturan → Kunci AI.`;
     case 403:
-      return "Kunci API Mistral tidak berwenang memakai model ini.";
+      return `Kunci Mistral Anda tidak berwenang memakai model ini (403). Pilih model lain, atau periksa langganan akun Mistral Anda. Perbarui di Pengaturan → Kunci AI.`;
     case 404:
-      return "Model Mistral yang diminta tidak ditemukan. Periksa AI_MODEL.";
+      return `Model Mistral yang diminta tidak ditemukan (404). Periksa isian Model pada kunci ini. Perbarui di Pengaturan → Kunci AI.`;
     case 422:
       return "Mistral menolak bentuk permintaan. Periksa log server.";
     case 429:

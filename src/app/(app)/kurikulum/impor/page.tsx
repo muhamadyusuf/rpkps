@@ -2,7 +2,7 @@ import { ArrowLeft } from "lucide-react";
 import { ButtonLink } from "@/components/ui/button";
 import { prisma } from "@/lib/prisma";
 import { cakupanProdi, wajibPeran } from "@/lib/otorisasi";
-import { aiTersedia } from "@/lib/ai/klien";
+import { aiTersediaUntuk } from "@/lib/ai/kredensial";
 import { FormulirImpor } from "./formulir-impor";
 
 export const dynamic = "force-dynamic";
@@ -11,6 +11,10 @@ export const metadata = { title: "Impor Kurikulum" };
 export default async function HalamanImpor() {
   const sesi = await wajibPeran("ADMIN", "KAPRODI");
   const cakupan = cakupanProdi(sesi);
+
+  // Kunci AI melekat pada dosen (docs/08): ketersediaannya ditanya per
+  // pengguna, bukan per server.
+  const aiAktif = await aiTersediaUntuk(sesi.id);
 
   const prodi = await prisma.prodi.findMany({
     where: { aktif: true, ...(cakupan === null ? {} : { id: { in: cakupan } }) },
@@ -42,7 +46,7 @@ export default async function HalamanImpor() {
           Belum ada program studi aktif yang dapat Anda kelola.
         </p>
       ) : (
-        <FormulirImpor prodi={prodi} aiAktif={aiTersedia()} />
+        <FormulirImpor prodi={prodi} aiAktif={aiAktif} />
       )}
     </div>
   );

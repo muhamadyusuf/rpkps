@@ -6,8 +6,11 @@ import {
   BookMarked,
   CalendarRange,
   FileText,
+  GitPullRequestArrow,
   GraduationCap,
+  KeyRound,
   LayoutDashboard,
+  LineChart,
   Timer,
   Users,
   type LucideIcon,
@@ -18,11 +21,14 @@ import { cn } from "@/lib/utils";
 const IKON: Record<KunciIkon, LucideIcon> = {
   dasbor: LayoutDashboard,
   kurikulum: BookMarked,
+  usulan: GitPullRequestArrow,
   rpkps: FileText,
+  evaluasi: LineChart,
   beban: Timer,
   prodi: GraduationCap,
   tahun: CalendarRange,
   pengguna: Users,
+  kunci: KeyRound,
 };
 
 function sedangAktif(pathname: string, href: string) {

@@ -6,9 +6,10 @@ import type { JawabanPenyedia, PermintaanPenyedia, Penyedia } from "./tipe";
 /**
  * Adapter Anthropic (Claude). Penyedia utama menurut docs/01 §2.4.
  *
- * Satu-satunya adapter yang mendukung prompt caching: blok panduan dikirim
+ * Satu-satunya adapter dengan prompt caching EKSPLISIT: blok panduan dikirim
  * dengan cache_control sehingga panggilan kedua dan seterusnya hanya membayar
- * sebagian kecil untuknya.
+ * sebagian kecil untuknya. Gemini melakukannya sendiri tanpa dapat diatur;
+ * Mistral tidak sama sekali.
  *
  * SELALU memakai streaming, meski hasilnya baru dipakai setelah lengkap. SDK
  * menolak permintaan NON-streaming yang diperkirakan berjalan lebih dari 10
@@ -18,10 +19,17 @@ import type { JawabanPenyedia, PermintaanPenyedia, Penyedia } from "./tipe";
  * Menyusun draf RPKPS utuh butuh jauh lebih banyak dari itu.
  */
 
-let klien: Anthropic | null = null;
-
+/**
+ * Klien dibuat ULANG untuk setiap kunci — TIDAK di-cache pada variabel modul.
+ *
+ * Sebelumnya berkas ini menyimpan `let klien` dan memakai `klien ??= new
+ * Anthropic({ apiKey })`. Selama kunci hanya satu milik institusi itu tidak
+ * kelihatan. Sejak kunci melekat pada dosen (docs/08), pola itu berarti dosen
+ * kedua pada proses server yang sama memanggil dengan kunci — dan TAGIHAN —
+ * dosen pertama. Pembuatan klien Anthropic murah; kebocoran kredensial tidak.
+ */
 export function penyediaAnthropic(apiKey: string): Penyedia {
-  klien ??= new Anthropic({ apiKey });
+  const klien = new Anthropic({ apiKey });
 
   return {
     kode: "anthropic",
@@ -30,7 +38,7 @@ export function penyediaAnthropic(apiKey: string): Penyedia {
     async chat<T>(p: PermintaanPenyedia<T>): Promise<JawabanPenyedia<T>> {
       let respons;
       try {
-        const aliran = klien!.beta.messages.stream({
+        const aliran = klien.beta.messages.stream({
           model: p.model,
           max_tokens: p.maxTokens,
           // Penalaran akademik lintas CPL/CPMK/Sub-CPMK bukan tugas dangkal.
@@ -74,10 +82,10 @@ export function penyediaAnthropic(apiKey: string): Penyedia {
 /** Memetakan galat SDK jadi pesan Indonesia tanpa membocorkan kunci. */
 function pesanGalat(galat: unknown): string {
   if (galat instanceof Anthropic.AuthenticationError) {
-    return "Kunci API Anthropic ditolak penyedia. Periksa ANTHROPIC_API_KEY di server.";
+    return `Anthropic menolak kunci API Anda. Perbarui di Pengaturan → Kunci AI.`;
   }
   if (galat instanceof Anthropic.PermissionDeniedError) {
-    return "Kunci API Anthropic tidak berwenang memakai model ini.";
+    return `Kunci Anthropic Anda tidak berwenang memakai model ini. Pilih model lain, atau periksa saldo akun Anthropic Anda. Perbarui di Pengaturan → Kunci AI.`;
   }
   if (galat instanceof Anthropic.RateLimitError) {
     return "Batas pemakaian Anthropic tercapai. Coba lagi beberapa saat lagi.";
