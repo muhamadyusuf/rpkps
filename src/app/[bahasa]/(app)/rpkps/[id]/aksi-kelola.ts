@@ -920,7 +920,10 @@ export async function salinRpkps(
     });
 
     return baru.id;
-  });
+    // Menyalin dapat berarti puluhan baris (pustaka, pertemuan, tugas,
+    // kisi-kisi) ditulis satu-satu; batas bawaan 5 detik mepet pada basis
+    // data jarak jauh. Lihat catatan yang sama di rpkps/aksi.ts.
+  }, { timeout: 15000 });
 
   segarkan("/rpkps");
   return {

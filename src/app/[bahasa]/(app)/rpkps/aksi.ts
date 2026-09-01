@@ -163,7 +163,10 @@ export async function buatRpkps(
     });
 
     return rpkps.id;
-  });
+    // Jaring pengaman: kerangka 16 pertemuan kini ditulis lewat `createMany`,
+    // tetapi batas bawaan 5 detik tetap mepet pada basis data jarak jauh
+    // (Vercel + Neon/Supabase) saat koneksi baru dingin.
+  }, { timeout: 15000 });
 
   // Pemegang penugasan diberi kabar: dokumen yang lahir atas namanya tanpa ia
   // ketahui adalah dokumen yang baru ditemukan saat tenggat lewat.
