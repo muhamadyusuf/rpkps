@@ -36,24 +36,21 @@ export function periksaTemuan(t: TemuanInput): TemuanRpkps[] {
     temuan.push({
       kode: "TL-AKAR-PENDEK",
       tingkat: "PEMBLOKIR",
-      pesan: `Akar masalah ${t.kode} terlalu pendek (minimal ${MIN_AKAR_MASALAH} karakter).`,
-      saran: "\"Mahasiswa kurang belajar\" bukan akar masalah — sebut apa pada rancangan atau pelaksanaan yang membuatnya begitu.",
+      params: { kode: t.kode, minimal: MIN_AKAR_MASALAH },
     });
   }
   if (t.tindakan.trim().length < MIN_TINDAKAN) {
     temuan.push({
       kode: "TL-TINDAKAN-PENDEK",
       tingkat: "PEMBLOKIR",
-      pesan: `Tindakan untuk ${t.kode} terlalu pendek (minimal ${MIN_TINDAKAN} karakter).`,
-      saran: "Tindakan harus dapat diperiksa semester depan: apa yang diubah, oleh siapa.",
+      params: { kode: t.kode, minimal: MIN_TINDAKAN },
     });
   }
   if (!t.taSasaranId) {
     temuan.push({
       kode: "TL-TANPA-TA-SASARAN",
       tingkat: "PEMBLOKIR",
-      pesan: `Tindakan untuk ${t.kode} belum menyebut tahun akademik pemberlakuannya.`,
-      saran: "Tanpa TA sasaran, tindak lanjut tidak pernah punya waktu jatuh tempo dan tidak dapat diverifikasi.",
+      params: { kode: t.kode },
     });
   }
 
@@ -83,8 +80,7 @@ export function periksaPenutupan(arg: ArgPenutupan): HasilPenutupan {
     temuan.push({
       kode: "TL-TANPA-REFLEKSI",
       tingkat: "PEMBLOKIR",
-      pesan: `Catatan proses pembelajaran belum diisi (minimal ${MIN_CATATAN_PROSES} karakter).`,
-      saran: "Apa yang berjalan seperti rencana, apa yang tidak, dan mengapa.",
+      params: { minimal: MIN_CATATAN_PROSES },
     });
   }
 
@@ -96,11 +92,7 @@ export function periksaPenutupan(arg: ArgPenutupan): HasilPenutupan {
     temuan.push({
       kode: "TL-TANPA-RTL",
       tingkat: "PEMBLOKIR",
-      pesan:
-        `${tanpaRtl.length} CPMK tidak tercapai dan belum punya tindak lanjut: ` +
-        `${tanpaRtl.map((b) => b.kode).join(", ")}.`,
-      saran:
-        "Inilah yang membedakan evaluasi dari laporan nilai. CPMK yang gagal tanpa tindak lanjut berarti siklus PPEPP berhenti di huruf E.",
+      params: { jumlah: tanpaRtl.length, daftar: tanpaRtl.map((b) => b.kode).join(", ") },
     });
   }
 
@@ -111,8 +103,7 @@ export function periksaPenutupan(arg: ArgPenutupan): HasilPenutupan {
     temuan.push({
       kode: "TL-CPL-BELUM-TERCAPAI",
       tingkat: "PERINGATAN",
-      pesan: `CPL ${cplGagal.map((b) => b.kode).join(", ")} belum tercapai pada mata kuliah ini.`,
-      saran: "Bawa ke evaluasi kurikulum tingkat prodi; satu mata kuliah tidak menanggung CPL sendirian.",
+      params: { daftar: cplGagal.map((b) => b.kode).join(", ") },
     });
   }
 

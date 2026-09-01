@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { normalisasiKe100 } from "./normalisasi";
+import { bagiProporsional, normalisasiKe100 } from "./normalisasi";
 
 function jumlah(n: readonly number[]): number {
   return Math.round(n.reduce((s, x) => s + x, 0) * 100) / 100;
@@ -78,5 +78,34 @@ describe("normalisasi ke 100", () => {
     assert.equal(h.disesuaikan, true);
     assert.equal(jumlah(h.nilai), 100);
     assert.ok(h.nilai.every((n) => n === Math.round(n * 100) / 100));
+  });
+});
+
+describe("bagi proporsional", () => {
+  it("membagi bobot komponen ke barisnya dengan proporsi tetap", () => {
+    assert.deepEqual(bagiProporsional(40, [10, 10]), [20, 20]);
+    assert.deepEqual(bagiProporsional(30, [20, 10]), [20, 10]);
+  });
+
+  it("jumlahnya persis sama dengan total meski tidak habis dibagi", () => {
+    const h = bagiProporsional(25, [1, 1, 1]);
+    assert.equal(jumlah(h), 25);
+    assert.deepEqual([...h].sort((a, b) => a - b), [8.33, 8.33, 8.34]);
+  });
+
+  it("anggota tanpa bobot usulan dibagi rata, bukan dibiarkan kosong", () => {
+    // Komponen yang bobotnya tidak habis dibagikan akan muncul sebagai
+    // PA-KOMPONEN-TIDAK-COCOK pada peta asesmen.
+    assert.deepEqual(bagiProporsional(30, [0, 0]), [15, 15]);
+  });
+
+  it("anggota nol tetap nol selama ada anggota lain yang berbobot", () => {
+    assert.deepEqual(bagiProporsional(30, [0, 10]), [0, 30]);
+  });
+
+  it("total nol atau daftar kosong tidak membagi nol", () => {
+    assert.deepEqual(bagiProporsional(0, [10, 10]), [0, 0]);
+    assert.deepEqual(bagiProporsional(30, []), []);
+    assert.deepEqual(bagiProporsional(Number.NaN, [10]), [0]);
   });
 });

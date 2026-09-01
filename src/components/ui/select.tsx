@@ -6,7 +6,83 @@ import { Select as SelectPrimitive } from "@base-ui/react/select"
 import { cn } from "@/lib/utils"
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
 
-const Select = SelectPrimitive.Root
+/**
+ * Pasangan nilai→label yang dipungut dari `SelectItem` di dalam children.
+ *
+ * Base UI hanya mengenal label sebuah pilihan lewat prop `items` di Root:
+ * tanpa itu `Select.Value` menuliskan NILAI mentahnya. Untuk pilihan yang
+ * berasal dari database — kunci AI, dosen pengampu, komponen nilai, Sub-CPMK —
+ * nilai itu adalah id, jadi pemicu menampilkan id sampai popup pernah dibuka
+ * sekali (baru saat itu `SelectItem` terpasang dan labelnya dikenali).
+ */
+type PilihanTerpungut = { value: unknown; label: string }
+
+/** Meratakan children sebuah item menjadi teks; label kami selalu teks. */
+function teksNode(node: React.ReactNode): string {
+  if (node == null || typeof node === "boolean") return ""
+  if (typeof node === "string" || typeof node === "number") return String(node)
+  if (Array.isArray(node)) return node.map(teksNode).join("")
+  if (React.isValidElement(node)) {
+    return teksNode((node.props as { children?: React.ReactNode }).children)
+  }
+  return ""
+}
+
+function pungutPilihan(node: React.ReactNode, keluar: PilihanTerpungut[]): void {
+  React.Children.forEach(node, (anak) => {
+    if (!React.isValidElement(anak)) return
+    const props = anak.props as { value?: unknown; children?: React.ReactNode }
+    if (anak.type === SelectItem || anak.type === SelectPrimitive.Item) {
+      keluar.push({ value: props.value, label: teksNode(props.children) })
+      return
+    }
+    pungutPilihan(props.children, keluar)
+  })
+}
+
+/**
+ * Hasilnya harus stabil antar render: `items` disalin ke store Base UI lewat
+ * efek yang bergantung pada identitas array, jadi array baru tiap render
+ * memaksa satu putaran render tambahan pada tiap pemicu. `children` sendiri
+ * beridentitas baru tiap render, maka penandanya adalah isi daftarnya.
+ */
+function usePilihanTerpungut(
+  children: React.ReactNode,
+  items: SelectPrimitive.Root.Props<unknown, boolean>["items"],
+) {
+  const terpungut: PilihanTerpungut[] = []
+  if (items === undefined) {
+    pungutPilihan(children, terpungut)
+  }
+  const tanda = JSON.stringify(terpungut.map((p) => [String(p.value), p.label]))
+  const stabil = React.useMemo(
+    () => (terpungut.length > 0 ? terpungut : undefined),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [tanda],
+  )
+  return items ?? stabil
+}
+
+/**
+ * Root yang memungut sendiri daftar label dari `SelectItem` anaknya, supaya
+ * pemicu menampilkan teks pilihan sejak render pertama tanpa pemanggil perlu
+ * menulis daftar yang sama dua kali. `items` yang ditulis eksplisit menang.
+ */
+function Select<Value, Multiple extends boolean | undefined = false>({
+  children,
+  items,
+  ...props
+}: SelectPrimitive.Root.Props<Value, Multiple>) {
+  const terpungut = usePilihanTerpungut(children, items)
+  return (
+    <SelectPrimitive.Root
+      items={terpungut as SelectPrimitive.Root.Props<Value, Multiple>["items"]}
+      {...props}
+    >
+      {children}
+    </SelectPrimitive.Root>
+  )
+}
 
 function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   return (

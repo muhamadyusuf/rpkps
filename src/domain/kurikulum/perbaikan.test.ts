@@ -77,10 +77,10 @@ function usulanRumusan(ubah: Partial<UsulanPerbaikan> = {}): UsulanPerbaikan {
 describe("temuanUntukAi", () => {
   it("menyaring hanya temuan perumusan dan pemetaan", () => {
     const temuan: TemuanKurikulum[] = [
-      { kode: "K-SUB-TIDAK-TERUKUR", tingkat: "PERINGATAN", pesan: "" },
-      { kode: "K-CPMK-TANPA-SUB", tingkat: "PEMBLOKIR", pesan: "" },
-      { kode: "K-MK-KODE-GANDA", tingkat: "PEMBLOKIR", pesan: "" },
-      { kode: "K-MK-SKS-NOL", tingkat: "PEMBLOKIR", pesan: "" },
+      { kode: "K-SUB-TIDAK-TERUKUR", tingkat: "PERINGATAN" },
+      { kode: "K-CPMK-TANPA-SUB", tingkat: "PEMBLOKIR" },
+      { kode: "K-MK-KODE-GANDA", tingkat: "PEMBLOKIR" },
+      { kode: "K-MK-SKS-NOL", tingkat: "PEMBLOKIR" },
     ];
 
     assert.deepEqual(

@@ -150,8 +150,7 @@ export function analisisButir(
     temuan.push({
       kode: "BS-TANPA-DATA",
       tingkat: "PERINGATAN",
-      pesan: `Belum ada skor per butir untuk ${label}.`,
-      saran: "Analisis butir bersifat opsional; capaian tetap dihitung tanpanya.",
+      params: { label },
     });
     return {
       butir: hasil,
@@ -171,8 +170,7 @@ export function analisisButir(
     temuan.push({
       kode: "BS-PESERTA-SEDIKIT",
       tingkat: "PERINGATAN",
-      pesan: `Hanya ${lengkap.length} peserta berskor lengkap pada ${label}.`,
-      saran: `Di bawah ${PESERTA_MINIMAL} peserta, daya beda dan reliabilitas tidak layak dipercaya.`,
+      params: { jumlah: lengkap.length, label, minimal: PESERTA_MINIMAL },
     });
   }
 
@@ -186,11 +184,7 @@ export function analisisButir(
     temuan.push({
       kode: "BS-DAYA-BEDA-NEGATIF",
       tingkat: "PERINGATAN",
-      pesan:
-        `Butir ${negatif.map((b) => b.nomor).join(", ")} pada ${label} punya daya beda negatif — ` +
-        `mahasiswa berperingkat atas justru lebih sering salah.`,
-      saran:
-        "Hampir selalu kunci jawaban keliru atau pertanyaan bermakna ganda. Skornya mencemari capaian Sub-CPMK yang bergantung padanya.",
+      params: { daftar: negatif.map((b) => b.nomor).join(", "), label },
     });
   }
 
@@ -199,7 +193,7 @@ export function analisisButir(
     temuan.push({
       kode: "BS-DAYA-BEDA-RENDAH",
       tingkat: "PERINGATAN",
-      pesan: `Butir ${lemah.map((b) => b.nomor).join(", ")} hampir tidak membedakan tingkat penguasaan.`,
+      params: { daftar: lemah.map((b) => b.nomor).join(", ") },
     });
   }
 
@@ -209,15 +203,14 @@ export function analisisButir(
     temuan.push({
       kode: "BS-SELURUHNYA-MUDAH",
       tingkat: "PERINGATAN",
-      pesan: `Seluruh butir ${label} tergolong mudah — ujian ini tidak mengukur batas atas penguasaan.`,
+      params: { label },
     });
   }
   if (sukar.length > 0) {
     temuan.push({
       kode: "BS-BUTIR-SUKAR",
       tingkat: "PERINGATAN",
-      pesan: `Butir ${sukar.map((b) => b.nomor).join(", ")} tergolong sukar (P < 0,3).`,
-      saran: "Periksa apakah materinya memang sempat diajarkan pada porsi yang memadai.",
+      params: { daftar: sukar.map((b) => b.nomor).join(", ") },
     });
   }
 
@@ -225,8 +218,7 @@ export function analisisButir(
     temuan.push({
       kode: "BS-RELIABILITAS-RENDAH",
       tingkat: "PERINGATAN",
-      pesan: `Reliabilitas ${label} (Cronbach α) ${reliabilitas}, di bawah ${RELIABILITAS_MINIMAL}.`,
-      saran: "Butir-butirnya kurang konsisten mengukur hal yang sama.",
+      params: { label, nilai: reliabilitas, minimal: RELIABILITAS_MINIMAL },
     });
   }
 
@@ -235,7 +227,7 @@ export function analisisButir(
     temuan.push({
       kode: "BS-SKOR-TIDAK-LENGKAP",
       tingkat: "PERINGATAN",
-      pesan: `${tertinggal} peserta tidak punya skor lengkap dan dikeluarkan dari analisis.`,
+      params: { jumlah: tertinggal },
     });
   }
 

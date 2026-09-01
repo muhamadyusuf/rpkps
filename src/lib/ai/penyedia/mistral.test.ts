@@ -25,6 +25,25 @@ function stubFetch(respons: { status?: number; badan?: unknown }) {
   return terkirim;
 }
 
+/**
+ * Varian stubFetch yang menjawab berbeda per endpoint. Diperlukan sejak
+ * adapter menanyakan katalog model pada galat 403/404: satu jawaban untuk
+ * semua URL tidak dapat membedakan "model salah" dari "kunci tak berwenang".
+ */
+function stubPerUrl(peta: Record<string, { status?: number; badan?: unknown }>) {
+  const terkirim: { url: string; init: RequestInit }[] = [];
+  globalThis.fetch = (async (url: string, init: RequestInit) => {
+    terkirim.push({ url, init });
+    const cocok = Object.entries(peta).find(([jalur]) => url.includes(jalur));
+    const jawab = cocok?.[1] ?? { status: 500 };
+    return new Response(JSON.stringify(jawab.badan ?? {}), {
+      status: jawab.status ?? 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }) as unknown as typeof fetch;
+  return terkirim;
+}
+
 function permintaan() {
   return {
     model: "mistral-large-latest",
@@ -145,6 +164,90 @@ describe("adapter Mistral — galat", () => {
 
     stubFetch({ status: 503 });
     await assert.rejects(() => penyediaMistral("k").chat(permintaan()), /bermasalah/);
+  });
+
+  it("menyebut model yang sah saat 403, bukan sekadar kode statusnya", async () => {
+    // Ini kasus yang membuat dosen buntu: kuncinya BENAR ada di akunnya, jadi
+    // pesan "403" saja membuatnya memeriksa hal yang sudah benar. Yang perlu
+    // dibaca adalah alasan Mistral dan daftar model yang boleh dipakai kunci.
+    const terkirim = stubPerUrl({
+      "/v1/chat/completions": {
+        status: 403,
+        badan: { message: "Model not available for your subscription" },
+      },
+      "/v1/models": {
+        badan: { data: [{ id: "mistral-small-latest" }, { id: "ministral-8b-latest" }] },
+      },
+    });
+
+    await assert.rejects(
+      () => penyediaMistral("kunci-uji").chat(permintaan()),
+      (galat: unknown) => {
+        assert.ok(galat instanceof GalatAi);
+        assert.match(galat.message, /mistral-large-latest/);
+        assert.match(galat.message, /Model not available for your subscription/);
+        // Nama model diurutkan agar pesannya stabil antar panggilan.
+        assert.match(galat.message, /ministral-8b-latest, mistral-small-latest/);
+        return true;
+      },
+    );
+
+    // Katalog hanya ditanya pada jalur galat, sekali.
+    assert.equal(terkirim.filter((t) => t.url.includes("/v1/models")).length, 1);
+  });
+
+  it("mengarahkan ke paket akun, bukan ke nama model, saat katalog ikut ditolak", async () => {
+    // Kunci yang tidak berwenang atas SATU model pun bukan salah ketik nama
+    // model: yang salah paket/langganan atau cakupan kunci. Menyuruh dosen
+    // "pilih model lain" dalam keadaan ini mengirimnya ke jalan buntu.
+    stubPerUrl({
+      "/v1/chat/completions": { status: 403, badan: { message: "Forbidden" } },
+      "/v1/models": { status: 403, badan: { message: "Forbidden" } },
+    });
+
+    await assert.rejects(
+      () => penyediaMistral("kunci-uji").chat(permintaan()),
+      (galat: unknown) => {
+        assert.ok(galat instanceof GalatAi);
+        assert.match(galat.message, /tidak berwenang atas satu model pun/);
+        assert.match(galat.message, /paket\/langganan/);
+        assert.match(galat.message, /cakupan \(scope\)/);
+        return true;
+      },
+    );
+  });
+
+  it("menyensor kunci yang dikutip balik oleh penyedia", async () => {
+    // Badan galat berasal dari luar dan tidak dijamin bersih. Aturan docs/08:
+    // yang boleh keluar hanya empat huruf terakhir.
+    stubPerUrl({
+      "/v1/chat/completions": {
+        status: 401,
+        badan: { message: "Invalid key: kunci-rahasia-abcd" },
+      },
+    });
+
+    await assert.rejects(
+      () => penyediaMistral("kunci-rahasia-abcd").chat(permintaan()),
+      (galat: unknown) => {
+        assert.ok(galat instanceof GalatAi);
+        assert.doesNotMatch(galat.message, /kunci-rahasia-abcd/);
+        assert.match(galat.message, /•••abcd/);
+        return true;
+      },
+    );
+  });
+
+  it("tidak menanyakan katalog model pada galat yang bukan soal model", async () => {
+    const terkirim = stubPerUrl({
+      "/v1/chat/completions": { status: 429, badan: { message: "Rate limit" } },
+    });
+
+    await assert.rejects(
+      () => penyediaMistral("k").chat(permintaan()),
+      /Batas pemakaian Mistral/,
+    );
+    assert.equal(terkirim.filter((t) => t.url.includes("/v1/models")).length, 0);
   });
 
   it("menolak respons yang bentuknya tidak dikenal", async () => {

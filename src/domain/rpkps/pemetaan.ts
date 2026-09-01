@@ -1,4 +1,5 @@
 import type { RpkpsInput } from "./tipe";
+import { statusParaf, type PeranTtdRingkas } from "./paraf";
 
 /**
  * Pemetaan dari bentuk baris database ke masukan validator.
@@ -42,7 +43,24 @@ export interface SumberRpkps {
     linimasa: unknown[];
   }[];
   pustaka: { jenis: string }[];
-  pengampu: unknown[];
+  /** Ronde persetujuan berjalan; menentukan paraf mana yang masih berlaku. */
+  versi: number;
+  pengampu: {
+    penggunaId: string;
+    peran: string;
+    pengguna: { nama: string; gelarDepan: string | null; gelarBelakang: string | null };
+  }[];
+  /**
+   * Opsional supaya pemanggil yang tidak mengurus pengesahan — pratinjau,
+   * skrip — tidak perlu ikut memuatnya. Tanpa daftar ini, seluruh pengampu
+   * dianggap belum memaraf, dan itu memang keadaan yang benar.
+   */
+  tandaTangan?: { versi: number; peran: PeranTtdRingkas; penggunaId: string; sidik: string }[];
+  /**
+   * Sidik isi sekarang. Bila diberikan, paraf atas isi yang sudah berubah
+   * dianggap belum ada — lihat `statusParaf`.
+   */
+  sidikSekarang?: string;
 }
 
 export function keRpkpsInput(r: SumberRpkps): RpkpsInput {
@@ -89,6 +107,16 @@ export function keRpkpsInput(r: SumberRpkps): RpkpsInput {
     })),
     jumlahPustakaUtama: r.pustaka.filter((p) => p.jenis === "UTAMA").length,
     jumlahPengampu: r.pengampu.length,
+    pengampuBelumParaf: statusParaf({
+      pengampu: r.pengampu.map((p) => ({
+        penggunaId: p.penggunaId,
+        nama: namaLengkapPengampu(p.pengguna),
+        koordinator: p.peran === "KOORDINATOR",
+      })),
+      tandaTangan: r.tandaTangan ?? [],
+      versi: r.versi,
+      sidikSekarang: r.sidikSekarang,
+    }).belum.map((p) => p.nama),
   };
 }
 

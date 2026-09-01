@@ -1,3 +1,4 @@
+import type { DataRiwayat } from "./riwayat";
 import { createHash } from "node:crypto";
 
 /**
@@ -40,23 +41,36 @@ export function sidikRingkas(sidik: string): string {
   return `${sidik.slice(0, 8)} · ${sidik.slice(8, 16)}`;
 }
 
+/**
+ * Satu baris riwayat di dalam salinan beku.
+ *
+ * `data` kosong pada snapshot yang dibuat sebelum L3 — dan tetap kosong
+ * selamanya, karena salinan beku tidak pernah ditulis ulang. `deskripsi`
+ * adalah cadangannya.
+ */
+export interface BarisRiwayatBeku {
+  versi: number;
+  dibuatPada: string;
+  deskripsi: string;
+  data?: DataRiwayat | null;
+}
+
 /** Isi salinan beku: dokumen apa adanya saat terbit, plus riwayatnya. */
 export interface IsiSnapshot {
   dokumen: unknown;
-  riwayat: { versi: number; dibuatPada: string; deskripsi: string }[];
+  riwayat: BarisRiwayatBeku[];
 }
 
 /** Mengembalikan bentuk siap render dari salinan beku (tanggal dihidupkan). */
 export function cairkanSnapshot<T>(isi: IsiSnapshot): {
   rpkps: T;
-  riwayat: { versi: number; dibuatPada: Date; deskripsi: string }[];
+  riwayat: (Omit<BarisRiwayatBeku, "dibuatPada"> & { dibuatPada: Date })[];
 } {
   return {
     rpkps: isi.dokumen as T,
     riwayat: isi.riwayat.map((h) => ({
-      versi: h.versi,
+      ...h,
       dibuatPada: new Date(h.dibuatPada),
-      deskripsi: h.deskripsi,
     })),
   };
 }

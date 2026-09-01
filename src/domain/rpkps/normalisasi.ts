@@ -110,3 +110,50 @@ export function normalisasiKe100(masukan: readonly number[]): HasilNormalisasi {
     diluarBatas: false,
   };
 }
+
+/**
+ * Membagi sebuah total ke sederet anggota, proporsional terhadap bobot
+ * usulannya, dengan jumlah yang pas menurut konstruksi.
+ *
+ * Saudara `normalisasiKe100`, dengan satu perbedaan yang menentukan: totalnya
+ * BUKAN 100 melainkan bobot satu komponen nilai. Inilah yang dipakai
+ * `alokasikanAsesmen` untuk menurunkan bobot tiap baris mingguan dari bobot
+ * komponen yang menaunginya — komponen nilai tetap buku besarnya, dan barisnya
+ * mengisi sampai persis penuh.
+ *
+ * Anggota yang seluruhnya tidak berbobot dibagi RATA, bukan dibiarkan nol:
+ * komponen yang bobotnya tidak habis dibagikan akan muncul sebagai
+ * `PA-KOMPONEN-TIDAK-COCOK`, dan itu justru yang hendak dihindari.
+ */
+export function bagiProporsional(
+  total: number,
+  masukan: readonly number[],
+): number[] {
+  if (masukan.length === 0) return [];
+
+  const sasaran = Number.isFinite(total) && total > 0 ? Math.round(total * 100) : 0;
+  if (sasaran <= 0) return masukan.map(() => 0);
+
+  const bersih = masukan.map((n) => (Number.isFinite(n) && n > 0 ? n : 0));
+  const adaBobot = bersih.some((n) => n > 0);
+  const dasar = adaBobot ? bersih : masukan.map(() => 1);
+  const totalDasar = dasar.reduce((s, n) => s + n, 0);
+
+  const tepat = dasar.map((n) => (n / totalDasar) * sasaran);
+  const bawah = tepat.map((n) => Math.floor(n));
+  let kurang = sasaran - bawah.reduce((s, n) => s + n, 0);
+
+  const urutan = tepat
+    .map((n, i) => ({ i, sisa: n - Math.floor(n), asli: dasar[i] }))
+    .sort((a, b) => b.sisa - a.sisa || b.asli - a.asli || a.i - b.i);
+
+  const sen = [...bawah];
+  for (const u of urutan) {
+    if (kurang <= 0) break;
+    if (dasar[u.i] === 0) continue;
+    sen[u.i] += 1;
+    kurang -= 1;
+  }
+
+  return sen.map((s) => s / 100);
+}

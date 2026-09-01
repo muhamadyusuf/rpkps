@@ -2,7 +2,8 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import { cakupanProdi, punyaPeran, wajibAktif } from "@/lib/otorisasi";
 import type { PenggunaSesi } from "@/lib/sesi";
-import type { PeranPengampu } from "@/generated/prisma";
+import type { PeranPengampu, StatusRpkps } from "@/generated/prisma";
+import type { Kamus } from "@/kamus";
 
 /**
  * Satu-satunya tempat wewenang atas SEBUAH RPKPS diputuskan.
@@ -24,6 +25,40 @@ import type { PeranPengampu } from "@/generated/prisma";
  */
 
 export type BarisPengampu = { penggunaId: string; peran?: PeranPengampu };
+
+/**
+ * Isi dokumen hanya boleh disunting saat rantai pengesahan BELUM berjalan.
+ *
+ * Aturan ini sudah berlaku sejak dulu — tetapi disalin apa adanya di tiga
+ * berkas aksi (tugas, kisi-kisi, draf AI) dan sama sekali TIDAK ADA di
+ * `rpkps/aksi.ts`, sehingga identitas, tabel mingguan, pustaka, dan komponen
+ * nilai masih dapat diubah setelah dokumen diajukan. Selama keputusan terjadi
+ * dalam hitungan menit hal itu tidak terasa; dengan rantai tiga cap yang
+ * berjalan berhari-hari (docs/14 §2.3) akibatnya serius: Kaprodi
+ * menandatangani dokumen A, Penjaminan Mutu mengesahkan dokumen B.
+ *
+ * Karena itu satu penjaga, di satu tempat — rumah yang sama dengan seluruh
+ * aturan wewenang atas sebuah RPKPS.
+ */
+export function bolehSuntingIsi(status: StatusRpkps | null): boolean {
+  return status === "DRAF" || status === "DIREVISI";
+}
+
+/** Kalimat penolakan yang menyebut alasannya, bukan sekadar "tidak boleh". */
+export function pesanTerkunci(status: StatusRpkps | null, k: Kamus): string {
+  switch (status) {
+    case "DIAJUKAN":
+      return k.aksi.terkunci.diajukan;
+    case "DISETUJUI":
+      return k.aksi.terkunci.disetujui;
+    case "TERBIT":
+      return k.aksi.terkunci.terbit;
+    case "ARSIP":
+      return k.aksi.terkunci.arsip;
+    default:
+      return k.aksi.terkunci.lainnya;
+  }
+}
 
 export type SasaranWenang = {
   mataKuliah: { kurikulum: { prodiId: string } };
@@ -87,7 +122,9 @@ export function wenangAtasRpkps(
 export type WenangRpkps = Wenang & {
   sesi: PenggunaSesi;
   prodiId: string | null;
-  status: import("@/generated/prisma").StatusRpkps | null;
+  status: StatusRpkps | null;
+  /** Berwenang DAN dokumennya sedang boleh disunting. */
+  bolehSunting: boolean;
 };
 
 /**
@@ -116,14 +153,18 @@ export async function wenangRpkps(rpkpsId: string): Promise<WenangRpkps> {
       pengelola: false,
       bolehLihat: false,
       boleh: false,
+      bolehSunting: false,
     };
   }
+
+  const wenang = wenangAtasRpkps(sesi, rpkps);
 
   return {
     sesi,
     prodiId: rpkps.mataKuliah.kurikulum.prodiId,
     status: rpkps.status,
-    ...wenangAtasRpkps(sesi, rpkps),
+    ...wenang,
+    bolehSunting: wenang.boleh && bolehSuntingIsi(rpkps.status),
   };
 }
 

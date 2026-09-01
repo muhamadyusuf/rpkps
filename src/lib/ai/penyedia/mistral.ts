@@ -1,5 +1,11 @@
 import { z } from "zod";
 import { GalatAi } from "../galat";
+import {
+  alasanPenyedia,
+  ambilDaftarModel,
+  kalimatDaftarModel,
+  kutipAlasan,
+} from "./galat-http";
 import type { JawabanPenyedia, PermintaanPenyedia, Penyedia } from "./tipe";
 
 /**
@@ -17,6 +23,7 @@ import type { JawabanPenyedia, PermintaanPenyedia, Penyedia } from "./tipe";
  */
 
 const URL_API = "https://api.mistral.ai/v1/chat/completions";
+const URL_MODEL = "https://api.mistral.ai/v1/models";
 const BATAS_WAKTU_MS = 120_000;
 
 /** Bentuk respons yang benar-benar dipakai. Field lain sengaja diabaikan. */
@@ -60,7 +67,7 @@ export function penyediaMistral(apiKey: string): Penyedia {
         },
       };
 
-      const respons = await kirim(apiKey, badan);
+      const respons = await kirim(apiKey, p.model, badan);
       const terurai = SkemaRespons.safeParse(respons);
       if (!terurai.success) {
         console.error("[ai:mistral] bentuk respons tak dikenal:", respons);
@@ -110,7 +117,7 @@ function skemaJson(skema: z.ZodType<unknown>): Record<string, unknown> {
   return json;
 }
 
-async function kirim(apiKey: string, badan: unknown): Promise<unknown> {
+async function kirim(apiKey: string, model: string, badan: unknown): Promise<unknown> {
   let respons: Response;
   try {
     respons = await fetch(URL_API, {
@@ -129,7 +136,7 @@ async function kirim(apiKey: string, badan: unknown): Promise<unknown> {
     throw new GalatAi("Server tidak dapat menghubungi Mistral.");
   }
 
-  if (!respons.ok) throw new GalatAi(pesanGalat(respons.status));
+  if (!respons.ok) throw new GalatAi(await pesanGalat(respons, apiKey, model));
   try {
     return await respons.json();
   } catch {
@@ -137,21 +144,59 @@ async function kirim(apiKey: string, badan: unknown): Promise<unknown> {
   }
 }
 
-function pesanGalat(status: number): string {
+/**
+ * Katalog model milik kunci ini. Bentuk responsnya
+ * `{ object: "list", data: [{ id: "..." }] }`.
+ */
+async function daftarModel(apiKey: string) {
+  return ambilDaftarModel(
+    URL_MODEL,
+    { method: "GET", headers: { Authorization: `Bearer ${apiKey}` } },
+    (badan) => {
+      const terurai = z
+        .object({ data: z.array(z.object({ id: z.string() })) })
+        .safeParse(badan);
+      return terurai.success ? terurai.data.data.map((m) => m.id).sort() : null;
+    },
+  );
+}
+
+/**
+ * 401 dan 403 sengaja dibedakan tajam, karena keduanya menuntun ke perbaikan
+ * yang sama sekali berbeda: 401 berarti kuncinya sendiri tidak dikenali, 403
+ * berarti kuncinya SAH tetapi tidak berwenang atas model yang diminta. Dosen
+ * yang membaca "403" lalu memeriksa apakah kuncinya benar-benar ada di akunnya
+ * akan selalu menemukan kunci itu ada — dan tetap buntu. Karena itu 403 dan
+ * 404 dijawab dengan daftar model yang memang boleh dipakai kunci tersebut.
+ */
+async function pesanGalat(
+  respons: Response,
+  apiKey: string,
+  model: string,
+): Promise<string> {
+  const status = respons.status;
+  const alasan = kutipAlasan("Mistral", await alasanPenyedia(respons, apiKey));
+
   switch (status) {
     case 401:
-      return `Mistral menolak kunci API Anda (401). Perbarui di Pengaturan → Kunci AI.`;
+      return `Mistral menolak kunci API Anda (401).${alasan} Perbarui di Pengaturan → Kunci AI.`;
     case 403:
-      return `Kunci Mistral Anda tidak berwenang memakai model ini (403). Pilih model lain, atau periksa langganan akun Mistral Anda. Perbarui di Pengaturan → Kunci AI.`;
+      return (
+        `Kunci Mistral Anda sah, tetapi tidak berwenang memakai model "${model}" (403).` +
+        `${alasan} ${kalimatDaftarModel(await daftarModel(apiKey), "Mistral")}`
+      );
     case 404:
-      return `Model Mistral yang diminta tidak ditemukan (404). Periksa isian Model pada kunci ini. Perbarui di Pengaturan → Kunci AI.`;
+      return (
+        `Model Mistral "${model}" tidak ditemukan (404).${alasan} ` +
+        kalimatDaftarModel(await daftarModel(apiKey), "Mistral")
+      );
     case 422:
-      return "Mistral menolak bentuk permintaan. Periksa log server.";
+      return `Mistral menolak bentuk permintaan (422).${alasan} Periksa log server.`;
     case 429:
-      return "Batas pemakaian Mistral tercapai. Coba lagi beberapa saat lagi.";
+      return `Batas pemakaian Mistral tercapai.${alasan} Coba lagi beberapa saat lagi.`;
     default:
       return status >= 500
         ? "Mistral sedang bermasalah. Coba lagi beberapa saat lagi."
-        : `Mistral mengembalikan galat ${status}.`;
+        : `Mistral mengembalikan galat ${status}.${alasan}`;
   }
 }

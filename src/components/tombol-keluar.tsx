@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
+import { useBahasa } from "@/components/penyedia-bahasa";
 import { Button } from "@/components/ui/button";
 import { keluar } from "@/lib/firebase/client";
 
@@ -17,6 +18,7 @@ export function TombolKeluar({
 }) {
   const [memuat, setMemuat] = useState(false);
   const router = useRouter();
+  const { jalur, k } = useBahasa();
 
   return (
     <Button
@@ -29,14 +31,20 @@ export function TombolKeluar({
         try {
           await keluar();
         } finally {
-          router.replace("/masuk");
+          router.replace(jalur("/masuk"));
           router.refresh();
         }
       }}
     >
       <LogOut />
-      {tampilkanLabel ? (memuat ? "Keluar…" : "Keluar") : null}
-      {tampilkanLabel ? null : <span className="sr-only">Keluar</span>}
+      {tampilkanLabel
+        ? memuat
+          ? k.komponen.keluar.sedang
+          : k.komponen.keluar.label
+        : null}
+      {tampilkanLabel ? null : (
+        <span className="sr-only">{k.komponen.keluar.label}</span>
+      )}
     </Button>
   );
 }

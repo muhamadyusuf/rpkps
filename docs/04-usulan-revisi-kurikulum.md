@@ -305,3 +305,153 @@ Ditetapkan 22 Agustus 2026:
    Sejalan dengan pola `putuskanRpkps` yang sudah berlaku.
 4. **Kuota AI: belum dibatasi.** Gerbang sudah mencatat pemakaian token di
    `log_audit`; pembatasan menyusul bila datanya menunjukkan perlu.
+
+---
+
+## BAGIAN 9 — U3: Draf AI
+
+> Status: **U3a terpasang (30 Agustus 2026); U3b–U3d menyusul.**
+> Keputusan §9.4 (cakupan jenis butir) dan urutan §9.8 disetujui 30 Agustus 2026.
+
+### 9.1 Apa yang sebenarnya lambat
+
+U1–U2 sudah membuka pintunya, dan pintu itu dipakai dengan cara yang mahal:
+untuk satu Sub-CPMK yang KKO-nya tidak terukur, dosen harus membuka usulan,
+memilih jenis butir, menyalin kode CPMK, menulis ulang rumusan yang benar,
+menuliskan alasan, lalu melampirkan dasar — enam isian untuk satu perbaikan
+yang sebetulnya sudah **diketahui persis oleh validator**. Sebuah mata kuliah
+dengan sembilan temuan berarti mengetik hal yang sama sembilan kali.
+
+Yang lambat bukan keputusannya. Yang lambat adalah **transkripsi**: mengubah
+temuan yang sudah terstruktur menjadi butir yang juga terstruktur, lewat
+tangan. Itulah, dan hanya itu, yang dikerjakan U3.
+
+### 9.2 Bahaya yang membuat U3 layak ditolak kalau salah rancang
+
+§2.3 menetapkan: **setiap butir wajib membawa dasar**, dan butir tanpa dasar
+ditolak `periksaButir` sebelum sampai ke Kaprodi. Aturan itu satu-satunya yang
+memisahkan "kurikulum lebih relevan" dari "kurikulum karangan LLM".
+
+Kalau AI yang mengarang butir juga boleh mengarang dasarnya, aturan itu runtuh
+dalam satu langkah — dan runtuhnya tidak terlihat, karena hasilnya justru
+tampak lebih rapi daripada tulisan tangan dosen. Kaprodi akan membaca sembilan
+butir yang masing-masing membawa "dasar", menyetujuinya, dan yang sebenarnya
+ia setujui adalah pendapat sebuah model tentang kurikulum prodinya.
+
+Maka satu kalimat menjadi poros seluruh rancangan ini:
+
+> **AI boleh menyusun butir. AI tidak pernah boleh menerbitkan dasar.**
+
+### 9.3 Dasar adalah himpunan tertutup
+
+Dasar tidak ditulis model. Ia **dipilih** model dari daftar yang dirakit server
+dari data yang sudah ada, dan tiap pilihan diperiksa ulang server sebelum
+disimpan. Tiga sumber tersedia hari ini, seluruhnya tanpa fase baru:
+
+| Jenis dasar | Dari mana | Sudah ada? |
+|---|---|---|
+| `TEMUAN_VALIDATOR` | `validasiKurikulum` atas MK sasaran — kode `K-SUB-*`, `K-CPMK-*` | ✅ |
+| `TEMUAN_EVALUASI` | `temuan_evaluasi` pada kelas MK ini: Sub-CPMK yang capaiannya rendah, dengan akar masalah tertulis Kaprodi | ✅ (E4) |
+| `CATATAN_DOSEN` | catatan yang **diketik dosen sendiri** sebelum menekan tombol | ✅ |
+
+Mekanismenya persis `saringSubCpmkMilikRpkps` pada jalur RPKPS: model
+mengembalikan `dasar_ref`, server mencocokkannya dengan himpunan yang tadi
+dikirim, dan **butir yang dasarnya tidak dikenali dibuang** — dilaporkan
+apa adanya di panel ("3 butir dibuang karena dasarnya tidak dapat
+ditelusuri"), bukan dibuang diam-diam.
+
+`CATATAN_DOSEN` punya aturan tambahan: **model tidak boleh menuliskannya.**
+Kutipannya wajib berupa potongan verbatim dari catatan yang diketik dosen.
+Kalau model boleh mengarang kalimat lalu melabelinya "argumen tertulis
+pengusul", yang terjadi adalah pendapat model dicuci menjadi pendapat manusia
+— bentuk kegagalan yang paling sulit dilihat Kaprodi.
+
+`SINYAL_INDUSTRI`, `MASUKAN_DUDI`, dan `TRACER` sengaja **tidak** dipakai U3:
+sumbernya belum ada di basis data, dan itu memang isi U4.
+
+### 9.4 Yang boleh dan tidak boleh dikarang model
+
+| Jenis butir | U3 | Alasan |
+|---|---|---|
+| `CPMK_RUMUSAN`, `SUB_RUMUSAN` | ✅ | Persis pekerjaan transkripsi §9.1 |
+| `SUB_BARU` | ✅ | Sudah terbukti pada jalur impor |
+| `CPMK_PETA_CPL` | ✅ | Deterministik, kode CPL diverifikasi terhadap konteks |
+| `SUB_MINGGU` | ✅ | Usulan jadwal, tidak mengubah rumusan |
+| `CPMK_BARU` | ✅ | Dengan syarat dasarnya temuan, bukan "sepertinya perlu" |
+| `CPMK_PENSIUN`, `SUB_PENSIUN` | ❌ | Mempensiunkan capaian adalah penilaian atas program, bukan perbaikan kalimat. Akibatnya menjangkau RPKPS tahun berikutnya (§2.4). Tetap manual |
+| `CATATAN_CPL` | ✅ | Justru di sinilah temuan "ini sebenarnya soal CPL" seharusnya mendarat, dan ia memang tidak dapat diterapkan otomatis (§2.2) |
+
+Ditambah dua larangan keras, ditegakkan server, bukan prompt:
+
+1. **Tidak pernah `jalurRalat`.** Ralat adalah pengakuan bahwa makna tidak
+   berubah; `periksaJalurRalat` sudah mengujinya dengan kode, tetapi draf AI
+   tidak boleh bahkan mengusulkannya.
+2. **Tidak pernah mengubah kode.** Kode CPMK/Sub-CPMK/CPL hanya boleh menunjuk
+   yang ada di konteks, kecuali kode baru untuk `*_BARU`.
+
+### 9.5 Alur, meniru jalur yang sudah terbukti
+
+Sama persis dengan draf RPKPS (`periksaKesiapan → susun → terapkan`), karena
+polanya sudah dipahami dosen dan sudah menampung "kunci siapa yang dipakai":
+
+```
+[Halaman usulan DRAF]
+  │
+  │ dosen mengetik catatan (opsional, jadi CATATAN_DOSEN)
+  │ panel menampilkan: N temuan validator, M temuan evaluasi, kunci yang dipakai
+  ▼
+susunDrafUsulan()  ──► gerbang AI ──► skema keluaran
+  │                                     │
+  │ ◄───────────────────────────────────┘
+  │ server menyaring: dasar dikenali? kode ada? jenis diizinkan?
+  ▼
+[Pratinjau: butir demi butir, dasar terpasang, yang dibuang disebut]
+  │
+  │ dosen mencentang yang dipakai
+  ▼
+terapkanDrafUsulan()  ──► butir_usulan (sumber = AI) pada usulan DRAF
+  │
+  ▼
+periksaUsulan() — validator domain yang sama, tanpa keringanan apa pun
+```
+
+Draf **tidak pernah** langsung diajukan ke Kaprodi. Ia mendarat sebagai butir
+pada usulan berstatus DRAF milik dosen, yang masih harus ia baca, sunting, dan
+ajukan sendiri. `ButirUsulan.sumber = AI` ikut tersimpan dan **ditahan apa
+adanya setelah disahkan** — kolomnya sudah ada di skema dengan komentar itu.
+
+### 9.6 Tidak ada perubahan skema
+
+Diperiksa terhadap `prisma/schema.prisma`: `ButirUsulan.sumber`, `DasarButir`
+(jenis + ref + kutipan), dan `JenisDasar.TEMUAN_EVALUASI` **seluruhnya sudah
+ada**. U3 tidak menambah satu tabel pun.
+
+Satu kolom yang selama ini menganggur justru terisi olehnya:
+`TemuanEvaluasi.usulanId` — "terisi bila temuan ini diteruskan menjadi Usulan
+Revisi Kurikulum, inilah sambungan yang menutup siklus (doc 05 §5.6)". Belum
+ada satu baris kode pun yang mengisinya. Bila sebuah butir berdasar
+`TEMUAN_EVALUASI` diterapkan, temuan itu ditautkan ke usulannya, dan PPEPP
+benar-benar tertutup: evaluasi → tindak lanjut → revisi kurikulum.
+
+### 9.7 Berkas yang akan disentuh
+
+| Berkas | Perubahan |
+|---|---|
+| `src/lib/ai/draf-usulan.ts` (baru) | Panduan + skema keluaran + `susunDrafUsulan()`, meniru `perbaikan-kurikulum.ts` |
+| `src/domain/kurikulum/draf-usulan.ts` (baru) | **Penyaring murni**: mencocokkan keluaran model dengan himpunan dasar & kode yang sah, mengembalikan butir sah + alasan pembuangan. Diuji tanpa AI dan tanpa Prisma |
+| `src/lib/kurikulum/bahan-draf.ts` (baru) | Merakit konteks: MK, CPMK/Sub-CPMK, CPL dibebankan, temuan validator, temuan evaluasi |
+| `src/app/(app)/usulan/[id]/aksi-draf.ts` (baru) | `periksaKesiapanDraf`, `susunDrafUsulan`, `terapkanDrafUsulan` |
+| `src/app/(app)/usulan/[id]/panel-draf.tsx` (baru) | Panel pratinjau + pemilih kredensial, meniru panel draf RPKPS |
+| `uji/integrasi.ts` | §10: draf → saring → terapkan, termasuk bukti butir berdasar palsu ditolak |
+
+### 9.8 Fase kerja
+
+| Fase | Isi |
+|---|---|
+| **U3a** | ✅ `src/domain/kurikulum/draf-usulan.ts` + 36 uji. Tidak memanggil AI sama sekali; keluaran model disimulasikan sebagai fixture, termasuk yang dikarang |
+| **U3b** | Perakit konteks + tugas AI + gerbang |
+| **U3c** | Panel pratinjau, penerapan, penautan `TemuanEvaluasi.usulanId` |
+| **U3d** | Uji integrasi, dokumentasi, pembaruan status |
+
+U3a lebih dulu, dan sengaja: aturan yang melindungi §2.3 harus ada dan teruji
+**sebelum** ada satu pun jalan bagi keluaran model masuk ke basis data.

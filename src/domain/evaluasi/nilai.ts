@@ -74,16 +74,14 @@ export function bacaNilai(
     temuan.push({
       kode: "NL-KOLOM-ASING",
       tingkat: "PERINGATAN",
-      pesan: `Kolom ${kolomAsing.join(", ")} tidak dikenali sebagai asesmen dan diabaikan.`,
-      saran: "Biasanya berkas berasal dari RPKPS lain, atau rencana sudah berubah sejak templat diunduh.",
+      params: { daftar: kolomAsing.join(", ") },
     });
   }
   if (kolomHilang.length > 0) {
     temuan.push({
       kode: "NL-KOLOM-HILANG",
       tingkat: "PERINGATAN",
-      pesan: `Asesmen ${kolomHilang.join(", ")} tidak ada kolomnya pada berkas.`,
-      saran: "Capaian yang bergantung pada asesmen itu tidak akan lengkap.",
+      params: { daftar: kolomHilang.join(", ") },
     });
   }
 
@@ -102,7 +100,7 @@ export function bacaNilai(
         temuan.push({
           kode: "NL-NIM-KOSONG",
           tingkat: "PEMBLOKIR",
-          pesan: `Baris ${b.nomor} berisi nilai tetapi tidak punya NIM.`,
+          params: { baris: b.nomor },
         });
       }
       continue;
@@ -113,7 +111,7 @@ export function bacaNilai(
       temuan.push({
         kode: "NL-NIM-GANDA",
         tingkat: "PEMBLOKIR",
-        pesan: `NIM ${nim} muncul dua kali, pada baris ${sebelumnya} dan ${b.nomor}.`,
+        params: { nim, sebelumnya, baris: b.nomor },
       });
       continue;
     }
@@ -123,7 +121,7 @@ export function bacaNilai(
       temuan.push({
         kode: "NL-NAMA-KOSONG",
         tingkat: "PERINGATAN",
-        pesan: `Baris ${b.nomor} (NIM ${nim}) tidak punya nama.`,
+        params: { baris: b.nomor, nim },
       });
     }
 
@@ -140,7 +138,7 @@ export function bacaNilai(
         temuan.push({
           kode: "NL-SKOR-BUKAN-ANGKA",
           tingkat: "PEMBLOKIR",
-          pesan: `Baris ${b.nomor} kolom ${kode} berisi "${isi}", yang bukan angka.`,
+          params: { baris: b.nomor, kode, isi },
         });
         skor[kode] = null;
         continue;
@@ -149,7 +147,7 @@ export function bacaNilai(
         temuan.push({
           kode: "NL-SKOR-DILUAR-RENTANG",
           tingkat: "PEMBLOKIR",
-          pesan: `Baris ${b.nomor} kolom ${kode} berisi ${angka}, di luar rentang ${SKOR_MIN}–${SKOR_MAKS}.`,
+          params: { baris: b.nomor, kode, angka, min: SKOR_MIN, maks: SKOR_MAKS },
         });
         skor[kode] = null;
         continue;
@@ -167,8 +165,7 @@ export function bacaNilai(
     temuan.push({
       kode: "NL-BELUM-LENGKAP",
       tingkat: "PERINGATAN",
-      pesan: `${selSeluruh - selTerisi} dari ${selSeluruh} sel nilai masih kosong.`,
-      saran: "Boleh disimpan sebagian; capaian baru dapat ditutup setelah seluruhnya terisi.",
+      params: { kosong: selSeluruh - selTerisi, total: selSeluruh },
     });
   }
 
@@ -258,7 +255,7 @@ export function bacaSkorButir(
         temuan.push({
           kode: "BT-BUKAN-ANGKA",
           tingkat: "PEMBLOKIR",
-          pesan: `Baris ${b.nomor} butir ${nomor} pada ${label} berisi "${isi}", yang bukan angka.`,
+          params: { baris: b.nomor, nomor, label, isi },
         });
         skor[nomor] = null;
         continue;
@@ -267,7 +264,7 @@ export function bacaSkorButir(
         temuan.push({
           kode: "BT-DILUAR-RENTANG",
           tingkat: "PEMBLOKIR",
-          pesan: `Baris ${b.nomor} butir ${nomor} pada ${label} berisi ${angka}, di luar 0–${batas}.`,
+          params: { baris: b.nomor, nomor, label, angka, batas },
         });
         skor[nomor] = null;
         continue;

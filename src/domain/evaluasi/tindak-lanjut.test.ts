@@ -7,6 +7,7 @@ import {
   type TemuanInput,
 } from "./tindak-lanjut";
 import type { CapaianButir } from "./capaian";
+import { pesanTemuanId } from "@/lib/bahasa/temuan";
 
 function butir(
   kode: string,
@@ -71,7 +72,7 @@ describe("syarat penutupan evaluasi", () => {
       pemblokirCapaian: [],
     });
     const t = h.temuan.find((x) => x.kode === "TL-TANPA-RTL")!;
-    assert.ok(t.pesan.includes("CPMK2"));
+    assert.ok(pesanTemuanId(t).includes("CPMK2"));
     assert.equal(h.dapatDitutup, false);
   });
 
@@ -103,7 +104,7 @@ describe("syarat penutupan evaluasi", () => {
       temuan: [],
       catatanProses: REFLEKSI,
       pemblokirCapaian: [
-        { kode: "EV-BELUM-LENGKAP", tingkat: "PEMBLOKIR", pesan: "Belum lengkap." },
+        { kode: "EV-BELUM-LENGKAP", tingkat: "PEMBLOKIR" },
       ],
     });
     assert.equal(h.dapatDitutup, false);

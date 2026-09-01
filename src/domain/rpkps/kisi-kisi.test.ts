@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { validasiKisiKisi, type KisiKisiInput, type KonteksKisiKisi } from "./kisi-kisi";
+import { pesanTemuanId } from "@/lib/bahasa/temuan";
 
 /** Konteks TI214: 7 Sub-CPMK sebelum UTS, 7 sesudahnya. */
 function konteks(): KonteksKisiKisi {
@@ -41,7 +42,7 @@ describe("kisi-kisi sehat", () => {
     assert.equal(
       h.lolos,
       true,
-      `pemblokir: ${h.pemblokir.map((t) => `${t.kode}: ${t.pesan}`).join(" | ")}`,
+      `pemblokir: ${h.pemblokir.map((t) => `${t.kode}: ${pesanTemuanId(t)}`).join(" | ")}`,
     );
     assert.equal(h.ringkasan.totalSkor, 100);
     assert.equal(h.ringkasan.subCpmkTercakup, 7);
@@ -56,7 +57,7 @@ describe("total skor", () => {
     const h = validasiKisiKisi(k, konteks());
     const t = h.pemblokir.find((x) => x.kode === "KK-TOTAL-SKOR");
     assert.ok(t);
-    assert.match(t!.pesan, /116/);
+    assert.match(pesanTemuanId(t!), /116/);
   });
 
   it("kisi-kisi kosong adalah pemblokir", () => {
@@ -82,7 +83,7 @@ describe("cakupan Sub-CPMK", () => {
     const h = validasiKisiKisi(k, konteks());
     const t = h.pemblokir.find((x) => x.kode === "KK-SUB-CPMK-TIDAK-DIUJI");
     assert.ok(t);
-    assert.match(t!.pesan, /CPMK081-7/);
+    assert.match(pesanTemuanId(t!), /CPMK081-7/);
   });
 
   it("menguji Sub-CPMK milik mata kuliah lain adalah pemblokir", () => {
@@ -115,7 +116,7 @@ describe("level Bloom", () => {
     const h = validasiKisiKisi(k, konteks());
     const t = h.peringatan.find((x) => x.kode === "KK-LEVEL-MELAMPAUI");
     assert.ok(t);
-    assert.match(t!.pesan, /C6/);
+    assert.match(pesanTemuanId(t!), /C6/);
   });
 
   it("ujian yang hampir seluruhnya C1–C2 diperingatkan", () => {
@@ -124,7 +125,7 @@ describe("level Bloom", () => {
     const h = validasiKisiKisi(k, konteks());
     const t = h.peringatan.find((x) => x.kode === "KK-BLOOM-TIMPANG");
     assert.ok(t);
-    assert.match(t!.pesan, /100%/);
+    assert.match(pesanTemuanId(t!), /100%/);
   });
 
   it("sebaran level dilaporkan pada ringkasan", () => {

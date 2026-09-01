@@ -106,6 +106,50 @@ dilenyapkan — jumlah pertemuan, tugas, kisi-kisi, pustaka — beserta kode MK 
 tahun akademiknya. Baris-barisnya memang hilang, tetapi pertanyaan "ke mana
 perginya RPKPS TI214 2025/2026-GENAP?" tetap terjawab.
 
+### 2.6 Aturan H3 — pintu darurat administrator
+
+H1 dan H2 menutup semua jalan bagi dokumen yang sudah disahkan, dan untuk dosen
+maupun Kaprodi memang begitulah seharusnya. Tetapi ada keadaan yang tidak
+terjawab arsip: dokumen **tidak boleh tetap ada**. Dua yang nyata — RPKPS terbit
+pada mata kuliah yang salah sehingga katalog publik menampilkan dokumen yang
+tidak pernah berlaku, dan dokumen yang memuat data yang wajib dihapus atas
+permintaan yang sah. Mengarsipkan hanya menyembunyikannya; barisnya masih ada.
+
+Karena itu **satu** pintu darurat, bukan pelonggaran H1:
+
+| Syarat | Alasan |
+|---|---|
+| Peminta memegang peran `ADMIN` | Bukan `bolehKelola`. Koordinator dan Kaprodi tetap berhenti di H1; yang boleh membatalkan aturan institusi hanya pemegang wewenang institusi |
+| Alasan tertulis ≥ `MIN_ALASAN_HAPUS_PAKSA` karakter | Setelah barisnya lenyap, kalimat inilah satu-satunya keterangan yang tersisa |
+| Kode mata kuliah diketik ulang di dialog | Menahan gerakan refleks; bukan pengaman, pengamannya tetap di server |
+| Sensus lengkap tercatat ke `log_audit` **di dalam transaksi yang sama** | Lihat di bawah |
+
+Yang membedakannya dari H1 bukan longgarnya, melainkan **arah pertanyaannya**.
+`periksaKelayakanHapus` menjawab "apa yang menghalangi?"; `ringkasAkibatHapus`
+menjawab "apa yang hancur bila tetap dilanjutkan?" — dan jawabannya dihitung
+dari basis data lalu **ditampilkan di dialog**, bukan diringkas menjadi
+"tindakan ini permanen". Administrator berhak melewati penghalangnya; ia tidak
+berhak tidak tahu apa yang ia hancurkan.
+
+Catatan auditnya lebih tebal daripada H1 dan sengaja demikian: selain sensus
+isi, ia menyimpan **sidik SHA-256 setiap salinan beku** beserta versinya, daftar
+pengampu berikut surelnya, rincian tiap kelas, status saat dihapus, dan alasan
+yang ditulis. Berkas DOCX yang sudah tercetak memuat sidik itu; setelah barisnya
+hilang, `log_audit` adalah satu-satunya tempat angka tersebut masih dapat
+ditelusuri. Aksinya `RPKPS_DIHAPUS_PAKSA`, terpisah dari `RPKPS_DIHAPUS`, supaya
+kedua peristiwa itu tidak pernah tercampur saat log dibaca.
+
+Jalur paksa hidup di server action tersendiri (`hapusPaksaRpkps`), **bukan**
+sebagai parameter `paksa: boolean` pada `hapusRpkps`. Bendera opsional pada aksi
+yang sudah dipanggil dari dialog biasa cepat sekali berubah menjadi nilai yang
+diteruskan begitu saja dari peramban; fungsi terpisah berarti jalur ini punya
+penjaga sendiri yang tidak dapat dilewati dari jalur biasa.
+
+Arsip tetap jawaban bawaan. Antarmuka menampilkan pintu ini **hanya di dalam
+dialog penolakan H1 dan hanya bagi ADMIN**, di bawah anjuran mengarsipkan —
+supaya urutan yang dibaca selalu: inilah yang menghalangi, inilah cara benar
+menariknya, baru pintu darurat.
+
 ## BAGIAN 3 — Mengirimkan pada dosen lain
 
 ### 3.1 Tiga maksud yang berbeda

@@ -1,6 +1,7 @@
 import { bandingkanLevel, infoLevel, type LevelBloom } from "@/domain/kurikulum/bloom";
 import { bulatkan } from "@/domain/beban-belajar/kalkulator";
 import type { TemuanRpkps } from "./tipe";
+import { daftarRingkas } from "@/domain/temuan";
 
 /**
  * Validator kisi-kisi ujian.
@@ -74,15 +75,13 @@ export function validasiKisiKisi(
     temuan.push({
       kode: "KK-KOSONG",
       tingkat: "PEMBLOKIR",
-      pesan: `Kisi-kisi ${label} belum memiliki butir.`,
+      params: { label },
     });
   } else if (Math.abs(totalButir - k.totalSkor) > TOLERANSI_SKOR) {
     temuan.push({
       kode: "KK-TOTAL-SKOR",
       tingkat: "PEMBLOKIR",
-      pesan:
-        `Total skor butir ${label} berjumlah ${totalButir}, ` +
-        `seharusnya ${k.totalSkor}.`,
+      params: { label, total: totalButir, seharusnya: k.totalSkor },
     });
   }
 
@@ -91,14 +90,14 @@ export function validasiKisiKisi(
       temuan.push({
         kode: "KK-JUMLAH-BUTIR",
         tingkat: "PEMBLOKIR",
-        pesan: `Baris ${b.nomor} pada ${label} memiliki jumlah butir kurang dari satu.`,
+        params: { nomor: b.nomor, label },
       });
     }
     if (b.skor <= 0) {
       temuan.push({
         kode: "KK-SKOR-NOL",
         tingkat: "PEMBLOKIR",
-        pesan: `Baris ${b.nomor} pada ${label} berskor nol — butir tanpa skor tidak mengukur apa pun.`,
+        params: { nomor: b.nomor, label },
       });
     }
   }
@@ -109,10 +108,7 @@ export function validasiKisiKisi(
     temuan.push({
       kode: "KK-SUB-CPMK-TIDAK-DIUJI",
       tingkat: "PEMBLOKIR",
-      pesan:
-        `${belum.length} Sub-CPMK diajarkan sebelum ${label} tetapi tidak diuji: ` +
-        `${belum.slice(0, 5).join(", ")}${belum.length > 5 ? ", …" : ""}.`,
-      saran: "Tambahkan butir untuk Sub-CPMK tersebut, atau pindahkan ke ujian yang lain.",
+      params: { jumlah: belum.length, label, daftar: daftarRingkas(belum) },
     });
   }
 
@@ -123,15 +119,13 @@ export function validasiKisiKisi(
       temuan.push({
         kode: "KK-SUB-CPMK-ASING",
         tingkat: "PEMBLOKIR",
-        pesan: `${label} menguji ${kode}, yang tidak dijadwalkan pada mata kuliah ini.`,
+        params: { label, kode },
       });
     } else if (!setSeharusnya.has(kode)) {
       temuan.push({
         kode: "KK-SUB-CPMK-BELUM-DIAJARKAN",
         tingkat: "PERINGATAN",
-        pesan:
-          `${label} menguji ${kode}, yang dijadwalkan ` +
-          `${k.jenis === "UTS" ? "setelah" : "sebelum"} ujian ini.`,
+        params: { label, kode, sebelum: k.jenis === "UTS" ? "setelah" : "sebelum" },
       });
     }
   }
@@ -145,11 +139,13 @@ export function validasiKisiKisi(
       temuan.push({
         kode: "KK-LEVEL-MELAMPAUI",
         tingkat: "PERINGATAN",
-        pesan:
-          `Butir ${b.nomor} menguji ${b.subCpmkKode} pada level ${b.levelBloom} ` +
-          `(${infoLevel(b.levelBloom).nama}), lebih tinggi daripada level ` +
-          `Sub-CPMK-nya ${levelKurikulum}.`,
-        saran: "Menguji di atas level yang diajarkan membuat hasilnya sulit dipertanggungjawabkan.",
+        params: {
+          nomor: b.nomor,
+          kode: b.subCpmkKode,
+          level: b.levelBloom,
+          nama: infoLevel(b.levelBloom).nama,
+          levelKurikulum,
+        },
       });
     }
   }
@@ -166,9 +162,7 @@ export function validasiKisiKisi(
     temuan.push({
       kode: "KK-BLOOM-TIMPANG",
       tingkat: "PERINGATAN",
-      pesan:
-        `${bulatkan((skorRendah / totalButir) * 100, 1)}% skor ${label} berada di level C1–C2.`,
-      saran: "Ujian yang hampir seluruhnya mengingat dan memahami tidak mengukur penerapan.",
+      params: { persen: bulatkan((skorRendah / totalButir) * 100, 1), label },
     });
   }
 
@@ -191,9 +185,12 @@ export function validasiKisiKisi(
         temuan.push({
           kode: "KK-PROPORSI",
           tingkat: "PERINGATAN",
-          pesan:
-            `${kode} mendapat ${bulatkan(persenAjar, 1)}% porsi pembelajaran ` +
-            `tetapi ${bulatkan(persenUji, 1)}% skor ${label}.`,
+          params: {
+            kode,
+            persenAjar: bulatkan(persenAjar, 1),
+            persenUji: bulatkan(persenUji, 1),
+            label,
+          },
         });
       }
     }

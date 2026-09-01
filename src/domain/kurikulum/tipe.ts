@@ -1,3 +1,4 @@
+import type { ParamTemuan } from "@/domain/rpkps/tipe";
 import type { LevelBloom } from "./bloom";
 
 /** Bentuk data kurikulum yang bebas dari Prisma, agar validator dapat diuji. */
@@ -74,8 +75,13 @@ export type TingkatTemuan = "PEMBLOKIR" | "PERINGATAN" | "INFO";
 export interface TemuanKurikulum {
   kode: string;
   tingkat: TingkatTemuan;
-  pesan: string;
+  /**
+   * Parameter kalimat, bukan kalimatnya. Domain menyimpan angka dan nama;
+   * kalimatnya dirakit `teksTemuan` saat dibaca, dalam bahasa pembacanya.
+   * Lihat docs/11 §4.1.
+   */
+  params?: Record<string, ParamTemuan>;
   /** Lokasi temuan, mis. { mk: "TI214", cpmk: "CPMK081" } */
   lokasi?: Record<string, string>;
-  saran?: string;
+
 }

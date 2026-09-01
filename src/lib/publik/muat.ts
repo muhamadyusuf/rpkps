@@ -5,6 +5,7 @@ import { cairkanSnapshot, type IsiSnapshot } from "@/domain/rpkps/sidik";
 import { dokumenPublik, type DokumenPublik } from "@/domain/rpkps/publik";
 import type { SumberProyeksi } from "@/domain/rpkps/proyeksi";
 import type { JenjangProdi } from "@/generated/prisma";
+import type { BarisRiwayatBeku } from "@/domain/rpkps/sidik";
 
 /**
  * Pintu tunggal ke data yang boleh dilihat tanpa login.
@@ -51,7 +52,7 @@ export type RpkpsPublik = {
   kurikulum: { nama: string; tahun: number };
   tahunAkademik: string;
   dokumen: DokumenPublik;
-  riwayat: { versi: number; dibuatPada: Date; deskripsi: string }[];
+  riwayat: (Omit<BarisRiwayatBeku, "dibuatPada"> & { dibuatPada: Date })[];
   /** Tahun akademik lain yang RPKPS-nya juga sudah terbit, terbaru dulu. */
   versiLain: string[];
 };

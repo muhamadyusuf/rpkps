@@ -1,5 +1,6 @@
 import { bulatkan } from "@/domain/beban-belajar/kalkulator";
 import type { TemuanRpkps } from "@/domain/rpkps/tipe";
+import { daftarRingkas } from "@/domain/temuan";
 
 /**
  * Peta asesmen kanonik — tahap E1 pada docs/05-evaluasi-ketercapaian-mk.md.
@@ -128,6 +129,46 @@ interface Calon extends Asesmen {
   jenisUjian: "UTS" | "UAS" | null;
 }
 
+/** Baris tabel mingguan, seperlunya untuk menurunkan kode asesmennya. */
+export interface BarisBerkode {
+  minggu: number;
+  jenis: "EFEKTIF" | "UTS" | "UAS";
+  bobot: number;
+}
+
+/**
+ * Menurunkan kode asesmen setiap baris tabel mingguan: `M5` untuk pertemuan
+ * efektif, `UTS`/`UAS` untuk baris ujian, dan `UTS-M9` bila dua baris ujian
+ * berjenis sama bertabrakan.
+ *
+ * Berdiri sendiri sebagai fungsi karena kode ini TIDAK hanya dipakai peta
+ * asesmen: `nilai_asesmen.asesmen_kode` menyimpannya sebagai teks tanpa
+ * relasi (lihat komentar skema), sehingga setiap penomoran ulang tabel
+ * mingguan harus memindahkan nilai memakai aturan yang PERSIS sama. Menyalin
+ * aturannya ke berkas lain berarti nilai mahasiswa berpindah menurut aturan
+ * yang berbeda dari yang menghitungnya — tanpa gagal, dan tanpa jejak.
+ *
+ * Baris tanpa bobot tidak menghasilkan asesmen, jadi tidak diberi kode.
+ * Urutan masukan tidak berpengaruh: daftar diurutkan menurut nomor minggu
+ * lebih dulu agar kodenya stabil.
+ */
+export function kodeAsesmenPertemuan<T extends BarisBerkode>(
+  pertemuan: readonly T[],
+): { baris: T; kode: string }[] {
+  const terpakai = new Set<string>();
+  const hasil: { baris: T; kode: string }[] = [];
+
+  for (const p of [...pertemuan].sort((a, b) => a.minggu - b.minggu)) {
+    if (p.bobot <= TOLERANSI) continue;
+    let kode = p.jenis !== "EFEKTIF" ? p.jenis : `M${p.minggu}`;
+    if (terpakai.has(kode)) kode = `${kode}-M${p.minggu}`;
+    terpakai.add(kode);
+    hasil.push({ baris: p, kode });
+  }
+
+  return hasil;
+}
+
 export function susunPetaAsesmen(sumber: SumberPeta): PetaAsesmen {
   const temuan: TemuanRpkps[] = [];
 
@@ -135,12 +176,8 @@ export function susunPetaAsesmen(sumber: SumberPeta): PetaAsesmen {
   const dariMingguan: Calon[] = [];
   const kodeTerpakai = new Set<string>();
 
-  for (const p of sumber.pertemuan) {
-    if (p.bobot <= TOLERANSI) continue;
+  for (const { baris: p, kode } of kodeAsesmenPertemuan(sumber.pertemuan)) {
     const ujian = p.jenis !== "EFEKTIF";
-
-    let kode = ujian ? p.jenis : `M${p.minggu}`;
-    if (kodeTerpakai.has(kode)) kode = `${kode}-M${p.minggu}`;
     kodeTerpakai.add(kode);
 
     dariMingguan.push({
@@ -205,11 +242,11 @@ export function susunPetaAsesmen(sumber: SumberPeta): PetaAsesmen {
       temuan.push({
         kode: "PA-TUGAS-BEDA-BOBOT",
         tingkat: "PERINGATAN",
-        pesan:
-          `Lembar tugas pada komponen "${komponen}" menyebut bobot ${bulatkan(bobotTugas, 2)}%, ` +
-          `sedangkan baris mingguan komponen itu berjumlah ${bulatkan(bobotMingguan, 2)}%.`,
-        saran:
-          "Bobot diambil dari baris mingguan. Samakan angkanya agar lembar tugas tidak menyesatkan.",
+        params: {
+          nama: komponen,
+          bobotTugas: bulatkan(bobotTugas, 2),
+          bobotMingguan: bulatkan(bobotMingguan, 2),
+        },
       });
     }
   }
@@ -222,9 +259,8 @@ export function susunPetaAsesmen(sumber: SumberPeta): PetaAsesmen {
       temuan.push({
         kode: "PA-TANPA-KOMPONEN",
         tingkat: "PEMBLOKIR",
-        pesan: `${c.kode} (${c.nama}) berbobot ${bulatkan(c.bobot, 2)}% tetapi tidak masuk komponen nilai mana pun.`,
+        params: { kode: c.kode, nama: c.nama, bobot: bulatkan(c.bobot, 2) },
         minggu: c.asal === "TUGAS" ? undefined : c.minggu[0],
-        saran: "Tanpa komponen, bobotnya tidak dapat direkonsiliasi dan nilainya tidak dapat dikumpulkan.",
       });
     }
   }
@@ -243,16 +279,13 @@ export function susunPetaAsesmen(sumber: SumberPeta): PetaAsesmen {
       temuan.push({
         kode: "PA-KOMPONEN-TANPA-ASESMEN",
         tingkat: "PEMBLOKIR",
-        pesan: `Komponen "${k.nama}" berbobot ${bulatkan(k.bobot, 2)}% tetapi tidak dirinci baris mingguan maupun lembar tugas.`,
-        saran: "Komponen tanpa asesmen berarti ada nilai yang tidak pernah bisa dikumpulkan.",
+        params: { nama: k.nama, bobot: bulatkan(k.bobot, 2) },
       });
     } else if (Math.abs(dirinci - k.bobot) > TOLERANSI) {
       temuan.push({
         kode: "PA-KOMPONEN-TIDAK-COCOK",
         tingkat: "PEMBLOKIR",
-        pesan:
-          `Asesmen pada komponen "${k.nama}" berjumlah ${bulatkan(dirinci, 2)}%, ` +
-          `sedangkan komponennya ${bulatkan(k.bobot, 2)}%.`,
+        params: { nama: k.nama, dirinci: bulatkan(dirinci, 2), bobot: bulatkan(k.bobot, 2) },
       });
     }
   }
@@ -262,18 +295,41 @@ export function susunPetaAsesmen(sumber: SumberPeta): PetaAsesmen {
     temuan.push({
       kode: "PA-KOSONG",
       tingkat: "PEMBLOKIR",
-      pesan: "Belum ada satu pun asesmen berbobot pada mata kuliah ini.",
     });
   } else if (Math.abs(totalBobot - 100) > TOLERANSI) {
     temuan.push({
       kode: "PA-TOTAL",
       tingkat: "PEMBLOKIR",
-      pesan: `Seluruh asesmen berjumlah ${totalBobot}%, seharusnya 100%.`,
+      params: { total: totalBobot },
     });
   }
 
   // ── 6 · Membagi bobot tiap asesmen ke Sub-CPMK ──────────────────────
   const kisiPerJenis = new Map(sumber.kisiKisi.map((k) => [k.jenis, k]));
+
+  /**
+   * Kisi-kisi yang tidak punya baris ujian berbobot untuk dipasangi.
+   *
+   * `kisi_kisi` berkunci `[rpkpsId, jenis]` dan TIDAK berelasi ke `pertemuan`,
+   * jadi menghapus baris UTS — atau mengubah jenisnya kembali menjadi
+   * EFEKTIF, yang kini dapat dilakukan dosen (docs/09 §K5) — meninggalkan
+   * kisi-kisinya utuh tanpa satu pun asesmen yang memakainya. Akibatnya
+   * senyap: Sub-CPMK yang hanya diukur lewat ujian itu kehilangan bobotnya,
+   * dan yang muncul hanyalah PA-SUB-CPMK-TANPA-BOBOT di ujung rantai, jauh
+   * dari sebabnya.
+   */
+  const ujianBerbobot = new Set(
+    calon.map((c) => c.jenisUjian).filter((j): j is "UTS" | "UAS" => j !== null),
+  );
+  for (const k of sumber.kisiKisi) {
+    if (k.butir.length > 0 && !ujianBerbobot.has(k.jenis)) {
+      temuan.push({
+        kode: "PA-KISI-TANPA-UJIAN",
+        tingkat: "PERINGATAN",
+        params: { jenis: k.jenis, jumlah: k.butir.length },
+      });
+    }
+  }
 
   for (const c of calon) {
     const kisi = c.jenisUjian ? kisiPerJenis.get(c.jenisUjian) : undefined;
@@ -298,9 +354,8 @@ export function susunPetaAsesmen(sumber: SumberPeta): PetaAsesmen {
       temuan.push({
         kode: "PA-ASESMEN-TANPA-SUB-CPMK",
         tingkat: "PEMBLOKIR",
-        pesan: `${c.kode} (${c.nama}) berbobot ${bulatkan(c.bobot, 2)}% tetapi tidak menagih Sub-CPMK mana pun.`,
+        params: { kode: c.kode, nama: c.nama, bobot: bulatkan(c.bobot, 2) },
         minggu: c.asal === "TUGAS" ? undefined : c.minggu[0],
-        saran: "Bobotnya tidak mengalir ke capaian mana pun — nilainya hanya jadi angka akhir.",
       });
       continue;
     }
@@ -314,8 +369,7 @@ export function susunPetaAsesmen(sumber: SumberPeta): PetaAsesmen {
       temuan.push({
         kode: "PA-UJIAN-TANPA-KISI-KISI",
         tingkat: "PERINGATAN",
-        pesan: `Bobot ${c.kode} dibagi rata ke ${c.subKode.length} Sub-CPMK karena kisi-kisinya belum diisi.`,
-        saran: "Kisi-kisi membuat porsi tiap Sub-CPMK mengikuti skor butir, bukan tebakan rata.",
+        params: { kode: c.kode, jumlah: c.subKode.length },
       });
     }
   }
@@ -343,10 +397,7 @@ export function susunPetaAsesmen(sumber: SumberPeta): PetaAsesmen {
     temuan.push({
       kode: "PA-SUB-CPMK-TANPA-BOBOT",
       tingkat: "PEMBLOKIR",
-      pesan:
-        `${belumDinilai.length} Sub-CPMK tidak mendapat bobot penilaian: ` +
-        `${belumDinilai.slice(0, 5).join(", ")}${belumDinilai.length > 5 ? ", …" : ""}.`,
-      saran: "Capaiannya tidak akan pernah terukur, sehingga CPL di atasnya ikut menggantung.",
+      params: { jumlah: belumDinilai.length, daftar: daftarRingkas(belumDinilai) },
     });
   }
 
@@ -358,7 +409,7 @@ export function susunPetaAsesmen(sumber: SumberPeta): PetaAsesmen {
       temuan.push({
         kode: "PA-SUB-CPMK-ASING",
         tingkat: "PEMBLOKIR",
-        pesan: `Asesmen menagih ${kode}, yang bukan milik mata kuliah ini.`,
+        params: { kode },
       });
     }
   }
@@ -382,11 +433,7 @@ export function susunPetaAsesmen(sumber: SumberPeta): PetaAsesmen {
     temuan.push({
       kode: "PA-CPL-TANPA-BOBOT",
       tingkat: "PEMBLOKIR",
-      pesan:
-        `CPL ${cplKosong.map((c) => c.kode).join(", ")} dibebankan pada mata kuliah ini ` +
-        `tetapi tidak pernah dinilai.`,
-      saran:
-        "Beban CPL tanpa asesmen adalah temuan B3 pada docs/02 §2.1 — janji kurikulum yang tak bisa dibuktikan.",
+      params: { daftar: cplKosong.map((c) => c.kode).join(", ") },
     });
   }
 

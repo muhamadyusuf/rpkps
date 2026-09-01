@@ -1,7 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { cakupanProdi } from "@/lib/otorisasi";
-import { periksaKelayakanHapus } from "@/domain/rpkps/daur-hidup";
+import { adalahAdmin, cakupanProdi } from "@/lib/otorisasi";
+import { periksaKelayakanHapus, ringkasAkibatHapus } from "@/domain/rpkps/daur-hidup";
 import { namaLengkapPengampu } from "@/domain/rpkps/pemetaan";
 import type { PenggunaSesi } from "@/lib/sesi";
 
@@ -26,6 +26,13 @@ export type DataKelola = {
   tahun: { id: string; kode: string }[];
   /** Kosong berarti RPKPS memenuhi syarat penghapusan. */
   alasanTakDapatDihapus: string[];
+  /**
+   * Apa yang lenyap bila penghapusan tetap dipaksakan (docs/06 §2.6) — dihitung
+   * dari sensus yang sama, bukan dikarang di dialog.
+   */
+  akibatHapusPaksa: string[];
+  /** Hanya ADMIN yang ditawari jalur paksa; selain itu tombolnya tidak ada. */
+  bolehHapusPaksa: boolean;
 };
 
 const PERAN_DOSEN = ["DOSEN", "KOORDINATOR_MK", "KAPRODI"] as const;
@@ -89,8 +96,8 @@ export async function muatDataKelola(
     }),
   ]);
 
-  const kelayakan = sensus
-    ? periksaKelayakanHapus({
+  const ringkasSensus = sensus
+    ? {
         status: sensus.status,
         jumlahSnapshot: sensus._count.snapshot,
         kelas: sensus.kelas.map((k) => ({
@@ -99,8 +106,14 @@ export async function muatDataKelola(
           jumlahNilai: k.peserta.reduce((n, p) => n + p._count.nilai, 0),
           adaEvaluasi: k.evaluasi !== null,
         })),
-      })
+      }
+    : null;
+
+  const kelayakan = ringkasSensus
+    ? periksaKelayakanHapus(ringkasSensus)
     : { boleh: false, alasan: ["RPKPS tidak ditemukan."] };
+
+  const akibat = ringkasSensus ? ringkasAkibatHapus(ringkasSensus).rincian : [];
 
   return {
     calon: calonMentah.map((c) => ({
@@ -118,5 +131,7 @@ export async function muatDataKelola(
     })),
     tahun,
     alasanTakDapatDihapus: kelayakan.alasan,
+    akibatHapusPaksa: akibat,
+    bolehHapusPaksa: adalahAdmin(sesi),
   };
 }

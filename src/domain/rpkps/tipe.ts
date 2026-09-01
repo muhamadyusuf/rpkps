@@ -77,14 +77,34 @@ export interface RpkpsInput {
   tugas: TugasRpkps[];
   jumlahPustakaUtama: number;
   jumlahPengampu: number;
+  /**
+   * Nama pengampu yang belum memaraf halaman pengesahan pada ronde berjalan
+   * (docs/14 §2.2). Koordinator menandatangani a.n tim penyusun, jadi parafnya
+   * harus lengkap lebih dulu.
+   */
+  pengampuBelumParaf: string[];
 }
+
+/**
+ * Nilai sebuah parameter temuan.
+ *
+ * `{ menit }` sengaja bertanda, bukan string hasil `formatMenit`: "2 jam 30
+ * menit" adalah kalimat Indonesia, dan menaruhnya di params akan menyelundupkan
+ * bahasa penulis validator ke layar pembaca berbahasa Inggris lewat pintu
+ * belakang. Yang disimpan angkanya; kata "jam" dan "menit" datang dari kamus.
+ */
+export type ParamTemuan = string | number | { menit: number };
 
 export type TingkatTemuan = "PEMBLOKIR" | "PERINGATAN" | "INFO";
 
 export interface TemuanRpkps {
   kode: string;
   tingkat: TingkatTemuan;
-  pesan: string;
+  /**
+   * Parameter kalimat, bukan kalimatnya. Domain menyimpan angka dan nama;
+   * kalimatnya dirakit `teksTemuan` saat dibaca, dalam bahasa pembacanya.
+   * Lihat docs/11 §4.1.
+   */
+  params?: Record<string, ParamTemuan>;
   minggu?: number;
-  saran?: string;
 }

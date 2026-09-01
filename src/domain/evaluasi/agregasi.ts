@@ -1,5 +1,6 @@
 import { bulatkan } from "@/domain/beban-belajar/kalkulator";
 import type { TemuanRpkps } from "@/domain/rpkps/tipe";
+import { daftarRingkas } from "@/domain/temuan";
 
 /**
  * Agregasi capaian tingkat program studi — tahap E5 pada
@@ -198,11 +199,7 @@ export function agregasiProdi(arg: ArgAgregasi): HasilAgregasi {
     temuan.push({
       kode: "AG-CPL-TANPA-DATA",
       tingkat: "PEMBLOKIR",
-      pesan:
-        `${belumTerukur.length} CPL belum pernah terukur oleh evaluasi mana pun: ` +
-        `${belumTerukur.map((c) => c.kode).join(", ")}.`,
-      saran:
-        "Selama CPL ini kosong, prodi tidak dapat menyatakan capaian lulusannya — hanya menduga.",
+      params: { jumlah: belumTerukur.length, daftar: belumTerukur.map((c) => c.kode).join(", ") },
     });
   }
 
@@ -213,10 +210,10 @@ export function agregasiProdi(arg: ArgAgregasi): HasilAgregasi {
     temuan.push({
       kode: "AG-CPL-BELUM-TERCAPAI",
       tingkat: "PERINGATAN",
-      pesan:
-        `CPL ${gagal.map((c) => `${c.kode} (${c.persenLulus}%)`).join(", ")} ` +
-        `berada di bawah ambang ${arg.ambangKetercapaian}%.`,
-      saran: "Bahan utama evaluasi kurikulum berikutnya, bukan urusan satu mata kuliah.",
+      params: {
+        daftar: gagal.map((c) => `${c.kode} (${c.persenLulus}%)`).join(", "),
+        ambang: arg.ambangKetercapaian,
+      },
     });
   }
 
@@ -229,10 +226,12 @@ export function agregasiProdi(arg: ArgAgregasi): HasilAgregasi {
     temuan.push({
       kode: "AG-CAKUPAN-RENDAH",
       tingkat: "PERINGATAN",
-      pesan:
-        `Baru ${mkDievaluasi.size} dari ${arg.jumlahMkKurikulum} mata kuliah ` +
-        `(${cakupan}%) yang evaluasinya ditutup.`,
-      saran: `Panduan penjaminan mutu lazim menuntut cakupan sekurang-kurangnya ${CAKUPAN_MINIMAL_PERSEN}%.`,
+      params: {
+        dievaluasi: mkDievaluasi.size,
+        total: arg.jumlahMkKurikulum,
+        persen: cakupan,
+        minimal: CAKUPAN_MINIMAL_PERSEN,
+      },
     });
   }
 
@@ -240,13 +239,14 @@ export function agregasiProdi(arg: ArgAgregasi): HasilAgregasi {
     temuan.push({
       kode: "AG-SEBARAN-KELAS",
       tingkat: "PERINGATAN",
-      pesan:
-        `${sebaran.length} mata kuliah menunjukkan selisih capaian antar kelas di atas ` +
-        `${SELISIH_KELAS_WAJAR} poin: ` +
-        `${sebaran.slice(0, 3).map((s) => `${s.mkKode} ${s.cplKode} (${s.selisih} poin)`).join(", ")}` +
-        `${sebaran.length > 3 ? ", …" : ""}.`,
-      saran:
-        "Rencana yang sama dengan hasil jauh berbeda menunjuk pelaksanaan, bukan rancangan.",
+      params: {
+        jumlah: sebaran.length,
+        ambang: SELISIH_KELAS_WAJAR,
+        daftar: daftarRingkas(
+          sebaran.map((s) => `${s.mkKode} ${s.cplKode} (${s.selisih} poin)`),
+          3,
+        ),
+      },
     });
   }
 

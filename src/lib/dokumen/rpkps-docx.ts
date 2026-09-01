@@ -16,6 +16,8 @@ import {
   daftarBernomor,
   judulBagian,
   paragraf,
+  pemisahHalaman,
+  RATA_ISI,
   sel,
   teks,
   UKURAN_JUDUL,
@@ -240,6 +242,7 @@ function bagianAwal(r: RpkpsLengkap): (Paragraph | Table)[] {
   for (const m of r.mataKuliah.cpl) {
     isi.push(
       paragraf([teks(`${m.cpl.kode}  `, { tebal: true }), teks(m.cpl.deskripsi)], {
+        rata: RATA_ISI,
         spasi: { after: 80 },
       }),
     );
@@ -250,10 +253,13 @@ function bagianAwal(r: RpkpsLengkap): (Paragraph | Table)[] {
       spasi: { before: 160, after: 100 },
     }),
   );
-  if (r.kalimatPembukaCpmk) isi.push(paragraf(r.kalimatPembukaCpmk));
+  if (r.kalimatPembukaCpmk) isi.push(paragraf(r.kalimatPembukaCpmk, { rata: RATA_ISI }));
   for (const c of r.mataKuliah.cpmk) {
     isi.push(
-      paragraf([teks(`${c.kode}  `, { tebal: true }), teks(c.rumusan)], { spasi: { after: 80 } }),
+      paragraf([teks(`${c.kode}  `, { tebal: true }), teks(c.rumusan)], {
+        rata: RATA_ISI,
+        spasi: { after: 80 },
+      }),
     );
   }
 
@@ -267,6 +273,7 @@ function bagianAwal(r: RpkpsLengkap): (Paragraph | Table)[] {
     for (const s of c.subCpmk) {
       isi.push(
         paragraf([teks(`${s.kode}  `, { tebal: true }), teks(s.rumusan)], {
+          rata: RATA_ISI,
           spasi: { after: 60 },
           indentasi: 240,
         }),
@@ -440,6 +447,7 @@ function bagianReferensi(r: RpkpsLengkap): (Paragraph | Table)[] {
     for (const p of daftar) {
       isi.push(
         paragraf(`${p.nomor}. ${p.teks}${p.url ? ` — ${p.url}` : ""}`, {
+          rata: RATA_ISI,
           spasi: { after: 40 },
           indentasi: 240,
         }),
@@ -486,13 +494,13 @@ function tabelMingguan(r: RpkpsLengkap): (Paragraph | Table)[] {
     if (p.topik) topik.push(paragraf([teks("Topik: ", { tebal: true }), teks(p.topik)]));
     if (p.subtopik.length > 0) {
       topik.push(paragraf([teks("Subtopik:", { tebal: true })], { spasi: { after: 20 } }));
-      topik.push(...daftarBernomor(p.subtopik));
+      topik.push(...daftarBernomor(p.subtopik, { rata: AlignmentType.LEFT }));
     }
 
     const metode: Paragraph[] = [];
     if (p.metodeNarasi) {
       metode.push(paragraf([teks("Metode Pembelajaran:", { tebal: true })], { spasi: { after: 20 } }));
-      metode.push(...baris(p.metodeNarasi));
+      metode.push(...baris(p.metodeNarasi, { rata: AlignmentType.LEFT }));
     }
     if (p.aktivitasDosen || p.aktivitasMahasiswa) {
       metode.push(paragraf([teks("Aktivitas:", { tebal: true })], { spasi: { before: 60, after: 20 } }));
@@ -511,7 +519,7 @@ function tabelMingguan(r: RpkpsLengkap): (Paragraph | Table)[] {
           spasi: { before: 60, after: 20 },
         }),
       );
-      metode.push(...baris(p.tugasTerstruktur));
+      metode.push(...baris(p.tugasTerstruktur, { rata: AlignmentType.LEFT }));
     }
 
     const per = (k: "TM" | "PT" | "BM") =>
@@ -877,6 +885,8 @@ export async function buatDokumenRpkps(
                 ),
               ]
             : []),
+          // Halaman pengesahan berdiri sendiri; bagian A dimulai di halaman baru.
+          pemisahHalaman(),
           ...bagianAwal(r),
           ...bagianEvaluasi(r),
           ...bagianReferensi(r),

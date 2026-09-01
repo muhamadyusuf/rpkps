@@ -5,6 +5,7 @@ import { KEBIJAKAN_BAWAAN } from "@/domain/beban-belajar/kebijakan-bawaan";
 import { paguPertemuanEfektif, susunRencanaSemester } from "@/domain/beban-belajar/kalkulator";
 import { ekstrakMenitDariNarasi, validasiRpkps } from "./validator";
 import type { AktivitasRpkps, PertemuanRpkps, RpkpsInput } from "./tipe";
+import { pesanTemuanId } from "@/lib/bahasa/temuan";
 
 const kebijakan = KEBIJAKAN_BAWAAN;
 
@@ -79,6 +80,7 @@ function rpkpsSehat(): RpkpsInput {
     ],
     jumlahPustakaUtama: 2,
     jumlahPengampu: 1,
+    pengampuBelumParaf: [],
   };
 }
 
@@ -88,7 +90,7 @@ describe("RPKPS sehat", () => {
     assert.equal(
       h.lolos,
       true,
-      `masih ada pemblokir: ${h.pemblokir.map((t) => `${t.kode}(${t.pesan})`).join(" | ")}`,
+      `masih ada pemblokir: ${h.pemblokir.map((t) => `${t.kode}(${pesanTemuanId(t)})`).join(" | ")}`,
     );
     assert.equal(h.ringkasan.totalBobotMingguan, 100);
     assert.equal(h.ringkasan.totalBobotKomponen, 100);
@@ -105,7 +107,7 @@ describe("B1 — total bobot mingguan (temuan nyata TI214: 120%)", () => {
     const h = validasiRpkps(r, kebijakan);
     const t = h.pemblokir.find((x) => x.kode === "B1-BOBOT-MINGGUAN");
     assert.ok(t, "seharusnya menandai total bobot salah");
-    assert.match(t!.pesan, /120%/);
+    assert.match(pesanTemuanId(t!), /120%/);
   });
 });
 
@@ -155,7 +157,7 @@ describe("B4 — narasi metode vs alokasi waktu (temuan nyata TI214)", () => {
     const h = validasiRpkps(r, kebijakan);
     const t = h.pemblokir.find((x) => x.kode === "B4-NARASI-BEDA");
     assert.ok(t, "seharusnya menandai kontradiksi narasi");
-    assert.match(t!.pesan, /8 jam/);
+    assert.match(pesanTemuanId(t!), /8 jam/);
   });
 
   it("narasi tanpa angka menit tidak dianggap bertentangan", () => {
@@ -184,7 +186,7 @@ describe("B5 — minggu ujian wajib beralokasi waktu (temuan docs/03 §2.1)", ()
     const h = validasiRpkps(r, kebijakan);
     const t = h.pemblokir.filter((x) => x.kode === "B5-UJIAN-TANPA-ALOKASI");
     assert.equal(t.length, 2, "UTS dan UAS keduanya ditandai");
-    assert.match(t[0].pesan, /beban belajar nyata/);
+    assert.match(pesanTemuanId(t[0]), /beban belajar nyata/);
   });
 
   it("total semester meleset dari 45 jam/sks adalah pemblokir", () => {
@@ -200,7 +202,7 @@ describe("B5 — minggu ujian wajib beralokasi waktu (temuan docs/03 §2.1)", ()
       }
     }
     const h = validasiRpkps(r, kebijakan);
-    assert.ok(h.pemblokir.some((t) => t.kode === "B5-SEMESTER"));
+    assert.ok(h.pemblokir.some((t) => t.kode.startsWith("B5-SEMESTER-")));
   });
 });
 
@@ -211,7 +213,7 @@ describe("B6 — struktur 16 minggu lengkap", () => {
     const h = validasiRpkps(r, kebijakan);
     const t = h.pemblokir.find((x) => x.kode === "B6-MINGGU-HILANG");
     assert.ok(t);
-    assert.match(t!.pesan, /8, 16/);
+    assert.match(pesanTemuanId(t!), /8, 16/);
   });
 });
 
@@ -242,7 +244,7 @@ describe("bagian I — tugas / proyek", () => {
     const h = validasiRpkps(r, kebijakan);
     const t = h.pemblokir.find((x) => x.kode === "I-BOBOT-KRITERIA");
     assert.ok(t);
-    assert.match(t!.pesan, /115%/);
+    assert.match(pesanTemuanId(t!), /115%/);
   });
 
   it("tugas tanpa indikator adalah pemblokir", () => {
@@ -267,6 +269,20 @@ describe("bagian I — tugas / proyek", () => {
     assert.ok(
       validasiRpkps(r, kebijakan).pemblokir.some((t) => t.kode === "I-MINGGU-DILUAR"),
     );
+  });
+
+  it("minggu di luar semester TIDAK lagi memblokir bila barisnya memang ada", () => {
+    // Tabel mingguan boleh disusun manual (docs/09 §K6): pertemuan minggu 17
+    // hanya berstatus peringatan, jadi tugas yang menunjuknya tidak boleh
+    // diblokir oleh aturan yang berbeda.
+    const r = rpkpsSehat();
+    const terakhir = r.pertemuan.at(-1)!;
+    r.pertemuan.push({ ...terakhir, minggu: 17, jenis: "EFEKTIF", bobot: 0, subCpmkKode: [] });
+    r.tugas[0].mingguSelesai = 17;
+
+    const h = validasiRpkps(r, kebijakan);
+    assert.ok(!h.pemblokir.some((t) => t.kode === "I-MINGGU-DILUAR"));
+    assert.ok(h.peringatan.some((t) => t.kode === "W-MINGGU-BERLEBIH"));
   });
 
   it("minggu mulai melebihi minggu selesai adalah pemblokir", () => {

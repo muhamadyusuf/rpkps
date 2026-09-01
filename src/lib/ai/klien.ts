@@ -24,18 +24,11 @@ const ADAPTER: Record<PenyediaAi, (apiKey: string) => Penyedia> = {
   GEMINI: penyediaGemini,
 };
 
-export const LABEL_PENYEDIA: Record<PenyediaAi, string> = {
-  ANTHROPIC: "Anthropic (Claude)",
-  MISTRAL: "Mistral",
-  GEMINI: "Google Gemini",
-};
-
-/** Petunjuk tempat membuat kunci, ditampilkan di halaman pengaturan. */
-export const ASAL_KUNCI: Record<PenyediaAi, string> = {
-  ANTHROPIC: "console.anthropic.com → API Keys",
-  MISTRAL: "console.mistral.ai → API Keys",
-  GEMINI: "aistudio.google.com → Get API key",
-};
+/**
+ * Nama penyedia dan petunjuk tempat membuat kuncinya TIDAK di sini melainkan
+ * di `kamus.enum.penyediaAi` dan `kamus.enum.asalKunci` — berkas ini mengurus
+ * adapter, bukan bagaimana penyedia dieja di layar.
+ */
 
 export const DAFTAR_PENYEDIA = Object.keys(ADAPTER) as PenyediaAi[];
 

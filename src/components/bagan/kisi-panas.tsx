@@ -1,3 +1,5 @@
+import { kamus } from "@/lib/bahasa/server";
+
 /**
  * Kisi panas: baris × kolom, satu angka per sel.
  *
@@ -5,7 +7,7 @@
  * digambar bergaris, bukan pucat — pucat terbaca sebagai "nilainya rendah",
  * padahal artinya "tidak diukur".
  */
-export function KisiPanas({
+export async function KisiPanas({
   kolom,
   baris,
   ambang,
@@ -17,6 +19,7 @@ export function KisiPanas({
   ambang?: number;
   satuan?: string;
 }) {
+  const k = await kamus();
   if (baris.length === 0 || kolom.length === 0) return null;
 
   return (
@@ -52,7 +55,7 @@ export function KisiPanas({
                 return (
                   <td
                     key={`${b.label}-${kolom[i] ?? i}`}
-                    title={`${b.label} · ${kolom[i]} · ${kosong ? "tidak terukur" : `${n}${satuan}`}`}
+                    title={`${b.label} · ${kolom[i]} · ${kosong ? k.komponen.tidakTerukur : `${n}${satuan}`}`}
                     className="h-8 rounded-[3px] text-center font-mono tabular-nums"
                     style={
                       kosong

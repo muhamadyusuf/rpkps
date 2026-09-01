@@ -1,3 +1,4 @@
+import type { ParamTemuan } from "@/domain/rpkps/tipe";
 /**
  * Tipe untuk mesin hitung beban belajar.
  * Acuan: docs/03-kebijakan-beban-belajar.md
@@ -101,7 +102,12 @@ export interface TemuanValidasi {
   kode: string;
   lapis: 1 | 2 | 3 | 4;
   tingkat: TingkatTemuan;
-  pesan: string;
+  /**
+   * Parameter kalimat, bukan kalimatnya. Domain menyimpan angka dan nama;
+   * kalimatnya dirakit `teksTemuan` saat dibaca, dalam bahasa pembacanya.
+   * Lihat docs/11 §4.1.
+   */
+  params?: Record<string, ParamTemuan>;
   minggu?: number;
   detail?: Record<string, number | string | boolean>;
 }

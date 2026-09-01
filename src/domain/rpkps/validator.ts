@@ -1,7 +1,12 @@
-import { formatMenit, susunRencanaSemester, bulatkan } from "@/domain/beban-belajar/kalkulator";
+import {
+  posisiMingguUjian,
+  susunRencanaSemester,
+  bulatkan,
+} from "@/domain/beban-belajar/kalkulator";
 import { validasiPertemuan, validasiSemester } from "@/domain/beban-belajar/validator";
 import type { Kebijakan, SpesifikasiMataKuliah } from "@/domain/beban-belajar/tipe";
 import type { RpkpsInput, TemuanRpkps } from "./tipe";
+import { daftarRingkas } from "@/domain/temuan";
 
 /**
  * Validator RPKPS.
@@ -53,11 +58,10 @@ export function validasiRpkps(
     temuan.push({
       kode: "B1-BOBOT-MINGGUAN",
       tingkat: "PEMBLOKIR",
-      pesan: `Total bobot pada tabel mingguan ${totalBobotMingguan}%, seharusnya 100%.`,
-      saran:
-        totalBobotMingguan > 100
-          ? `Kurangi ${bulatkan(totalBobotMingguan - 100, 2)}% dari salah satu pertemuan.`
-          : `Tambahkan ${bulatkan(100 - totalBobotMingguan, 2)}% lagi.`,
+      params: {
+        total: totalBobotMingguan,
+        selisih: bulatkan(Math.abs(totalBobotMingguan - 100), 2),
+      },
     });
   }
 
@@ -70,21 +74,18 @@ export function validasiRpkps(
     temuan.push({
       kode: "B2-KOMPONEN-KOSONG",
       tingkat: "PEMBLOKIR",
-      pesan: "Belum ada komponen nilai (UTS, UAS, tugas, dan seterusnya).",
     });
   } else if (Math.abs(totalBobotKomponen - 100) > TOLERANSI_BOBOT) {
     temuan.push({
       kode: "B2-BOBOT-KOMPONEN",
       tingkat: "PEMBLOKIR",
-      pesan: `Total bobot komponen nilai ${totalBobotKomponen}%, seharusnya 100%.`,
+      params: { total: totalBobotKomponen },
     });
   } else if (Math.abs(totalBobotMingguan - totalBobotKomponen) > TOLERANSI_BOBOT) {
     temuan.push({
       kode: "B2-TIDAK-REKONSILIASI",
       tingkat: "PEMBLOKIR",
-      pesan:
-        `Bobot mingguan berjumlah ${totalBobotMingguan}% sedangkan komponen nilai ` +
-        `${totalBobotKomponen}%. Keduanya harus sama.`,
+      params: { mingguan: totalBobotMingguan, komponen: totalBobotKomponen },
     });
   }
 
@@ -97,10 +98,10 @@ export function validasiRpkps(
     temuan.push({
       kode: "B3-SUB-CPMK-TIDAK-DIJADWALKAN",
       tingkat: "PEMBLOKIR",
-      pesan:
-        `${belumDijadwalkan.length} Sub-CPMK tidak dijadwalkan pada pertemuan mana pun: ` +
-        `${belumDijadwalkan.slice(0, 5).join(", ")}${belumDijadwalkan.length > 5 ? ", …" : ""}.`,
-      saran: "Sub-CPMK yang tidak diajarkan tidak akan pernah dicapai mahasiswa.",
+      params: {
+        jumlah: belumDijadwalkan.length,
+        daftar: daftarRingkas(belumDijadwalkan),
+      },
     });
   }
 
@@ -109,7 +110,7 @@ export function validasiRpkps(
       temuan.push({
         kode: "B3-SUB-CPMK-ASING",
         tingkat: "PEMBLOKIR",
-        pesan: `Pertemuan merujuk ${kode}, yang bukan milik mata kuliah ini.`,
+        params: { kode },
       });
     }
   }
@@ -122,8 +123,7 @@ export function validasiRpkps(
     temuan.push({
       kode: "B6-MINGGU-HILANG",
       tingkat: "PEMBLOKIR",
-      pesan: `Minggu ${hilang.join(", ")} belum ada pada tabel mingguan.`,
-      saran: "Minggu ujian tetap harus muncul sebagai baris bernomor.",
+      params: { daftar: hilang.join(", ") },
     });
   }
   const ganda = nomorMinggu.filter((m, i) => nomorMinggu.indexOf(m) !== i);
@@ -131,7 +131,42 @@ export function validasiRpkps(
     temuan.push({
       kode: "B6-MINGGU-GANDA",
       tingkat: "PEMBLOKIR",
-      pesan: `Minggu ${[...new Set(ganda)].join(", ")} muncul lebih dari sekali.`,
+      params: { daftar: [...new Set(ganda)].join(", ") },
+    });
+  }
+
+  /**
+   * Baris di luar rentang semester — mungkin sejak dosen menyusun tabelnya
+   * sendiri (docs/09 §K6). PERINGATAN, bukan pemblokir: pertemuan pengganti
+   * memang ada. Menitnya tetap dihitung, jadi kelebihan bebannya tertangkap
+   * B5-SEMESTER sebagai pemblokir tersendiri.
+   */
+  const berlebih = nomorMinggu.filter((m) => m > kebijakan.mingguPerSemester);
+  if (berlebih.length > 0) {
+    temuan.push({
+      kode: "W-MINGGU-BERLEBIH",
+      tingkat: "PERINGATAN",
+      params: {
+        daftar: [...new Set(berlebih)].join(", "),
+        minggu: kebijakan.mingguPerSemester,
+      },
+    });
+  }
+
+  /**
+   * Posisi ujian pilihan dosen boleh berbeda dari pola kebijakan — kalender
+   * akademik prodi kadang memang menggesernya (docs/09 §K5). Yang tetap
+   * memblokir adalah B5-UJIAN-TANPA-ALOKASI di bawah.
+   */
+  const posisiUjian = posisiMingguUjian(kebijakan);
+  const ujianGeser = rpkps.pertemuan
+    .filter((p) => p.jenis !== "EFEKTIF" && !posisiUjian.includes(p.minggu))
+    .map((p) => `${p.jenis} di minggu ${p.minggu}`);
+  if (ujianGeser.length > 0 && posisiUjian.length > 0) {
+    temuan.push({
+      kode: "W-UJIAN-DI-LUAR-POSISI",
+      tingkat: "PERINGATAN",
+      params: { daftar: ujianGeser.join(", "), posisi: posisiUjian.join(" dan ") },
     });
   }
 
@@ -157,7 +192,7 @@ export function validasiRpkps(
       temuan.push({
         kode: t.kode,
         tingkat: t.tingkat === "PEMBLOKIR" ? "PEMBLOKIR" : "PERINGATAN",
-        pesan: t.pesan,
+        params: t.params,
         minggu: p.minggu,
       });
     }
@@ -169,10 +204,11 @@ export function validasiRpkps(
         kode: "B4-NARASI-BEDA",
         tingkat: "PEMBLOKIR",
         minggu: p.minggu,
-        pesan:
-          `Minggu ${p.minggu}: narasi metode menyebut total ${formatMenit(menitNarasi)}, ` +
-          `sedangkan aktivitas berjumlah ${formatMenit(menit)}.`,
-        saran: "Samakan angka pada narasi dengan rincian aktivitas.",
+        params: {
+          minggu: p.minggu,
+          narasi: { menit: menitNarasi },
+          aktivitas: { menit },
+        },
       });
     }
 
@@ -182,9 +218,7 @@ export function validasiRpkps(
         kode: "B5-UJIAN-TANPA-ALOKASI",
         tingkat: "PEMBLOKIR",
         minggu: p.minggu,
-        pesan:
-          `Minggu ${p.minggu} (ujian) belum memiliki alokasi waktu. ` +
-          `Pagunya ${formatMenit(pagu.total)} — persiapan ujian adalah beban belajar nyata.`,
+        params: { minggu: p.minggu, pagu: { menit: pagu.total } },
       });
     }
   }
@@ -199,18 +233,19 @@ export function validasiRpkps(
     Math.abs(selisihPersen) > kebijakan.toleransiSemesterPersen
   ) {
     temuan.push({
-      kode: "B5-SEMESTER",
+      kode: selisih > 0 ? "B5-SEMESTER-LEBIH" : "B5-SEMESTER-KURANG",
       tingkat: "PEMBLOKIR",
-      pesan:
-        `Total beban semester ${bulatkan(totalMenitTerpakai / 60 / (rpkps.sksTeori + rpkps.sksPraktik), 2)} jam/sks, ` +
-        `${selisih > 0 ? "melebihi" : "kurang dari"} target ${kebijakan.jamPerSksPerSemester} jam/sks. ` +
-        `Selisih ${formatMenit(Math.abs(selisih))}.`,
+      params: {
+        jam: bulatkan(totalMenitTerpakai / 60 / (rpkps.sksTeori + rpkps.sksPraktik), 2),
+        target: kebijakan.jamPerSksPerSemester,
+        selisih: { menit: Math.abs(selisih) },
+      },
     });
   }
   // Konsistensi kebijakan itu sendiri (mis. minggu ujian tidak dihitung).
   for (const t of validasiSemester(rencana, kebijakan)) {
     if (t.kode === "L2-UJIAN-TANPA-BEBAN") {
-      temuan.push({ kode: t.kode, tingkat: "PEMBLOKIR", pesan: t.pesan });
+      temuan.push({ kode: t.kode, tingkat: "PEMBLOKIR", params: t.params });
     }
   }
 
@@ -219,32 +254,52 @@ export function validasiRpkps(
     temuan.push({
       kode: "B-DESKRIPSI",
       tingkat: "PEMBLOKIR",
-      pesan: "Deskripsi mata kuliah belum diisi.",
     });
   }
   if (rpkps.cplKode.length === 0) {
     temuan.push({
       kode: "B-TANPA-CPL",
       tingkat: "PEMBLOKIR",
-      pesan: "Tidak ada CPL yang dibebankan pada mata kuliah ini di kurikulum.",
     });
   }
   if (rpkps.jumlahPustakaUtama === 0) {
     temuan.push({
       kode: "B-TANPA-PUSTAKA",
       tingkat: "PEMBLOKIR",
-      pesan: "Belum ada pustaka utama.",
     });
   }
   if (rpkps.jumlahPengampu === 0) {
     temuan.push({
       kode: "B-TANPA-PENGAMPU",
       tingkat: "PEMBLOKIR",
-      pesan: "Belum ada dosen pengampu.",
+    });
+  } else if (rpkps.pengampuBelumParaf.length > 0) {
+    /**
+     * Rantai pengesahan tahap pertama (docs/14 §2.2). Ditegakkan di sini,
+     * bukan dengan mematikan tombol Ajukan: dosen harus melihat siapa yang
+     * masih ditunggu, bukan menemukan tombol yang tidak bereaksi.
+     */
+    const belum = rpkps.pengampuBelumParaf;
+    temuan.push({
+      kode: "B-PARAF-BELUM-LENGKAP",
+      tingkat: "PEMBLOKIR",
+      params: { jumlah: belum.length, daftar: daftarRingkas(belum, 3) },
     });
   }
 
   // ── Tugas / proyek (bagian I template ITTS) ─────────────────────────
+  /**
+   * Batas jadwal tugas adalah minggu TERAKHIR YANG ADA di tabel, bukan angka
+   * kebijakan. Sejak tabel mingguan dapat disusun manual (docs/09 §K6),
+   * pertemuan di luar 16 minggu hanya berstatus peringatan — memblokir tugas
+   * yang menunjuk minggu itu berarti dua aturan yang saling bertentangan atas
+   * baris yang sama.
+   */
+  const mingguTerakhir = Math.max(
+    kebijakan.mingguPerSemester,
+    ...rpkps.pertemuan.map((p) => p.minggu),
+  );
+
   for (const t of rpkps.tugas) {
     const label = `Tugas ${t.nomor}`;
 
@@ -254,8 +309,7 @@ export function validasiRpkps(
       temuan.push({
         kode: "I-TANPA-KRITERIA",
         tingkat: "PEMBLOKIR",
-        pesan: `${label} (${t.nama}) belum punya indikator penilaian.`,
-        saran: "Tanpa indikator berbobot, tugas tidak dapat dinilai secara konsisten.",
+        params: { label, nama: t.nama },
       });
     } else {
       const totalKriteria = bulatkan(t.kriteria.reduce((s, k) => s + k.bobot, 0), 2);
@@ -263,7 +317,7 @@ export function validasiRpkps(
         temuan.push({
           kode: "I-BOBOT-KRITERIA",
           tingkat: "PEMBLOKIR",
-          pesan: `Bobot indikator ${label} berjumlah ${totalKriteria}%, seharusnya 100%.`,
+          params: { label, total: totalKriteria },
         });
       }
     }
@@ -272,7 +326,7 @@ export function validasiRpkps(
       temuan.push({
         kode: "I-TANPA-SUB-CPMK",
         tingkat: "PERINGATAN",
-        pesan: `${label} belum dikaitkan ke Sub-CPMK mana pun.`,
+        params: { label },
       });
     }
     for (const kode of t.subCpmkKode) {
@@ -280,24 +334,27 @@ export function validasiRpkps(
         temuan.push({
           kode: "I-SUB-CPMK-ASING",
           tingkat: "PEMBLOKIR",
-          pesan: `${label} merujuk ${kode}, yang bukan milik mata kuliah ini.`,
+          params: { label, kode },
         });
       }
     }
 
-    if (t.mingguMulai < 1 || t.mingguSelesai > kebijakan.mingguPerSemester) {
+    if (t.mingguMulai < 1 || t.mingguSelesai > mingguTerakhir) {
       temuan.push({
         kode: "I-MINGGU-DILUAR",
         tingkat: "PEMBLOKIR",
-        pesan:
-          `${label} dijadwalkan minggu ${t.mingguMulai}–${t.mingguSelesai}, ` +
-          `di luar rentang 1–${kebijakan.mingguPerSemester}.`,
+        params: {
+          label,
+          mulai: t.mingguMulai,
+          selesai: t.mingguSelesai,
+          terakhir: mingguTerakhir,
+        },
       });
     } else if (t.mingguMulai > t.mingguSelesai) {
       temuan.push({
         kode: "I-MINGGU-TERBALIK",
         tingkat: "PEMBLOKIR",
-        pesan: `${label}: minggu mulai (${t.mingguMulai}) melebihi minggu selesai (${t.mingguSelesai}).`,
+        params: { label, mulai: t.mingguMulai, selesai: t.mingguSelesai },
       });
     }
 
@@ -305,7 +362,7 @@ export function validasiRpkps(
       temuan.push({
         kode: "I-TANPA-LINIMASA",
         tingkat: "PERINGATAN",
-        pesan: `${label} belum punya linimasa tahapan.`,
+        params: { label },
       });
     }
 
@@ -313,7 +370,7 @@ export function validasiRpkps(
       temuan.push({
         kode: "I-DESKRIPSI-PENDEK",
         tingkat: "PERINGATAN",
-        pesan: `Deskripsi ${label} terlalu ringkas untuk dikerjakan mahasiswa.`,
+        params: { label },
       });
     }
   }
@@ -327,7 +384,7 @@ export function validasiRpkps(
         kode: "W-TANPA-TOPIK",
         tingkat: "PERINGATAN",
         minggu: p.minggu,
-        pesan: `Minggu ${p.minggu} belum punya topik.`,
+        params: { minggu: p.minggu },
       });
     }
     if (p.subCpmkKode.length === 0) {
@@ -335,7 +392,7 @@ export function validasiRpkps(
         kode: "W-TANPA-SUB-CPMK",
         tingkat: "PERINGATAN",
         minggu: p.minggu,
-        pesan: `Minggu ${p.minggu} belum dikaitkan ke Sub-CPMK mana pun.`,
+        params: { minggu: p.minggu },
       });
     }
     if (p.indikator.length === 0 && p.bobot > 0) {
@@ -343,7 +400,7 @@ export function validasiRpkps(
         kode: "W-TANPA-INDIKATOR",
         tingkat: "PERINGATAN",
         minggu: p.minggu,
-        pesan: `Minggu ${p.minggu} punya bobot ${p.bobot}% tetapi belum ada indikator penilaian.`,
+        params: { minggu: p.minggu, bobot: p.bobot },
       });
     }
     if (p.bobot > 0 && !p.penilaianJenis?.trim()) {
@@ -351,7 +408,7 @@ export function validasiRpkps(
         kode: "W-TANPA-BENTUK-NILAI",
         tingkat: "PERINGATAN",
         minggu: p.minggu,
-        pesan: `Minggu ${p.minggu} punya bobot tetapi bentuk penilaiannya belum ditulis.`,
+        params: { minggu: p.minggu },
       });
     }
     if (p.pustakaNomor.length === 0) {
@@ -359,7 +416,7 @@ export function validasiRpkps(
         kode: "W-TANPA-REFERENSI",
         tingkat: "PERINGATAN",
         minggu: p.minggu,
-        pesan: `Minggu ${p.minggu} belum merujuk pustaka.`,
+        params: { minggu: p.minggu },
       });
     }
   }

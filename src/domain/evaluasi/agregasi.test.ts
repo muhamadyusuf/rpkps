@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { agregasiProdi, type ArgAgregasi, type BarisCapaian } from "./agregasi";
+import { pesanTemuanId } from "@/lib/bahasa/temuan";
 
 function baris(
   ubah: Partial<BarisCapaian> & Pick<BarisCapaian, "cplKode" | "mkKode" | "sks">,
@@ -53,7 +54,7 @@ describe("capaian CPL tingkat prodi", () => {
   it("menandai CPL yang belum pernah terukur sebagai pemblokir", () => {
     const h = agregasiProdi(arg([baris({ cplKode: "CPL1", mkKode: "TI101", sks: 3 })]));
     const t = h.temuan.find((x) => x.kode === "AG-CPL-TANPA-DATA")!;
-    assert.ok(t.pesan.includes("CPL2"));
+    assert.ok(pesanTemuanId(t).includes("CPL2"));
     assert.equal(h.ringkasan.cplTerukur, 1);
     assert.equal(h.ringkasan.cplDibebankan, 2);
   });
@@ -76,8 +77,8 @@ describe("capaian CPL tingkat prodi", () => {
       ]),
     );
     const t = h.temuan.find((x) => x.kode === "AG-CPL-BELUM-TERCAPAI")!;
-    assert.ok(t.pesan.includes("CPL1 (60%)"));
-    assert.ok(!t.pesan.includes("CPL2"));
+    assert.ok(pesanTemuanId(t).includes("CPL1 (60%)"));
+    assert.ok(!pesanTemuanId(t).includes("CPL2"));
   });
 });
 

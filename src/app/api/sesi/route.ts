@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { buatCookieSesi, UMUR_SESI_MS, adminAuth } from "@/lib/firebase/admin";
 import { siapkanPengguna, NAMA_COOKIE_SESI } from "@/lib/sesi";
+import { NAMA_COOKIE_BAHASA } from "@/kamus";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -44,6 +45,20 @@ export async function POST(request: NextRequest) {
     const respons = NextResponse.json({
       status: pengguna.status,
       baru: pengguna.baru,
+      bahasa: pengguna.bahasa,
+    });
+
+    // Satu-satunya tempat preferensi bahasa tersimpan dapat mengambil alih.
+    // Proxy tidak boleh menyentuh basis data (runtime Edge) dan Server
+    // Component tidak dapat memasang cookie — tinggal Route Handler ini,
+    // yang memang dilewati tepat sekali pada saat masuk. Sejak titik itu,
+    // dosen yang memakai komputer lab langsung mendapat bahasanya sendiri.
+    respons.cookies.set({
+      name: NAMA_COOKIE_BAHASA,
+      value: pengguna.bahasa,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 365,
     });
 
     respons.cookies.set({

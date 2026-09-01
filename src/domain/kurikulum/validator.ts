@@ -34,7 +34,7 @@ export function validasiSubCpmk(
     temuan.push({
       kode: "K-SUB-PENDEK",
       tingkat: "PEMBLOKIR",
-      pesan: `Rumusan ${sub.kode} terlalu pendek untuk dapat dinilai.`,
+      params: { kode: sub.kode },
       lokasi,
     });
     return temuan;
@@ -45,11 +45,8 @@ export function validasiSubCpmk(
     temuan.push({
       kode: "K-SUB-TIDAK-TERUKUR",
       tingkat: "PERINGATAN",
-      pesan: `${sub.kode} memakai kata "${tidakTerukur.join('", "')}" yang tidak dapat diamati.`,
+      params: { kode: sub.kode, kata: tidakTerukur.join('", "') },
       lokasi,
-      saran:
-        "Ganti dengan kata kerja operasional yang menghasilkan bukti terukur, " +
-        'mis. "menjelaskan" (C2) atau "menerapkan" (C3).',
     });
   }
 
@@ -58,7 +55,7 @@ export function validasiSubCpmk(
     temuan.push({
       kode: "K-SUB-TANPA-KKO",
       tingkat: "PERINGATAN",
-      pesan: `Tidak ditemukan kata kerja operasional yang dikenali pada ${sub.kode}.`,
+      params: { kode: sub.kode },
       lokasi,
     });
   }
@@ -68,9 +65,8 @@ export function validasiSubCpmk(
     temuan.push({
       kode: "K-SUB-KKO-GANDA",
       tingkat: "PERINGATAN",
-      pesan: `${sub.kode} mengandung ${semuaKko.length} kata kerja operasional (${semuaKko.join(", ")}).`,
+      params: { kode: sub.kode, jumlah: semuaKko.length, daftar: semuaKko.join(", ") },
       lokasi,
-      saran: "Pecah menjadi beberapa Sub-CPMK agar penilaiannya tidak ambigu.",
     });
   }
 
@@ -83,11 +79,15 @@ export function validasiSubCpmk(
       temuan.push({
         kode: "K-SUB-LEVEL-LEBIH-TINGGI",
         tingkat: "PEMBLOKIR",
-        pesan:
-          `${sub.kode} berada di level ${levelSub} (${infoLevel(levelSub).nama}), ` +
-          `melampaui ${cpmk.kode} di level ${cpmk.levelBloom} (${infoLevel(cpmk.levelBloom).nama}).`,
+        params: {
+          kode: sub.kode,
+          level: levelSub,
+          nama: infoLevel(levelSub).nama,
+          kodeInduk: cpmk.kode,
+          levelInduk: cpmk.levelBloom,
+          namaInduk: infoLevel(cpmk.levelBloom).nama,
+        },
         lokasi,
-        saran: "Turunkan level Sub-CPMK, atau naikkan level CPMK induknya.",
       });
     }
   }
@@ -107,9 +107,8 @@ export function validasiCpmk(
     temuan.push({
       kode: "K-CPMK-TANPA-CPL",
       tingkat: "PEMBLOKIR",
-      pesan: `${cpmk.kode} tidak terpetakan ke CPL mana pun.`,
+      params: { kode: cpmk.kode },
       lokasi,
-      saran: "Setiap CPMK harus menjabarkan minimal satu CPL prodi.",
     });
   }
 
@@ -118,7 +117,7 @@ export function validasiCpmk(
       temuan.push({
         kode: "K-CPMK-CPL-TIDAK-ADA",
         tingkat: "PEMBLOKIR",
-        pesan: `${cpmk.kode} merujuk ${kode}, yang tidak ada di daftar CPL kurikulum.`,
+        params: { kode: cpmk.kode, cpl: kode },
         lokasi,
       });
     }
@@ -126,11 +125,8 @@ export function validasiCpmk(
       temuan.push({
         kode: "K-CPMK-CPL-DILUAR-MK",
         tingkat: "PEMBLOKIR",
-        pesan:
-          `${cpmk.kode} menjabarkan ${kode}, tetapi ${kode} tidak dibebankan ` +
-          `pada ${mk.kode} di matriks CPL x MK.`,
+        params: { kode: cpmk.kode, cpl: kode, mk: mk.kode },
         lokasi,
-        saran: `Tambahkan ${kode} ke matriks, atau lepaskan dari ${cpmk.kode}.`,
       });
     }
   }
@@ -139,9 +135,8 @@ export function validasiCpmk(
     temuan.push({
       kode: "K-CPMK-TANPA-SUB",
       tingkat: "PEMBLOKIR",
-      pesan: `${cpmk.kode} belum memiliki Sub-CPMK.`,
+      params: { kode: cpmk.kode },
       lokasi,
-      saran: "Sub-CPMK adalah tahapan belajar mingguan; tanpa itu RPKPS tidak dapat disusun.",
     });
   }
 
@@ -151,7 +146,7 @@ export function validasiCpmk(
     temuan.push({
       kode: "K-SUB-KODE-GANDA",
       tingkat: "PEMBLOKIR",
-      pesan: `Kode Sub-CPMK berulang pada ${cpmk.kode}: ${[...new Set(ganda)].join(", ")}.`,
+      params: { kode: cpmk.kode, daftar: [...new Set(ganda)].join(", ") },
       lokasi,
     });
   }
@@ -175,7 +170,7 @@ export function validasiMataKuliah(
     temuan.push({
       kode: "K-MK-SKS-NOL",
       tingkat: "PEMBLOKIR",
-      pesan: `${mk.kode} tidak memiliki sks.`,
+      params: { kode: mk.kode },
       lokasi,
     });
   }
@@ -184,7 +179,7 @@ export function validasiMataKuliah(
     temuan.push({
       kode: "K-MK-SEMESTER",
       tingkat: "PERINGATAN",
-      pesan: `Semester ${mk.semester} pada ${mk.kode} di luar rentang wajar.`,
+      params: { semester: mk.semester, kode: mk.kode },
       lokasi,
     });
   }
@@ -193,7 +188,7 @@ export function validasiMataKuliah(
     temuan.push({
       kode: "K-MK-TANPA-CPL",
       tingkat: "PEMBLOKIR",
-      pesan: `${mk.kode} tidak dibebani CPL mana pun.`,
+      params: { kode: mk.kode },
       lokasi,
     });
   }
@@ -202,7 +197,7 @@ export function validasiMataKuliah(
     temuan.push({
       kode: "K-MK-TANPA-CPMK",
       tingkat: "PEMBLOKIR",
-      pesan: `${mk.kode} belum memiliki CPMK.`,
+      params: { kode: mk.kode },
       lokasi,
     });
   }
@@ -215,11 +210,8 @@ export function validasiMataKuliah(
       temuan.push({
         kode: "K-MK-CPL-TIDAK-DIJABARKAN",
         tingkat: "PEMBLOKIR",
-        pesan:
-          `${kode} dibebankan pada ${mk.kode}, tetapi tidak ada satu pun CPMK ` +
-          `yang menjabarkannya — CPL ini tidak akan pernah dinilai.`,
+        params: { kode, mk: mk.kode },
         lokasi,
-        saran: `Tambahkan CPMK yang menjabarkan ${kode}, atau lepaskan ${kode} dari matriks.`,
       });
     }
   }
@@ -230,7 +222,7 @@ export function validasiMataKuliah(
     temuan.push({
       kode: "K-CPMK-KODE-GANDA",
       tingkat: "PEMBLOKIR",
-      pesan: `Kode CPMK berulang pada ${mk.kode}: ${[...new Set(ganda)].join(", ")}.`,
+      params: { kode: mk.kode, daftar: [...new Set(ganda)].join(", ") },
       lokasi,
     });
   }
@@ -267,11 +259,6 @@ export function validasiProfilLulusan(k: KurikulumInput): TemuanKurikulum[] {
     temuan.push({
       kode: "K-PL-BELUM-DIISI",
       tingkat: "INFO",
-      pesan: "Kurikulum belum mencantumkan profil lulusan.",
-      saran:
-        "Isi lembar Profil Lulusan pada berkas impor, atau tambahkan lewat " +
-        "halaman kurikulum. Tanpa itu, CPL tidak dapat ditelusuri ke janji " +
-        "program studi kepada lulusannya.",
     });
     return temuan;
   }
@@ -282,7 +269,7 @@ export function validasiProfilLulusan(k: KurikulumInput): TemuanKurikulum[] {
     temuan.push({
       kode: "K-PL-KODE-GANDA",
       tingkat: "PEMBLOKIR",
-      pesan: `Kode profil lulusan berulang: ${[...new Set(ganda)].join(", ")}.`,
+      params: { daftar: [...new Set(ganda)].join(", ") },
     });
   }
 
@@ -291,9 +278,8 @@ export function validasiProfilLulusan(k: KurikulumInput): TemuanKurikulum[] {
       temuan.push({
         kode: "K-PL-DESKRIPSI-PENDEK",
         tingkat: "PERINGATAN",
-        pesan: `Rumusan ${p.kode} terlalu pendek untuk menggambarkan sebuah profil.`,
+        params: { kode: p.kode },
         lokasi: { profilLulusan: p.kode },
-        saran: 'Sebutkan peran beserta ranah kerjanya, mis. "Pengembang perangkat lunak untuk sistem informasi kesehatan".',
       });
     }
   }
@@ -309,7 +295,7 @@ export function validasiProfilLulusan(k: KurikulumInput): TemuanKurikulum[] {
         temuan.push({
           kode: "K-CPL-PL-TIDAK-ADA",
           tingkat: "PEMBLOKIR",
-          pesan: `${c.kode} merujuk ${kode}, yang tidak ada di daftar profil lulusan.`,
+          params: { kode: c.kode, profil: kode },
           lokasi: { cpl: c.kode },
         });
         continue;
@@ -321,9 +307,8 @@ export function validasiProfilLulusan(k: KurikulumInput): TemuanKurikulum[] {
       temuan.push({
         kode: "K-CPL-TANPA-PL",
         tingkat: "PERINGATAN",
-        pesan: `${c.kode} tidak menopang profil lulusan mana pun.`,
+        params: { kode: c.kode },
         lokasi: { cpl: c.kode },
-        saran: "Petakan ke minimal satu profil agar capaian ini punya alasan keberadaan yang terlacak.",
       });
     }
   }
@@ -333,9 +318,8 @@ export function validasiProfilLulusan(k: KurikulumInput): TemuanKurikulum[] {
       temuan.push({
         kode: "K-PL-TANPA-CPL",
         tingkat: "PEMBLOKIR",
-        pesan: `${kode} tidak ditopang CPL mana pun.`,
+        params: { kode },
         lokasi: { profilLulusan: kode },
-        saran: `Petakan minimal satu CPL ke ${kode}, atau hapus profil itu dari kurikulum.`,
       });
     }
   }
@@ -371,7 +355,7 @@ export function validasiKurikulum(k: KurikulumInput): HasilValidasiKurikulum {
     temuan.push({
       kode: "K-CPL-KODE-GANDA",
       tingkat: "PEMBLOKIR",
-      pesan: `Kode CPL berulang: ${[...new Set(cplGanda)].join(", ")}.`,
+      params: { daftar: [...new Set(cplGanda)].join(", ") },
     });
   }
 
@@ -381,7 +365,7 @@ export function validasiKurikulum(k: KurikulumInput): HasilValidasiKurikulum {
     temuan.push({
       kode: "K-MK-KODE-GANDA",
       tingkat: "PEMBLOKIR",
-      pesan: `Kode mata kuliah berulang: ${[...new Set(mkGanda)].join(", ")}.`,
+      params: { daftar: [...new Set(mkGanda)].join(", ") },
     });
   }
 
@@ -393,8 +377,7 @@ export function validasiKurikulum(k: KurikulumInput): HasilValidasiKurikulum {
     temuan.push({
       kode: "K-CPL-TANPA-MK",
       tingkat: "PEMBLOKIR",
-      pesan: `${kode} tidak dibebankan pada mata kuliah mana pun.`,
-      saran: "Bebankan pada minimal satu mata kuliah, atau hapus dari kurikulum.",
+      params: { kode },
     });
   }
 

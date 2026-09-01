@@ -9,6 +9,7 @@ import {
 } from "./bloom";
 import { validasiKurikulum } from "./validator";
 import type { KurikulumInput } from "./tipe";
+import { pesanTemuanId } from "@/lib/bahasa/temuan";
 
 /** Kurikulum minimal yang sehat, dipakai sebagai dasar variasi uji. */
 function kurikulumSehat(): KurikulumInput {
@@ -128,8 +129,8 @@ describe("temuan B3 pada TI214 — CPL dibebankan tapi tidak dijabarkan", () => 
 
     const temuan = hasil.pemblokir.find((t) => t.kode === "K-MK-CPL-TIDAK-DIJABARKAN");
     assert.ok(temuan, "seharusnya menandai CPL yang tidak dijabarkan");
-    assert.match(temuan!.pesan, /CPL06/);
-    assert.match(temuan!.pesan, /tidak akan pernah dinilai/);
+    assert.match(pesanTemuanId(temuan!), /CPL06/);
+    assert.match(pesanTemuanId(temuan!), /tidak akan pernah dinilai/);
   });
 });
 
@@ -181,7 +182,7 @@ describe("mutu rumusan", () => {
     const hasil = validasiKurikulum(k);
     const t = hasil.peringatan.find((x) => x.kode === "K-SUB-TIDAK-TERUKUR");
     assert.ok(t);
-    assert.match(t!.pesan, /menguasai/);
+    assert.match(pesanTemuanId(t!), /menguasai/);
   });
 
   it("Sub-CPMK tidak boleh melampaui level CPMK induknya", () => {
@@ -195,8 +196,8 @@ describe("mutu rumusan", () => {
     const hasil = validasiKurikulum(k);
     const t = hasil.pemblokir.find((x) => x.kode === "K-SUB-LEVEL-LEBIH-TINGGI");
     assert.ok(t);
-    assert.match(t!.pesan, /C6/);
-    assert.match(t!.pesan, /C4/);
+    assert.match(pesanTemuanId(t!), /C6/);
+    assert.match(pesanTemuanId(t!), /C4/);
   });
 
   it("dua kata kerja dalam satu Sub-CPMK disarankan dipecah", () => {
@@ -275,7 +276,7 @@ describe("profil lulusan", () => {
     assert.equal(hasil.lolos, false);
     const t = hasil.pemblokir.find((x) => x.kode === "K-PL-TANPA-CPL");
     assert.ok(t);
-    assert.match(t!.pesan, /PL2/);
+    assert.match(pesanTemuanId(t!), /PL2/);
     assert.deepEqual(hasil.ringkasan.plTanpaCpl, ["PL2"]);
   });
 
@@ -289,7 +290,7 @@ describe("profil lulusan", () => {
     assert.equal(hasil.lolos, true);
     const t = hasil.peringatan.find((x) => x.kode === "K-CPL-TANPA-PL");
     assert.ok(t);
-    assert.match(t!.pesan, /CPL06/);
+    assert.match(pesanTemuanId(t!), /CPL06/);
   });
 
   it("CPL yang merujuk profil tak dikenal adalah pemblokir", () => {
@@ -300,7 +301,7 @@ describe("profil lulusan", () => {
 
     const t = hasil.pemblokir.find((x) => x.kode === "K-CPL-PL-TIDAK-ADA");
     assert.ok(t);
-    assert.match(t!.pesan, /PL7/);
+    assert.match(pesanTemuanId(t!), /PL7/);
   });
 
   it("kode profil berulang adalah pemblokir", () => {

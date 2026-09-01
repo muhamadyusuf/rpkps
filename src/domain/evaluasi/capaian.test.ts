@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { hitungCapaian, PITA_BAWAAN, type SumberCapaian } from "./capaian";
 import type { Asesmen } from "./peta-asesmen";
+import { pesanTemuanId } from "@/lib/bahasa/temuan";
 
 /**
  * Dua CPMK, empat Sub-CPMK, empat asesmen berjumlah 100%.
@@ -156,7 +157,7 @@ describe("kesiapan untuk ditutup", () => {
       sumber([{ nim: "1101", nama: "Ali", skor: { M2: 80, M5: 80, UTS: 80, UAS: null } }]),
     );
     const t = h.temuan.find((x) => x.kode === "EV-BELUM-LENGKAP")!;
-    assert.ok(t.pesan.includes("1 dari 4"));
+    assert.ok(pesanTemuanId(t).includes("1 dari 4"));
     assert.equal(h.dapatDitutup, false);
     // Angkanya tetap dihitung, hanya penutupannya yang ditahan.
     assert.equal(h.mahasiswa[0].cpmk.CPMK1, 80);

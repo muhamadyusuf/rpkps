@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
+import { nilaiTenggatDokumen, type NilaiTenggat } from "@/domain/rpkps/tenggat";
 import { cakupanProdi, punyaPeran } from "@/lib/otorisasi";
 import { muatBarisCapaian, muatKonteksProdi } from "@/lib/evaluasi/muat";
 import { agregasiProdi, type SebaranKelas } from "@/domain/evaluasi/agregasi";
@@ -170,7 +171,9 @@ export interface DataMahasiswa {
 }
 
 export interface DataDasbor {
-  tahunAktif: { id: string; kode: string } | null;
+  tahunAktif: { id: string; kode: string; tenggatPenyusunan: Date | null } | null;
+  /** Urgensi tenggat semester berjalan bagi pekerjaan pengguna yang belum diajukan. */
+  tenggat: NilaiTenggat | null;
   kebijakan: { id: string; nama: string; status: string } | null;
   antrian: ButirAntrian[];
   prodi: DataProdi[];
@@ -197,7 +200,14 @@ export async function muatDasbor(sesi: PenggunaSesi): Promise<DataDasbor> {
   const [tahunAktif, kebijakan] = await Promise.all([
     prisma.tahunAkademik.findFirst({
       where: { aktif: true },
-      select: { id: true, kode: true },
+      select: {
+        id: true,
+        kode: true,
+        tenggatPenyusunan: true,
+        tenggatReview: true,
+        tenggatPengesahan: true,
+        jaminanHariPutusan: true,
+      },
     }),
     prisma.kebijakanBebanBelajar.findFirst({
       orderBy: { dibuatPada: "desc" },
@@ -226,6 +236,24 @@ export async function muatDasbor(sesi: PenggunaSesi): Promise<DataDasbor> {
     adalahMahasiswa ? muatPanelMahasiswa(sesi) : null,
   ]);
 
+  // Dinilai dengan status DRAF: yang diukur di sini adalah petak DOSEN —
+  // pekerjaan yang belum diajukan. Petak Kaprodi (review) dan Penjaminan Mutu
+  // (pengesahan) menyusul bersama antrian per jalur, docs/14 §4.1.
+  const tenggat = tahunAktif
+    ? nilaiTenggatDokumen({
+        status: "DRAF",
+        tenggat: {
+          penyusunan: tahunAktif.tenggatPenyusunan,
+          review: tahunAktif.tenggatReview,
+          pengesahan: tahunAktif.tenggatPengesahan,
+        },
+        diajukanPada: null,
+        disetujuiPada: null,
+        jaminanHari: tahunAktif.jaminanHariPutusan,
+        sekarang: new Date(),
+      })
+    : null;
+
   const antrian = susunAntrian(
     await muatSumberAntrian(sesi, {
       cakupan,
@@ -233,6 +261,7 @@ export async function muatDasbor(sesi: PenggunaSesi): Promise<DataDasbor> {
       adalahMutu,
       kebijakanDraf: kebijakan?.status === "DRAF",
       dosen,
+      tenggat,
     }),
   );
 
@@ -246,6 +275,7 @@ export async function muatDasbor(sesi: PenggunaSesi): Promise<DataDasbor> {
 
   return {
     tahunAktif,
+    tenggat,
     kebijakan,
     antrian,
     prodi: prodi.filter((p): p is DataProdi => p !== null),
@@ -269,22 +299,37 @@ async function muatSumberAntrian(
     adalahMutu: boolean;
     kebijakanDraf: boolean;
     dosen: DataDosen | null;
+    tenggat: NilaiTenggat | null;
   },
 ): Promise<SumberAntrian> {
   const bolehMemutus = punyaPeran(sesi, "ADMIN", "KAPRODI", "GPM");
+  /**
+   * Sejak rantai pengesahan terpasang, dua cap terakhir punya pemilik yang
+   * berbeda (docs/14 §2.7): Kaprodi menyetujui, Penjaminan Mutu mengesahkan.
+   * Antrian mengikuti pembagian itu — butir yang tidak dapat ditindaklanjuti
+   * pembacanya adalah cara tercepat membuat antrian berhenti dipercaya. ADMIN
+   * sengaja tidak menerima keduanya: ia tidak menandatangani apa pun.
+   */
+  const adalahKaprodi = punyaPeran(sesi, "KAPRODI");
+  const adalahPengesah = punyaPeran(sesi, "GPM");
   const filterProdi =
     opsi.cakupan === null ? {} : { prodiId: { in: opsi.cakupan } };
 
-  const [usulanMenunggu, rpkpsMenunggu, penggunaMenunggu, temuanSaya] =
+  const [usulanMenunggu, rpkpsMenunggu, rpkpsPengesahan, penggunaMenunggu, temuanSaya] =
     await Promise.all([
       bolehMemutus
         ? prisma.usulanRevisi.count({
             where: { status: "DIAJUKAN", kurikulum: filterProdi },
           })
         : 0,
-      bolehMemutus
+      adalahKaprodi
         ? prisma.rpkps.count({
             where: { status: "DIAJUKAN", mataKuliah: { kurikulum: filterProdi } },
+          })
+        : 0,
+      adalahPengesah
+        ? prisma.rpkps.count({
+            where: { status: "DISETUJUI", mataKuliah: { kurikulum: filterProdi } },
           })
         : 0,
       opsi.adalahAdmin
@@ -299,6 +344,7 @@ async function muatSumberAntrian(
     ...SUMBER_KOSONG,
     usulanMenungguKeputusan: usulanMenunggu,
     rpkpsMenungguKeputusan: rpkpsMenunggu,
+    rpkpsMenungguPengesahan: rpkpsPengesahan,
     rpkpsDikembalikan:
       opsi.dosen?.rpkps.filter((r) => r.status === "DIREVISI").length ?? 0,
     rpkpsDraf: opsi.dosen?.rpkps.filter((r) => r.status === "DRAF").length ?? 0,
@@ -308,6 +354,7 @@ async function muatSumberAntrian(
       opsi.dosen?.kelas.filter((k) => k.tahap.tahap === "SIAP_HITUNG").length ?? 0,
     kebijakanMasihDraf:
       opsi.kebijakanDraf && (opsi.adalahAdmin || opsi.adalahMutu),
+    tenggat: opsi.tenggat,
   };
 }
 

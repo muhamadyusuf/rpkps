@@ -1,4 +1,4 @@
-import { bulatkan, formatMenit, susunRencanaSemester } from "./kalkulator";
+import { bulatkan, susunRencanaSemester } from "./kalkulator";
 import type {
   Aktivitas,
   Kebijakan,
@@ -44,7 +44,7 @@ export function validasiPertemuan(
         lapis: 1,
         tingkat: "PERINGATAN",
         minggu,
-        pesan: `Ada ${formatMenit(terpakai.total)} aktivitas pada minggu tanpa pagu.`,
+        params: { total: { menit: terpakai.total } },
         detail: { terpakai: terpakai.total },
       });
     }
@@ -60,10 +60,11 @@ export function validasiPertemuan(
       lapis: 1,
       tingkat: "PERINGATAN",
       minggu,
-      pesan:
-        selisih > 0
-          ? `Beban melebihi pagu ${Math.abs(persen)}% (${formatMenit(terpakai.total)} dari pagu ${formatMenit(pagu.total)}).`
-          : `Beban kurang dari pagu ${Math.abs(persen)}% (${formatMenit(terpakai.total)} dari pagu ${formatMenit(pagu.total)}).`,
+      params: {
+        persen: Math.abs(persen),
+        terpakai: { menit: terpakai.total },
+        pagu: { menit: pagu.total },
+      },
       detail: { pagu: pagu.total, terpakai: terpakai.total, persen },
     });
   }
@@ -76,7 +77,7 @@ export function validasiPertemuan(
       lapis: 1,
       tingkat: "PERINGATAN",
       minggu,
-      pesan: `Tatap muka ${formatMenit(terpakai.tm)} melampaui pagu TM ${formatMenit(pagu.tm)} — butuh slot jadwal tambahan.`,
+      params: { terpakai: { menit: terpakai.tm }, pagu: { menit: pagu.tm } },
       detail: { paguTm: pagu.tm, terpakaiTm: terpakai.tm },
     });
   }
@@ -95,11 +96,12 @@ export function validasiSemester(rencana: RencanaSemester, kebijakan: Kebijakan)
       kode: kelebihan ? "L2-KELEBIHAN" : "L2-KEKURANGAN",
       lapis: 2,
       tingkat: "PEMBLOKIR",
-      pesan:
-        `Total beban semester ${rencana.jamPerSks} jam/sks, ` +
-        `${kelebihan ? "melebihi" : "kurang dari"} target ${kebijakan.jamPerSksPerSemester} jam/sks ` +
-        `(toleransi ${kebijakan.toleransiSemesterPersen}%). ` +
-        `Selisih ${formatMenit(Math.abs(rencana.selisihMenit))}.`,
+      params: {
+        jamPerSks: rencana.jamPerSks,
+        target: kebijakan.jamPerSksPerSemester,
+        toleransi: kebijakan.toleransiSemesterPersen,
+        selisih: { menit: Math.abs(rencana.selisihMenit) },
+      },
       detail: {
         jamPerSks: rencana.jamPerSks,
         target: kebijakan.jamPerSksPerSemester,
@@ -118,10 +120,7 @@ export function validasiSemester(rencana: RencanaSemester, kebijakan: Kebijakan)
         kode: "L2-UJIAN-TANPA-BEBAN",
         lapis: 2,
         tingkat: "PEMBLOKIR",
-        pesan:
-          `${jumlahUjian} minggu ujian tidak dihitung sebagai beban belajar. ` +
-          `Padahal mahasiswa yang menyiapkan ujian memang sedang belajar — ` +
-          `tanpa itu invarian 45 jam/sks tidak akan pernah tercapai.`,
+        params: { jumlah: jumlahUjian },
         detail: { jumlahMingguUjian: jumlahUjian },
       });
     }
@@ -147,9 +146,7 @@ export function validasiKonsistensiNarasi(
       lapis: 3,
       tingkat: "PEMBLOKIR",
       minggu,
-      pesan:
-        `Narasi metode menyebut ${formatMenit(menitNarasi)}, ` +
-        `sedangkan kolom alokasi waktu ${formatMenit(menitKolom)}. Keduanya harus sama.`,
+      params: { narasi: { menit: menitNarasi }, kolom: { menit: menitKolom } },
       detail: { menitNarasi, menitKolom, selisih: menitKolom - menitNarasi },
     },
   ];
@@ -169,9 +166,11 @@ export function validasiKapasitasTerjadwal(
         lapis: 4,
         tingkat: "PERINGATAN",
         minggu: m.minggu,
-        pesan:
-          `Minggu ${m.minggu} butuh ${formatMenit(m.pagu.terjadwal)} slot terjadwal, ` +
-          `tersedia ${formatMenit(slotTersediaMenitPerMinggu)}.`,
+        params: {
+          minggu: m.minggu,
+          butuh: { menit: m.pagu.terjadwal },
+          tersedia: { menit: slotTersediaMenitPerMinggu },
+        },
         detail: { butuh: m.pagu.terjadwal, tersedia: slotTersediaMenitPerMinggu },
       });
     }

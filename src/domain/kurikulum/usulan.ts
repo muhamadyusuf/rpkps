@@ -135,7 +135,7 @@ export function periksaButir(
       {
         kode: "U-MK-TIDAK-ADA",
         tingkat: "PEMBLOKIR",
-        pesan: `Mata kuliah ${usulan.mkKode} tidak ada di kurikulum ini.`,
+        params: { kode: usulan.mkKode },
       },
     ];
   }
@@ -145,7 +145,6 @@ export function periksaButir(
       {
         kode: "U-TANPA-BUTIR",
         tingkat: "PEMBLOKIR",
-        pesan: "Usulan belum berisi satu butir pun.",
       },
     ];
   }
@@ -160,15 +159,11 @@ export function periksaButir(
 
   for (const b of usulan.butir) {
     const lokasi = { mk: mk.kode, cpmk: b.cpmkKode, ...(b.subCpmkKode ? { subCpmk: b.subCpmkKode } : {}) };
-    const tandai = (kode: string, pesan: string, saran?: string) =>
-      temuan.push({ kode, tingkat: "PEMBLOKIR", pesan, lokasi, saran, butirId: b.id });
+    const tandai = (kode: string, params?: Record<string, string | number>) =>
+      temuan.push({ kode, tingkat: "PEMBLOKIR", params, lokasi, butirId: b.id });
 
     if (b.alasan.trim().length < PANJANG_ALASAN_MINIMAL) {
-      tandai(
-        "U-ALASAN-PENDEK",
-        `Butir ${b.cpmkKode} belum menyertakan alasan yang dapat dinilai.`,
-        "Sebutkan apa yang salah pada rumusan sekarang, bukan hanya bahwa ia perlu diganti.",
-      );
+      tandai("U-ALASAN-PENDEK", { kode: b.cpmkKode });
     }
 
     // Dasar wajib. Inilah yang memisahkan revisi berbasis bukti dari karangan
@@ -178,51 +173,31 @@ export function periksaButir(
       (d) => d.kutipan.trim().length >= PANJANG_KUTIPAN_MINIMAL,
     );
     if (dasarSah.length === 0) {
-      tandai(
-        "U-TANPA-DASAR",
-        `Butir ${b.cpmkKode} tidak membawa satu pun dasar.`,
-        "Lampirkan temuan validator, sinyal industri, masukan DUDI, tracer study, atau argumen tertulis.",
-      );
+      tandai("U-TANPA-DASAR", { kode: b.cpmkKode });
     }
     for (const d of dasarSah) {
       if (d.jenis !== "CATATAN_DOSEN" && !d.ref?.trim()) {
-        tandai(
-          "U-DASAR-TANPA-RUJUKAN",
-          `Dasar ${d.jenis} pada butir ${b.cpmkKode} tidak menyebut sumber yang dapat ditelusuri.`,
-          "Hanya CATATAN_DOSEN yang boleh tanpa rujukan.",
-        );
+        tandai("U-DASAR-TANPA-RUJUKAN", { jenis: d.jenis, kode: b.cpmkKode });
       }
     }
 
     if (JENIS_PERLU_RUMUSAN.includes(b.jenis) && !b.rumusan?.trim()) {
-      tandai("U-RUMUSAN-KOSONG", `Butir ${b.jenis} pada ${b.cpmkKode} belum berisi rumusan.`);
+      tandai("U-RUMUSAN-KOSONG", { jenis: b.jenis, kode: b.cpmkKode });
     }
 
     switch (b.jenis) {
       case "CPMK_BARU": {
         if (kodeCpmkAda.has(b.cpmkKode)) {
-          tandai(
-            "U-KODE-DIPAKAI",
-            `Kode ${b.cpmkKode} sudah dipakai CPMK lain pada ${mk.kode}.`,
-            "Kode tidak boleh didaur ulang — nomor CPMK di dokumen lama harus tetap berarti satu hal.",
-          );
+          tandai("U-KODE-DIPAKAI-CPMK", { kode: b.cpmkKode, mk: mk.kode });
         }
         if ((b.cplKode ?? []).length === 0) {
-          tandai(
-            "U-CPMK-BARU-TANPA-CPL",
-            `${b.cpmkKode} belum dipetakan ke satu pun CPL.`,
-            "CPMK yang tidak menjabarkan CPL apa pun memutus rantai penelusuran OBE.",
-          );
+          tandai("U-CPMK-BARU-TANPA-CPL", { kode: b.cpmkKode });
         }
         const punyaSub = usulan.butir.some(
           (x) => x.jenis === "SUB_BARU" && x.cpmkKode === b.cpmkKode,
         );
         if (!punyaSub) {
-          tandai(
-            "U-CPMK-BARU-TANPA-SUB",
-            `${b.cpmkKode} belum diuraikan menjadi Sub-CPMK.`,
-            "Tambahkan minimal satu butir SUB_BARU pada usulan yang sama.",
-          );
+          tandai("U-CPMK-BARU-TANPA-SUB", { kode: b.cpmkKode });
         }
         break;
       }
@@ -231,15 +206,12 @@ export function periksaButir(
         // Induknya boleh CPMK yang sudah ada, boleh juga yang diperkenalkan
         // usulan ini sendiri — urutan penerapan yang mengurusnya.
         if (!kodeCpmkAda.has(b.cpmkKode) && !kodeCpmkBaru.has(b.cpmkKode)) {
-          tandai("U-CPMK-TIDAK-ADA", `CPMK ${b.cpmkKode} tidak ada pada ${mk.kode}.`);
+          tandai("U-CPMK-TIDAK-ADA", { kode: b.cpmkKode, mk: mk.kode });
         }
         if (!b.subCpmkKode?.trim()) {
-          tandai("U-SUB-KODE-KOSONG", `Sub-CPMK baru pada ${b.cpmkKode} belum diberi kode.`);
+          tandai("U-SUB-KODE-KOSONG", { kode: b.cpmkKode });
         } else if (kodeSubAda.has(b.subCpmkKode)) {
-          tandai(
-            "U-KODE-DIPAKAI",
-            `Kode ${b.subCpmkKode} sudah dipakai Sub-CPMK lain pada ${mk.kode}.`,
-          );
+          tandai("U-KODE-DIPAKAI-SUB", { kode: b.subCpmkKode, mk: mk.kode });
         }
         break;
       }
@@ -252,16 +224,13 @@ export function periksaButir(
 
       default: {
         if (!kodeCpmkAda.has(b.cpmkKode)) {
-          tandai("U-CPMK-TIDAK-ADA", `CPMK ${b.cpmkKode} tidak ada pada ${mk.kode}.`);
+          tandai("U-CPMK-TIDAK-ADA", { kode: b.cpmkKode, mk: mk.kode });
         }
         if (JENIS_SASARAN_SUB.includes(b.jenis)) {
           if (!b.subCpmkKode) {
-            tandai("U-SUB-KODE-KOSONG", `Butir ${b.jenis} harus menyebut Sub-CPMK sasaran.`);
+            tandai("U-SUB-SASARAN-KOSONG", { jenis: b.jenis });
           } else if (!kodeSubAda.has(b.subCpmkKode)) {
-            tandai(
-              "U-SUB-TIDAK-ADA",
-              `Sub-CPMK ${b.subCpmkKode} tidak ada pada ${mk.kode}.`,
-            );
+            tandai("U-SUB-TIDAK-ADA", { kode: b.subCpmkKode, mk: mk.kode });
           }
         }
       }
@@ -270,13 +239,9 @@ export function periksaButir(
     if (b.jenis === "CPMK_BARU" || b.jenis === "CPMK_PETA_CPL") {
       for (const kode of b.cplKode ?? []) {
         if (!kodeCpl.has(kode)) {
-          tandai("U-CPL-TIDAK-ADA", `CPL ${kode} tidak ada di kurikulum ini.`);
+          tandai("U-CPL-TIDAK-ADA", { kode });
         } else if (!mk.cplKode.includes(kode)) {
-          tandai(
-            "U-CPL-DILUAR-MK",
-            `CPL ${kode} tidak dibebankan pada ${mk.kode}.`,
-            "Membebankan CPL baru pada mata kuliah adalah keputusan matriks CPL×MK — di luar kewenangan usulan ini.",
-          );
+          tandai("U-CPL-DILUAR-MK", { kode, mk: mk.kode });
         }
       }
     }
@@ -461,18 +426,23 @@ export function periksaJalurRalat(
   const mk = kurikulum.mataKuliah.find((m) => m.kode === usulan.mkKode);
 
   for (const b of usulan.butir) {
-    const tolak = (pesan: string, saran?: string) =>
+    /**
+     * Satu kode per aturan, bukan satu kode untuk empat kalimat. Kamus temuan
+     * berkunci kode: kode yang dipakai bersama akan memaksa keempat aturan ini
+     * berbunyi sama di layar, dan menghapus satu-satunya petunjuk mengapa
+     * sebuah ralat ditolak.
+     */
+    const tolak = (kode: string, params?: Record<string, string | number>) =>
       temuan.push({
-        kode: "U-RALAT-BUKAN-EJAAN",
+        kode,
         tingkat: "PEMBLOKIR",
-        pesan,
-        saran: saran ?? "Lepaskan tanda ralat; usulan ini berlaku mulai tahun akademik berikutnya.",
+        params,
         lokasi: { mk: usulan.mkKode, cpmk: b.cpmkKode },
         butirId: b.id,
       });
 
     if (b.jenis !== "CPMK_RUMUSAN" && b.jenis !== "SUB_RUMUSAN") {
-      tolak(`Butir ${b.jenis} tidak dapat ditempuh lewat jalur ralat.`);
+      tolak("U-RALAT-JENIS-SALAH", { jenis: b.jenis });
       continue;
     }
 
@@ -483,23 +453,23 @@ export function periksaJalurRalat(
     if (!lama) continue; // sudah dilaporkan periksaButir
 
     if (levelDariRumusan(lama) !== levelDariRumusan(baru)) {
-      tolak(`Perbaikan pada ${b.subCpmkKode ?? b.cpmkKode} menggeser level Bloom rumusan.`);
+      tolak("U-RALAT-GESER-BLOOM", { kode: b.subCpmkKode ?? b.cpmkKode });
       continue;
     }
     const kkoLama = hitungKkoBerbeda(lama).sort().join(",");
     const kkoBaru = hitungKkoBerbeda(baru).sort().join(",");
     if (kkoLama !== kkoBaru) {
-      tolak(
-        `Perbaikan pada ${b.subCpmkKode ?? b.cpmkKode} mengubah kata kerja operasionalnya.`,
-      );
+      tolak("U-RALAT-UBAH-KKO", { kode: b.subCpmkKode ?? b.cpmkKode });
       continue;
     }
     const ambang = Math.max(RALAT_JARAK_MUTLAK, Math.round(lama.length * RALAT_JARAK_NISBI));
     const jarak = jarakSunting(lama, baru);
     if (jarak > ambang) {
-      tolak(
-        `Perbaikan pada ${b.subCpmkKode ?? b.cpmkKode} mengubah ${jarak} karakter, melebihi ambang ralat (${ambang}).`,
-      );
+      tolak("U-RALAT-TERLALU-JAUH", {
+        kode: b.subCpmkKode ?? b.cpmkKode,
+        jarak,
+        ambang,
+      });
     }
   }
 
@@ -555,8 +525,7 @@ export function periksaKonsistensiKeputusan(usulan: UsulanInput): TemuanUsulan[]
       temuan.push({
         kode: "U-INDUK-DITOLAK",
         tingkat: "PEMBLOKIR",
-        pesan: `${b.subCpmkKode} diterima, tetapi CPMK induknya (${b.cpmkKode}) ditolak.`,
-        saran: "Tolak juga Sub-CPMK ini, atau terima CPMK induknya.",
+        params: { kode: b.subCpmkKode ?? "", induk: b.cpmkKode },
         lokasi: { cpmk: b.cpmkKode },
         butirId: b.id,
       });
@@ -569,8 +538,6 @@ export function periksaKonsistensiKeputusan(usulan: UsulanInput): TemuanUsulan[]
       temuan.push({
         kode: "U-TANPA-BUTIR-DITERIMA",
         tingkat: "PEMBLOKIR",
-        pesan: "Tidak ada butir yang diterima, jadi tidak ada yang dapat diterapkan.",
-        saran: "Tolak usulan ini, atau kembalikan untuk revisi.",
       });
     }
   }

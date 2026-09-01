@@ -38,19 +38,11 @@ export const KEBIJAKAN_BAWAAN: Kebijakan = {
   bentuk: BENTUK_BAWAAN,
 };
 
-export const LABEL_BENTUK: Record<string, string> = {
-  KULIAH: "Kuliah",
-  RESPONSI: "Responsi",
-  TUTORIAL: "Tutorial",
-  SEMINAR: "Seminar",
-  PRAKTIKUM: "Praktikum",
-  PRAKTIK_STUDIO: "Praktik studio",
-  PRAKTIK_BENGKEL: "Praktik bengkel",
-  PRAKTIK_LAPANGAN: "Praktik lapangan / PKL",
-  PENELITIAN: "Penelitian",
-  PKM: "Pengabdian kepada Masyarakat",
-  KKN: "KKN",
-};
+/**
+ * Nama bentuk pembelajaran dan kategori waktu yang dibaca manusia sudah
+ * pindah ke `kamus.enum` (docs/11 §4.3): domain memutuskan berapa menit,
+ * bukan bagaimana "PRAKTIK_LAPANGAN" dieja dalam bahasa yang sedang dipakai.
+ */
 
 export const LABEL_KATEGORI: Record<string, string> = {
   TM: "Tatap muka",

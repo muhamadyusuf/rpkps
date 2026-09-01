@@ -1,6 +1,7 @@
 import {
   AlignmentType,
   BorderStyle,
+  PageBreak,
   Paragraph,
   TableCell,
   TextRun,
@@ -15,6 +16,13 @@ export const FONT = "Arial";
 export const UKURAN_ISI = 18; // half-point → 9pt
 export const UKURAN_JUDUL = 22; // 11pt
 export const ABU = "F3F4F6";
+
+/**
+ * Paragraf isi dokumen dirata kiri-kanan. Isi sel tabel tidak ikut: kolom
+ * sempit seperti tabel mingguan justru merenggang tak terbaca bila dijustifikasi,
+ * jadi `sel()` dan pemanggil di dalam sel tetap rata kiri.
+ */
+export const RATA_ISI = AlignmentType.JUSTIFIED;
 export const GARIS = "9CA3AF";
 
 export const TEPI_SEL = {
@@ -96,16 +104,40 @@ export function sel(
 }
 
 /** Memecah teks berbaris ganda menjadi beberapa paragraf. */
-export function baris(isi: string | null, opsi: { tebal?: boolean } = {}): Paragraph[] {
+export function baris(
+  isi: string | null,
+  opsi: {
+    tebal?: boolean;
+    rata?: (typeof AlignmentType)[keyof typeof AlignmentType];
+  } = {},
+): Paragraph[] {
   if (!isi?.trim()) return [];
   return isi
     .split(/\r?\n/)
     .filter((b) => b.trim() !== "")
-    .map((b) => paragraf(b.trim(), { tebal: opsi.tebal, spasi: { after: 20 } }));
+    .map((b) =>
+      paragraf(b.trim(), {
+        tebal: opsi.tebal,
+        rata: opsi.rata ?? RATA_ISI,
+        spasi: { after: 20 },
+      }),
+    );
 }
 
-export function daftarBernomor(isi: string[]): Paragraph[] {
+export function daftarBernomor(
+  isi: string[],
+  opsi: { rata?: (typeof AlignmentType)[keyof typeof AlignmentType] } = {},
+): Paragraph[] {
   return isi.map((t, i) =>
-    paragraf(`${i + 1}. ${t}`, { spasi: { after: 20 }, indentasi: 120 }),
+    paragraf(`${i + 1}. ${t}`, {
+      rata: opsi.rata ?? RATA_ISI,
+      spasi: { after: 20 },
+      indentasi: 120,
+    }),
   );
+}
+
+/** Memaksa isi berikutnya mulai di halaman baru. */
+export function pemisahHalaman(): Paragraph {
+  return new Paragraph({ children: [new PageBreak()], spacing: { after: 0 } });
 }

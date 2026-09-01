@@ -43,7 +43,7 @@ export function auth(): Auth {
  * ID token tidak pernah disimpan di localStorage — cookie HttpOnly tidak
  * dapat dibaca skrip, sehingga aman dari pencurian token lewat XSS.
  */
-export async function masukDenganGoogle(): Promise<void> {
+export async function masukDenganGoogle(): Promise<{ bahasa: string | null }> {
   const penyedia = new GoogleAuthProvider();
   penyedia.setCustomParameters({ prompt: "select_account" });
 
@@ -61,6 +61,11 @@ export async function masukDenganGoogle(): Promise<void> {
     const galat = await respons.json().catch(() => ({ pesan: "Gagal membuat sesi." }));
     throw new Error(galat.pesan ?? "Gagal membuat sesi.");
   }
+
+  // Bahasa yang tersimpan pada akun. Halaman masuk boleh saja dibuka dalam
+  // bahasa lain — yang menentukan setelah masuk adalah preferensi orangnya.
+  const isi = await respons.json().catch(() => ({}));
+  return { bahasa: typeof isi?.bahasa === "string" ? isi.bahasa : null };
 }
 
 export async function keluar(): Promise<void> {

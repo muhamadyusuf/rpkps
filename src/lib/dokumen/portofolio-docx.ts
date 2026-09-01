@@ -7,7 +7,7 @@ import {
   TableRow,
   WidthType,
 } from "docx";
-import { ABU, baris, judulBagian, paragraf, sel, teks, UKURAN_JUDUL } from "./gaya";
+import { ABU, baris, judulBagian, paragraf, RATA_ISI, sel, teks, UKURAN_JUDUL } from "./gaya";
 import { sidikRingkas } from "@/domain/rpkps/sidik";
 import type { CapaianButir, NilaiMahasiswa } from "@/domain/evaluasi/capaian";
 import type { Asesmen } from "@/domain/evaluasi/peta-asesmen";
@@ -104,6 +104,7 @@ function bagianRingkasan(s: SumberPortofolio): (Paragraph | Table)[] {
         `CPMK dinyatakan tercapai bila sekurang-kurangnya ${s.ambangKetercapaianMk}% mahasiswa lulus. ` +
         `Kedua ambang menjawab pertanyaan yang berbeda: yang pertama tentang seorang mahasiswa, ` +
         `yang kedua tentang kelas.`,
+      { rata: RATA_ISI },
     ),
     tabelDua([
       ["Kelengkapan nilai", `${s.kelengkapan}%`],
@@ -212,6 +213,7 @@ function bagianTindakLanjut(s: SumberPortofolio): (Paragraph | Table)[] {
     isi.push(
       paragraf(
         "Tidak ada CPMK yang berada di bawah ambang ketercapaian, sehingga tidak ada tindak lanjut yang diwajibkan pada semester ini.",
+        { rata: RATA_ISI },
       ),
     );
     return isi;
@@ -267,7 +269,7 @@ function bagianTindakLanjut(s: SumberPortofolio): (Paragraph | Table)[] {
         paragraf(
           `${t.kode}: ${t.statusVerifikasi === "TERCAPAI" ? "tercapai" : "belum tercapai"}` +
             (t.catatanVerifikasi ? ` — ${t.catatanVerifikasi}` : ""),
-          { indentasi: 320 },
+          { rata: RATA_ISI, indentasi: 320 },
         ),
       );
     }
@@ -282,7 +284,7 @@ function bagianPengesahan(s: SumberPortofolio): (Paragraph | Table)[] {
       judulBagian("F", "STATUS DOKUMEN"),
       paragraf(
         "Evaluasi belum ditutup. Angka pada dokumen ini masih dapat berubah dan belum menjadi catatan resmi.",
-        { miring: true },
+        { miring: true, rata: RATA_ISI },
       ),
     ];
   }
@@ -295,6 +297,7 @@ function bagianPengesahan(s: SumberPortofolio): (Paragraph | Table)[] {
         month: "long",
         year: "numeric",
       })} oleh ${s.ditutupOleh ?? "—"}.`,
+      { rata: RATA_ISI },
     ),
     paragraf([
       teks("Sidik dokumen: "),
@@ -302,7 +305,7 @@ function bagianPengesahan(s: SumberPortofolio): (Paragraph | Table)[] {
     ]),
     paragraf(
       "Sidik dihitung dengan SHA-256 atas seluruh isi evaluasi. Nilai mahasiswa boleh berubah setelah remedial; salinan beku yang menghasilkan sidik ini tidak.",
-      { miring: true },
+      { miring: true, rata: RATA_ISI },
     ),
   ];
 }

@@ -91,6 +91,21 @@ model TahunAkademik {
   semester     SemesterTipe
   tanggalMulai DateTime?    @map("tanggal_mulai")
   tanggalAkhir DateTime?    @map("tanggal_akhir")
+  /// Tiga tenggat, satu untuk tiap petak tanggung jawab di rantai pengesahan
+  /// (docs/14 §3). Tanggal, bukan aturan: tidak ada yang dikunci saat
+  /// terlampaui — yang berubah hanya urgensi pada antrian kerja dan daftar.
+  ///
+  /// Satu dokumen hanya terikat SATU tenggat pada satu waktu, dan pemiliknya
+  /// berpindah mengikuti status: penyusunan → dosen, review → Kaprodi,
+  /// pengesahan → Penjaminan Mutu.
+  tenggatPenyusunan DateTime? @map("tenggat_penyusunan")
+  tenggatReview     DateTime? @map("tenggat_review")
+  tenggatPengesahan DateTime? @map("tenggat_pengesahan")
+  /// Hari yang dijamin bagi pemutus, dihitung sejak dokumen sampai padanya.
+  /// LANTAI, bukan langit-langit: dokumen yang masuk jauh-jauh hari tetap
+  /// terikat tanggal semester, sedangkan yang masuk mepet tidak menghukum
+  /// pemutusnya atas keterlambatan orang lain (docs/14 §3.2).
+  jaminanHariPutusan Int      @default(7) @map("jaminan_hari_putusan")
   aktif        Boolean      @default(false)
   dibuatPada   DateTime     @default(now()) @map("dibuat_pada")
   diubahPada   DateTime     @updatedAt @map("diubah_pada")
@@ -101,6 +116,7 @@ model TahunAkademik {
   temuanSasaran  TemuanEvaluasi[]  @relation("TemuanSasaran")
   cpmkPensiun    Cpmk[]            @relation("CpmkPensiun")
   subCpmkPensiun SubCpmk[]         @relation("SubCpmkPensiun")
+  koordinatorMk  KoordinatorMk[]
 
   @@index([aktif])
   @@map("tahun_akademik")
@@ -113,6 +129,16 @@ model TahunAkademik {
 // NIDN/NIP, peran, dan cakupan prodi. Dikelola oleh Admin.
 // ─────────────────────────────────────────────────────────────
 
+/// Bahasa antarmuka pilihan pengguna.
+///
+/// Nilainya sengaja huruf kecil dan sama persis dengan ruas alamat (`/id`,
+/// `/en`) serta cookie `bahasa`. Enum berhuruf besar akan memaksa konversi
+/// bentuk di tiga tempat sekaligus, dan konversi itulah yang salah.
+enum BahasaAntarmuka {
+  id
+  en
+}
+
 enum StatusPengguna {
   AKTIF
   NONAKTIF
@@ -120,21 +146,24 @@ enum StatusPengguna {
 }
 
 model Pengguna {
-  id            String         @id @default(cuid())
-  firebaseUid   String         @unique @map("firebase_uid")
-  email         String         @unique
+  id            String          @id @default(cuid())
+  firebaseUid   String          @unique @map("firebase_uid")
+  email         String          @unique
   nama          String
-  gelarDepan    String?        @map("gelar_depan")
-  gelarBelakang String?        @map("gelar_belakang")
-  nidn          String?        @unique
-  nip           String?        @unique
-  nik           String?        @unique
+  gelarDepan    String?         @map("gelar_depan")
+  gelarBelakang String?         @map("gelar_belakang")
+  nidn          String?         @unique
+  nip           String?         @unique
+  nik           String?         @unique
   telepon       String?
-  fotoUrl       String?        @map("foto_url")
-  status        StatusPengguna @default(MENUNGGU_VERIFIKASI)
-  terakhirMasuk DateTime?      @map("terakhir_masuk")
-  dibuatPada    DateTime       @default(now()) @map("dibuat_pada")
-  diubahPada    DateTime       @updatedAt @map("diubah_pada")
+  fotoUrl       String?         @map("foto_url")
+  status        StatusPengguna  @default(MENUNGGU_VERIFIKASI)
+  /// Preferensi bahasa antarmuka. Mengikuti ORANGNYA lintas perangkat;
+  /// cookie `bahasa` hanya menyimpan yang terakhir dipakai di peramban ini.
+  bahasa        BahasaAntarmuka @default(id)
+  terakhirMasuk DateTime?       @map("terakhir_masuk")
+  dibuatPada    DateTime        @default(now()) @map("dibuat_pada")
+  diubahPada    DateTime        @updatedAt @map("diubah_pada")
 
   penugasan          PenugasanPeran[]
   logAudit           LogAudit[]
@@ -148,6 +177,10 @@ model Pengguna {
   temuanDitanggung   TemuanEvaluasi[]  @relation("TemuanPenanggungJawab")
   temuanDiverifikasi TemuanEvaluasi[]  @relation("TemuanDiverifikasi")
   kredensialAi       KredensialAi[]
+  notifikasi         Notifikasi[]
+  koordinatorMk      KoordinatorMk[]   @relation("KoordinatorMkDosen")
+  koordinatorMkSet   KoordinatorMk[]   @relation("KoordinatorMkPenetap")
+  tandaTanganRpkps   TandaTanganRpkps[]
 
   @@index([status])
   @@map("pengguna")
@@ -289,6 +322,52 @@ model LogAudit {
   @@map("log_audit")
 }
 
+/// Peristiwa yang layak mengganggu seseorang. Sengaja sedikit: notifikasi yang
+/// terlalu sering dikirim berhenti dibaca, dan yang berhenti dibaca sama saja
+/// dengan tidak ada.
+enum JenisNotifikasi {
+  RPKPS_DIAJUKAN
+  RPKPS_DISETUJUI
+  RPKPS_MENUNGGU_PENGESAHAN
+  RPKPS_DISAHKAN
+  RPKPS_DIREVISI
+  RPKPS_PENGAMPU
+  KOORDINATOR_MK_DITETAPKAN
+  USULAN_DIAJUKAN
+  USULAN_DIPUTUSKAN
+}
+
+/// Kabar untuk SATU orang. Satu peristiwa yang menyangkut lima orang menjadi
+/// lima baris — dibaca dan ditandai masing-masing, tanpa tabel penerima.
+///
+/// Bukan `log_audit`: yang di sana adalah catatan resmi yang tidak pernah
+/// dihapus dan tidak dialamatkan kepada siapa pun. Yang di sini boleh basi.
+model Notifikasi {
+  id         String          @id @default(cuid())
+  penggunaId String          @map("pengguna_id")
+  jenis      JenisNotifikasi
+  /// Kunci kalimat + parameternya: { kunci, params }. Kalimatnya dirakit saat
+  /// DIBACA, dalam bahasa pembacanya (docs/11 §4.2). Kosong pada baris yang
+  /// ditulis sebelum L3 — baris itu memakai judul/ringkasan di bawah.
+  data       Json?
+  /// Cadangan bahasa Indonesia. Dipertahankan supaya baris lama tetap terbaca
+  /// dan supaya notifikasi tetap punya isi bila kuncinya hilang dari kamus.
+  judul      String
+  ringkasan  String
+  /// Alamat di dalam aplikasi yang menjawab notifikasi ini.
+  tautan     String?
+  entitas    String?
+  entitasId  String?         @map("entitas_id")
+  dibacaPada DateTime?       @map("dibaca_pada")
+  dibuatPada DateTime        @default(now()) @map("dibuat_pada")
+
+  pengguna Pengguna @relation(fields: [penggunaId], references: [id], onDelete: Cascade)
+
+  @@index([penggunaId, dibacaPada])
+  @@index([penggunaId, dibuatPada])
+  @@map("notifikasi")
+}
+
 /// Penyedia LLM yang adapternya ada di src/lib/ai/penyedia/.
 enum PenyediaAi {
   ANTHROPIC
@@ -311,7 +390,7 @@ model KredensialAi {
 
   /// Enkripsi amplop AES-256-GCM; tata letaknya di src/lib/kripto/amplop.ts.
   /// Tidak pernah dapat dibaca kembali lewat antarmuka mana pun, hanya diganti.
-  kunciTerenkripsi Bytes @map("kunci_terenkripsi")
+  kunciTerenkripsi Bytes  @map("kunci_terenkripsi")
   /// Empat karakter terakhir, teks biasa. Cukup untuk mengenali kunci yang
   /// mana, tidak cukup untuk memakainya.
   ekor             String
@@ -475,11 +554,48 @@ model MataKuliah {
   menjadiPrasyaratBagi MkPrasyarat[]  @relation("MkPrasyarat")
   rpkps                Rpkps[]
   usulan               UsulanRevisi[]
+  koordinator          KoordinatorMk[]
 
   @@unique([kurikulumId, kode])
   @@index([kurikulumId, semester])
   @@map("mata_kuliah")
 }
+
+/// Penugasan dosen koordinator sebuah mata kuliah untuk SATU tahun akademik
+/// (docs/13-penugasan-koordinator-mk.md §2.1).
+///
+/// Sengaja BUKAN kolom `koordinator_id` pada `mata_kuliah`: pemegang MK
+/// berganti tiap semester, dan satu kolom berarti pergantian menimpa pemegang
+/// sebelumnya sampai tidak ada lagi yang dapat menjawab siapa yang memegang MK
+/// itu dua tahun lalu. Baris tersendiri per tahun akademik ITULAH riwayatnya.
+///
+/// Yang tidak tercatat di sini: pergantian di tengah satu tahun akademik —
+/// `@@unique` membuatnya menimpa baris yang sama. Jejaknya di `log_audit` dan,
+/// bila RPKPS-nya sudah ada, di `rpkps_riwayat` lewat serah terima yang ikut
+/// dijalankan.
+model KoordinatorMk {
+  id               String  @id @default(cuid())
+  mataKuliahId     String  @map("mata_kuliah_id")
+  tahunAkademikId  String  @map("tahun_akademik_id")
+  penggunaId       String  @map("pengguna_id")
+  /// Penetapnya boleh hilang tanpa melenyapkan penugasannya (SetNull), sebab
+  /// yang penting di sini adalah SIAPA YANG DITUGASKAN, bukan siapa yang menugaskan.
+  ditetapkanOlehId String? @map("ditetapkan_oleh_id")
+
+  dibuatPada DateTime @default(now()) @map("dibuat_pada")
+  diubahPada DateTime @updatedAt @map("diubah_pada")
+
+  mataKuliah     MataKuliah    @relation(fields: [mataKuliahId], references: [id], onDelete: Cascade)
+  tahunAkademik  TahunAkademik @relation(fields: [tahunAkademikId], references: [id], onDelete: Cascade)
+  pengguna       Pengguna      @relation("KoordinatorMkDosen", fields: [penggunaId], references: [id], onDelete: Cascade)
+  ditetapkanOleh Pengguna?     @relation("KoordinatorMkPenetap", fields: [ditetapkanOlehId], references: [id], onDelete: SetNull)
+
+  @@unique([mataKuliahId, tahunAkademikId])
+  @@index([tahunAkademikId])
+  @@index([penggunaId, tahunAkademikId])
+  @@map("koordinator_mk")
+}
+
 
 enum JenisPrasyarat {
   PRASYARAT
@@ -653,6 +769,7 @@ model Rpkps {
   kisiKisi      KisiKisi[]
   tugas         Tugas[]
   kelas         Kelas[]
+  tandaTangan   TandaTanganRpkps[]
 
   @@unique([mataKuliahId, tahunAkademikId])
   @@index([status])
@@ -676,6 +793,61 @@ model RpkpsPengampu {
 
   @@unique([rpkpsId, penggunaId])
   @@map("rpkps_pengampu")
+}
+
+// ─────────────────────────────────────────────────────────────
+// RANTAI PENGESAHAN — docs/14 §2
+//
+// Empat cap berurutan, persis seperti Halaman Pengesahan template ITTS:
+// paraf tiap pengampu → koordinator (a.n tim penyusun) → Ketua Program Studi
+// (disetujui) → Kepala Penjaminan Mutu (sesuai standar ITTS). Cap terakhir
+// itulah yang menerbitkan dokumen, bukan persetujuan Kaprodi.
+// ─────────────────────────────────────────────────────────────
+
+enum PeranTtd {
+  PENGAMPU // kolom "Tanda Tangan" pada tabel Tim Dosen Pengampu
+  KOORDINATOR // "a.n Tim penyusun RPKPS"
+  KAPRODI // "Disetujui oleh,"
+  PENJAMINAN_MUTU // "Telah diperiksa dan dinyatakan sesuai dengan standar ITTS"
+}
+
+model TandaTanganRpkps {
+  id      String   @id @default(cuid())
+  rpkpsId String   @map("rpkps_id")
+  /// Ronde persetujuan; mengikuti `rpkps.versi` saat ditandatangani.
+  /// Pengembalian untuk revisi menaikkan versi, dan kenaikan itulah yang
+  /// MENGGUGURKAN seluruh tanda tangan ronde sebelumnya — barisnya tidak
+  /// dihapus, karena riwayat siapa menandatangani isi yang mana justru bagian
+  /// yang paling berguna saat ada sengketa.
+  versi   Int
+  peran   PeranTtd
+
+  penggunaId String @map("pengguna_id")
+  /// Nama dan identitas SAAT menandatangani, dibekukan. Alasannya sama dengan
+  /// nama pengampu pada `rpkps_snapshot`: memperbarui nama yang sudah tercetak
+  /// menggeser dokumen yang sudah resmi.
+  nama       String
+  identitas  String? // NIDN / NIP / NIK saat itu
+
+  /// Sidik SHA-256 isi yang ditandatangani. Inilah yang membuat tanda tangan
+  /// berarti: tanpa menyebut apa yang ditandatangani, ia tidak membuktikan
+  /// apa pun. `sahkanRpkps` menolak bila sidik sudah bergeser sejak dicap.
+  ///
+  /// Pengembalian untuk revisi TIDAK menulis baris di sini. Ia bukan tanda
+  /// tangan, dan mencatatnya sebagai cap KAPRODI akan membuat penolakan
+  /// terbaca sebagai persetujuan. Catatannya tetap di `rpkps_riwayat`.
+  sidik              String
+  ditandatanganiPada DateTime @default(now()) @map("ditandatangani_pada")
+
+  rpkps    Rpkps    @relation(fields: [rpkpsId], references: [id], onDelete: Cascade)
+  /// Restrict, bukan Cascade: pengguna yang pernah menandatangani dokumen
+  /// resmi tidak boleh lenyap dan meninggalkan tanda tangan tanpa penanda
+  /// tangan.
+  pengguna Pengguna @relation(fields: [penggunaId], references: [id], onDelete: Restrict)
+
+  @@unique([rpkpsId, versi, peran, penggunaId])
+  @@index([rpkpsId, versi])
+  @@map("tanda_tangan_rpkps")
 }
 
 /// Bagian G template ITTS. Kategori "TOOLS" tidak ada di format generik
@@ -732,6 +904,11 @@ model Pertemuan {
 
   komponenNilaiId String?   @map("komponen_nilai_id")
   sumber          SumberIsi @default(KURIKULUM)
+
+  dibuatPada DateTime @default(now()) @map("dibuat_pada")
+  /// Dipakai sebagai kunci optimistik oleh `simpanPertemuan`: penyimpanan
+  /// hanya lolos bila cap ini masih sama dengan yang dibaca penyunting.
+  diubahPada DateTime @updatedAt @map("diubah_pada")
 
   rpkps         Rpkps              @relation(fields: [rpkpsId], references: [id], onDelete: Cascade)
   komponenNilai KomponenNilai?     @relation(fields: [komponenNilaiId], references: [id], onDelete: SetNull)
@@ -833,6 +1010,12 @@ model RpkpsRiwayat {
   rpkpsId    String      @map("rpkps_id")
   versi      Int
   status     StatusRpkps
+  /// Peristiwanya: { kunci, params }. Kalimatnya dirakit saat DIBACA — baris
+  /// riwayat hidup jauh lebih lama daripada sesi yang menulisnya, dan ikut
+  /// tampil di katalog publik (docs/11 §4.2c).
+  data       Json?
+  /// Cadangan bahasa Indonesia. Salinan beku yang dibuat sebelum L3 hanya
+  /// punya ini, dan salinan beku tidak pernah ditulis ulang.
   deskripsi  String
   olehId     String?     @map("oleh_id")
   dibuatPada DateTime    @default(now()) @map("dibuat_pada")

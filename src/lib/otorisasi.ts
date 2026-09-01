@@ -1,22 +1,17 @@
 import "server-only";
 import { redirect } from "next/navigation";
 import { sesiSaatIni, type PenggunaSesi } from "@/lib/sesi";
+import { jalurAktif } from "@/lib/bahasa/server";
 import type { Peran } from "@/generated/prisma";
 
 /**
  * Otorisasi berbasis peran DAN cakupan prodi.
  * Peran tanpa prodi (prodiId null) berarti cakupan institusi.
+ *
+ * Nama peran yang dibaca manusia TIDAK di sini melainkan di
+ * `kamus.enum.peran` — otorisasi memutuskan siapa boleh apa, bukan
+ * bagaimana perannya dieja dalam bahasa yang sedang dipakai.
  */
-
-export const LABEL_PERAN: Record<Peran, string> = {
-  ADMIN: "Administrator",
-  KAPRODI: "Ketua Program Studi",
-  GPM: "Penjaminan Mutu",
-  KOORDINATOR_MK: "Koordinator Mata Kuliah",
-  DOSEN: "Dosen",
-  MAHASISWA: "Mahasiswa",
-  ASESOR: "Asesor",
-};
 
 export function punyaPeran(sesi: PenggunaSesi | null, ...peran: Peran[]): boolean {
   if (!sesi) return false;
@@ -51,19 +46,19 @@ export function cakupanProdi(sesi: PenggunaSesi | null): string[] | null {
 
 export async function wajibMasuk(): Promise<PenggunaSesi> {
   const sesi = await sesiSaatIni();
-  if (!sesi) redirect("/masuk");
+  if (!sesi) redirect(await jalurAktif("/masuk"));
   return sesi;
 }
 
 /** Pengguna yang belum diverifikasi diarahkan ke halaman tunggu. */
 export async function wajibAktif(): Promise<PenggunaSesi> {
   const sesi = await wajibMasuk();
-  if (sesi.status !== "AKTIF") redirect("/menunggu-verifikasi");
+  if (sesi.status !== "AKTIF") redirect(await jalurAktif("/menunggu-verifikasi"));
   return sesi;
 }
 
 export async function wajibPeran(...peran: Peran[]): Promise<PenggunaSesi> {
   const sesi = await wajibAktif();
-  if (!punyaPeran(sesi, ...peran)) redirect("/dashboard?galat=akses-ditolak");
+  if (!punyaPeran(sesi, ...peran)) redirect(await jalurAktif("/dashboard?galat=akses-ditolak"));
   return sesi;
 }

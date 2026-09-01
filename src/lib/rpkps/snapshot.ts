@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { cairkanSnapshot, type IsiSnapshot } from "@/domain/rpkps/sidik";
+import { bacaDataRiwayat } from "@/lib/bahasa/riwayat";
 import { sidikDokumen, type SumberProyeksi } from "@/domain/rpkps/proyeksi";
 import type { RpkpsLengkap } from "@/lib/rpkps/muat";
 
@@ -20,7 +21,7 @@ export async function bekukanRpkps(
   const riwayat = await prisma.rpkpsRiwayat.findMany({
     where: { rpkpsId: rpkps.id },
     orderBy: { dibuatPada: "asc" },
-    select: { versi: true, dibuatPada: true, deskripsi: true },
+    select: { versi: true, dibuatPada: true, deskripsi: true, data: true },
   });
 
   const isi: IsiSnapshot = {
@@ -28,7 +29,12 @@ export async function bekukanRpkps(
     riwayat: riwayat.map((h) => ({
       versi: h.versi,
       dibuatPada: h.dibuatPada.toISOString(),
+      // Keduanya ikut membeku: `data` supaya halaman publik dapat merakit
+      // kalimatnya dalam bahasa pembaca, `deskripsi` supaya salinan beku tetap
+      // terbaca sendiri. Snapshot lama tidak punya `data` dan TIDAK ditulis
+      // ulang — menyentuh isi dokumen terbit adalah persis yang dilarang.
       deskripsi: h.deskripsi,
+      data: bacaDataRiwayat(h.data),
     })),
   };
 

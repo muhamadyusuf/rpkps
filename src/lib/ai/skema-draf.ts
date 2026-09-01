@@ -99,13 +99,24 @@ export const SkemaKerangka = z.object({
     }),
   ),
   /**
-   * Alokasi bobot penilaian tiap minggu efektif. Jumlahnya wajib 100 dan sama
-   * dengan total komponen_nilai — dua angka yang harus cocok, diputuskan
-   * bersamaan dalam satu panggilan agar model tidak perlu mengingat
-   * keputusannya sendiri lintas panggilan.
+   * Alokasi bobot penilaian tiap minggu — termasuk minggu UJIAN, karena di
+   * sanalah bobot UTS/UAS hidup.
+   *
+   * `komponen` adalah bagian terpenting dari tahap ini dan sebabnya ada di
+   * docs/12 §1: tanpa nama komponen di tiap baris, seluruh lembar tugas
+   * terbaca sebagai bobot tambahan dan dokumen keluar dengan total 200%.
+   * Minggu tak dinilai mengisi bobot 0 dan komponen "".
+   *
+   * Jumlahnya wajib 100 dan sama dengan total komponen_nilai — dua angka yang
+   * harus cocok, diputuskan bersamaan dalam satu panggilan agar model tidak
+   * perlu mengingat keputusannya sendiri lintas panggilan.
    */
   bobot_minggu: z.array(
-    z.object({ minggu: z.number().int(), bobot: z.number() }),
+    z.object({
+      minggu: z.number().int(),
+      bobot: z.number(),
+      komponen: z.string(),
+    }),
   ),
 });
 

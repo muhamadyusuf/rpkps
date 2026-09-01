@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   periksaKelayakanArsip,
   periksaKelayakanHapus,
+  ringkasAkibatHapus,
   statusSetelahPulih,
   type SensusRpkps,
 } from "./daur-hidup";
@@ -82,6 +83,20 @@ describe("kelayakan arsip", () => {
   it("yang sedang diajukan tidak boleh diarsipkan diam-diam", () => {
     assert.equal(periksaKelayakanArsip("DIAJUKAN").boleh, false);
   });
+
+  it("yang menunggu pengesahan Penjaminan Mutu juga tertahan", () => {
+    const h = periksaKelayakanArsip("DISETUJUI");
+    assert.equal(h.boleh, false);
+    assert.match(h.alasan[0]!, /Penjaminan Mutu/);
+  });
+});
+
+describe("dokumen yang menunggu pengesahan", () => {
+  it("tidak dapat dihapus, dan alasannya menyebut cap yang ditunggu", () => {
+    const h = periksaKelayakanHapus({ ...bersih, status: "DISETUJUI" });
+    assert.equal(h.boleh, false);
+    assert.match(h.alasan[0]!, /Penjaminan Mutu/);
+  });
 });
 
 describe("pemulihan dari arsip", () => {
@@ -91,5 +106,50 @@ describe("pemulihan dari arsip", () => {
 
   it("yang tidak pernah disahkan kembali menjadi draf", () => {
     assert.equal(statusSetelahPulih(false), "DRAF");
+  });
+});
+
+describe("akibat penghapusan paksa", () => {
+  it("draf tanpa jejak tidak punya akibat apa pun", () => {
+    assert.deepEqual(ringkasAkibatHapus(bersih), { rincian: [], merusakJejak: false });
+  });
+
+  it("dokumen terbit menyebut salinan beku DAN halaman publiknya", () => {
+    const akibat = ringkasAkibatHapus({ ...bersih, status: "TERBIT", jumlahSnapshot: 2 });
+    assert.equal(akibat.merusakJejak, true);
+    assert.match(akibat.rincian.join(" "), /2 salinan beku/);
+    assert.match(akibat.rincian.join(" "), /404/);
+  });
+
+  it("kelas berjejak disebut lengkap dengan angkanya", () => {
+    const akibat = ringkasAkibatHapus({
+      ...bersih,
+      kelas: [{ kode: "B", jumlahPeserta: 31, jumlahNilai: 124, adaEvaluasi: true }],
+    });
+    assert.equal(akibat.merusakJejak, true);
+    assert.match(akibat.rincian.join(" "), /B \(31 peserta, 124 nilai, evaluasi capaian\)/);
+  });
+
+  it("kelas kosong bukan jejak — sama seperti pada jalur hapus biasa", () => {
+    const akibat = ringkasAkibatHapus({
+      ...bersih,
+      kelas: [{ kode: "A", jumlahPeserta: 0, jumlahNilai: 0, adaEvaluasi: false }],
+    });
+    assert.deepEqual(akibat, { rincian: [], merusakJejak: false });
+  });
+
+  it("pengajuan yang menggantung disebut, tetapi bukan kerusakan jejak", () => {
+    const akibat = ringkasAkibatHapus({ ...bersih, status: "DISETUJUI" });
+    assert.equal(akibat.merusakJejak, false);
+    assert.match(akibat.rincian.join(" "), /rantai pengesahan/);
+  });
+
+  it("seluruh akibat dilaporkan sekaligus", () => {
+    const akibat = ringkasAkibatHapus({
+      status: "TERBIT",
+      jumlahSnapshot: 1,
+      kelas: [{ kode: "A", jumlahPeserta: 30, jumlahNilai: 90, adaEvaluasi: false }],
+    });
+    assert.equal(akibat.rincian.length, 3);
   });
 });

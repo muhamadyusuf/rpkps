@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { analisisButir, type ButirUjian, type JawabanPeserta } from "./analisis-butir";
+import { pesanTemuanId } from "@/lib/bahasa/temuan";
 
 const BUTIR: ButirUjian[] = [
   { nomor: 1, subCpmkKode: "S1", levelBloom: "C2", skorMaks: 10 },
@@ -71,7 +72,7 @@ describe("daya beda", () => {
     assert.equal(h.butir[2].kategoriDayaBeda, "BURUK");
     const t = h.temuan.find((x) => x.kode === "BS-DAYA-BEDA-NEGATIF")!;
     assert.equal(t.tingkat, "PERINGATAN");
-    assert.ok(t.pesan.includes("Butir 3"));
+    assert.ok(pesanTemuanId(t).includes("Butir 3"));
     assert.deepEqual(h.ringkasan.butirBermasalah, [3]);
   });
 

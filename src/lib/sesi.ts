@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { env } from "@/lib/env";
 import { verifikasiCookieSesi } from "@/lib/firebase/admin";
 import type { Peran, StatusPengguna } from "@/generated/prisma";
+import type { Bahasa } from "@/kamus";
 
 export const NAMA_COOKIE_SESI = "sesi";
 
@@ -91,7 +92,7 @@ export async function siapkanPengguna(input: {
   email: string;
   nama?: string | null;
   fotoUrl?: string | null;
-}): Promise<{ id: string; status: StatusPengguna; baru: boolean }> {
+}): Promise<{ id: string; status: StatusPengguna; baru: boolean; bahasa: Bahasa }> {
   const email = input.email.toLowerCase();
   const bootstrapAdmin = env.adminBootstrapEmails.includes(email);
 
@@ -115,7 +116,7 @@ export async function siapkanPengguna(input: {
       status: bootstrapAdmin ? "AKTIF" : "MENUNGGU_VERIFIKASI",
       terakhirMasuk: new Date(),
     },
-    select: { id: true, status: true },
+    select: { id: true, status: true, bahasa: true },
   });
 
   if (bootstrapAdmin) {
@@ -141,5 +142,10 @@ export async function siapkanPengguna(input: {
     }
   }
 
-  return { id: pengguna.id, status: pengguna.status, baru: !adaSebelumnya };
+  return {
+    id: pengguna.id,
+    status: pengguna.status,
+    baru: !adaSebelumnya,
+    bahasa: pengguna.bahasa,
+  };
 }

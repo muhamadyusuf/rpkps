@@ -248,7 +248,6 @@ export function hitungCapaian(s: SumberCapaian): HasilCapaian {
     temuan.push({
       kode: "EV-TANPA-PESERTA",
       tingkat: "PEMBLOKIR",
-      pesan: "Kelas ini belum punya peserta, sehingga tidak ada yang dapat dihitung.",
     });
   }
 
@@ -263,9 +262,7 @@ export function hitungCapaian(s: SumberCapaian): HasilCapaian {
     temuan.push({
       kode: "EV-BELUM-LENGKAP",
       tingkat: "PEMBLOKIR",
-      pesan: `${totalSel - selTerisi} dari ${totalSel} sel nilai belum terisi (${kelengkapan}% lengkap).`,
-      saran:
-        "Angka capaian tetap dihitung dari yang ada, tetapi evaluasi tidak boleh ditutup di atas data sebagian.",
+      params: { terisi: totalSel - selTerisi, total: totalSel, persen: kelengkapan },
     });
   }
 
@@ -275,13 +272,13 @@ export function hitungCapaian(s: SumberCapaian): HasilCapaian {
     temuan.push({
       kode: "EV-CPMK-BELUM-TERCAPAI",
       tingkat: "PERINGATAN",
-      pesan:
-        `${belumTercapai.length} CPMK belum tercapai: ` +
-        belumTercapai
+      params: {
+        jumlah: belumTercapai.length,
+        daftar: belumTercapai
           .map((b) => `${b.kode} (${b.persenLulus ?? 0}% lulus)`)
-          .join(", ") +
-        `.`,
-      saran: `Ambang ketercapaian ${s.ambangKetercapaianMk}% mahasiswa lulus. Setiap CPMK ini wajib punya tindak lanjut sebelum evaluasi ditutup.`,
+          .join(", "),
+        ambang: s.ambangKetercapaianMk,
+      },
     });
   }
 

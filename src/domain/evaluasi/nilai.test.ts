@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { bacaNilai, type BarisMentah } from "./nilai";
+import { pesanTemuanId } from "@/lib/bahasa/temuan";
 
 const ASESMEN = [{ kode: "M2" }, { kode: "M5" }, { kode: "UTS" }, { kode: "UAS" }];
 
@@ -75,7 +76,7 @@ describe("baris yang bermasalah", () => {
     const b = [...berkasSehat(), baris(4, "1101", "Ali (lagi)", { M2: "90", M5: "", UTS: "", UAS: "" })];
     const h = bacaNilai(b, ASESMEN);
     const t = h.temuan.find((x) => x.kode === "NL-NIM-GANDA")!;
-    assert.ok(t.pesan.includes("baris 2 dan 4"));
+    assert.ok(pesanTemuanId(t).includes("baris 2 dan 4"));
     assert.equal(h.baris.length, 2);
   });
 

@@ -43,6 +43,16 @@ export interface DrafPertemuan {
   penilaianJenis: string | null;
   penilaianSistem: string | null;
   bobot: number;
+  /**
+   * Nama komponen nilai yang menampung bobot minggu ini.
+   *
+   * Wajib terisi bila `bobot` lebih dari nol. Tanpa ini baris mingguan masuk
+   * ke dokumen sebagai "belum ditentukan", dan `susunPetaAsesmen` kehilangan
+   * satu-satunya penanda bahwa komponen itu SUDAH dirinci baris mingguan —
+   * sehingga seluruh lembar tugas terbaca sebagai bobot tambahan. Itulah asal
+   * "total 200%" pada docs/12 §1.2.
+   */
+  komponenNilai: string | null;
   indikator: string[];
   /**
    * Rujukan pustaka yang SUDAH ada pada RPKPS, berbentuk "UTAMA-1" /
@@ -52,6 +62,25 @@ export interface DrafPertemuan {
    * sehingga "nomor 1" menunjuk dua baris berbeda.
    */
   pustakaRef: string[];
+}
+
+/**
+ * Bobot baris ujian pada tabel mingguan.
+ *
+ * Dipisahkan dari `DrafPertemuan` karena isi minggu ujian BUKAN urusan model:
+ * topik, jenis, dan menit aktivitasnya sudah ditetapkan kerangka. Yang boleh
+ * ditulis draf hanyalah dua hal yang memang tidak dapat ditentukan dari luar —
+ * berapa bobot ujian itu, dan ke komponen mana ia masuk.
+ *
+ * Tanpa ini bobot UTS/UAS tetap nol seumur hidup draf, dan karena Sub-CPMK
+ * ujian hidup di kisi-kisi — bukan menempel pada barisnya — seluruh Sub-CPMK
+ * yang hanya diuji lewat ujian tidak pernah terukur (docs/12 §1.3).
+ */
+export interface DrafUjian {
+  minggu: number;
+  jenis: "UTS" | "UAS";
+  bobot: number;
+  komponenNilai: string | null;
 }
 
 export interface DrafKriteria {
@@ -121,6 +150,7 @@ export interface DrafRpkps {
   komponenNilai: DrafKomponenNilai[];
   pustakaBaru: DrafPustaka[];
   pertemuan: DrafPertemuan[];
+  ujian: DrafUjian[];
   tugas: DrafTugas[];
   kisiKisi: DrafKisiKisi[];
 }
@@ -131,7 +161,17 @@ export interface KonteksDraf {
   mingguEfektif: number[];
   /** Seluruh nomor minggu, termasuk minggu ujian. */
   semuaMinggu: number[];
+  /** Baris ujian beserta jenisnya — satu-satunya minggu yang boleh masuk `ujian`. */
+  mingguUjian: { minggu: number; jenis: "UTS" | "UAS" }[];
   subCpmkTersedia: string[];
+  /**
+   * Sub-CPMK yang dijadwalkan tiap minggu, dari kerangka.
+   *
+   * Dipakai dua kali: menolak bobot pada minggu yang tidak menjadwalkan
+   * Sub-CPMK apa pun — bobot semacam itu tidak mengalir ke capaian mana pun —
+   * dan memastikan setiap Sub-CPMK benar-benar terukur oleh sesuatu.
+   */
+  subCpmkPerMinggu: Record<number, string[]>;
   /** Rujukan pustaka yang SUDAH ada; selalu dipertahankan. */
   refPustaka: string[];
 }
@@ -169,6 +209,30 @@ export function periksaDraf(konteks: KonteksDraf, draf: DrafRpkps): TemuanDraf[]
   // Rujukan sah = pustaka yang sudah ada DITAMBAH yang baru diusulkan.
   for (const b of draf.pustakaBaru) pustakaAda.add(`${b.jenis}-${b.nomor}`);
 
+  /**
+   * Setiap baris mingguan berbobot wajib menunjuk komponen nilai yang ada.
+   *
+   * Inilah pemeriksaan yang dulu tidak ada sama sekali, dan ketiadaannya yang
+   * melahirkan seluruh temuan pada docs/12 §1. `alokasikanAsesmen` seharusnya
+   * sudah menutupnya sebelum draf sampai ke sini; kalau temuan ini menyala,
+   * yang bocor adalah alokasinya, bukan dosennya.
+   */
+  const periksaKomponen = (nama: string | null, label: string, di: string) => {
+    if (nama === null || nama.trim().length === 0) {
+      temuan.push({
+        kode: "D-MINGGU-TANPA-KOMPONEN",
+        pesan: `${label} berbobot nilai tetapi tidak masuk komponen nilai mana pun.`,
+        lokasi: di,
+      });
+    } else if (!namaKomponen.has(nama)) {
+      temuan.push({
+        kode: "D-MINGGU-KOMPONEN-ASING",
+        pesan: `${label} menunjuk komponen "${nama}", yang tidak ada pada daftar komponen nilai.`,
+        lokasi: di,
+      });
+    }
+  };
+
   // ── Pertemuan ─────────────────────────────────────────────────────────
   const mingguTerlihat = new Set<number>();
   for (const p of draf.pertemuan) {
@@ -197,6 +261,18 @@ export function periksaDraf(konteks: KonteksDraf, draf: DrafRpkps): TemuanDraf[]
         lokasi: di,
       });
     }
+    if (p.bobot > TOLERANSI) {
+      periksaKomponen(p.komponenNilai, `Minggu ${p.minggu}`, di);
+      if ((konteks.subCpmkPerMinggu[p.minggu] ?? []).length === 0) {
+        temuan.push({
+          kode: "D-MINGGU-BERBOBOT-TANPA-SUB-CPMK",
+          pesan:
+            "Minggu ini diberi bobot tetapi tidak menjadwalkan Sub-CPMK, " +
+            "sehingga bobotnya tidak mengalir ke capaian mana pun.",
+          lokasi: di,
+        });
+      }
+    }
     if (new Set(p.pustakaRef).size !== p.pustakaRef.length) {
       temuan.push({
         kode: "D-PUSTAKA-BERULANG",
@@ -221,6 +297,43 @@ export function periksaDraf(konteks: KonteksDraf, draf: DrafRpkps): TemuanDraf[]
       kode: "D-MINGGU-BELUM-DIISI",
       pesan: `${belumDiisi.length} pertemuan efektif belum terisi: ${belumDiisi.join(", ")}.`,
     });
+  }
+
+  // ── Baris ujian: hanya bobot dan komponennya yang boleh datang dari AI ─
+  const jenisUjian = new Map(konteks.mingguUjian.map((u) => [u.minggu, u.jenis]));
+  const kisiBerisi = new Set(
+    draf.kisiKisi.filter((k) => k.butir.length > 0).map((k) => k.jenis),
+  );
+  const ujianTerlihat = new Set<number>();
+  for (const u of draf.ujian) {
+    const di = `minggu ${u.minggu}`;
+    if (jenisUjian.get(u.minggu) !== u.jenis) {
+      temuan.push({
+        kode: "D-UJIAN-BUKAN-MINGGU-UJIAN",
+        pesan: `Minggu ${u.minggu} bukan baris ujian ${u.jenis} pada RPKPS ini.`,
+        lokasi: di,
+      });
+      continue;
+    }
+    if (ujianTerlihat.has(u.minggu)) {
+      temuan.push({ kode: "D-UJIAN-GANDA", pesan: `Minggu ${u.minggu} muncul dua kali.`, lokasi: di });
+      continue;
+    }
+    ujianTerlihat.add(u.minggu);
+
+    if (u.bobot > TOLERANSI) {
+      periksaKomponen(u.komponenNilai, `Baris ${u.jenis}`, di);
+      // Baris ujian tidak menempel Sub-CPMK; yang mengukur adalah kisi-kisinya.
+      if (!kisiBerisi.has(u.jenis)) {
+        temuan.push({
+          kode: "D-UJIAN-BERBOBOT-TANPA-KISI",
+          pesan:
+            `Baris ${u.jenis} diberi bobot ${bulat(u.bobot)}% tetapi kisi-kisi ${u.jenis} ` +
+            "tidak berisi butir, sehingga bobot itu tidak mengukur Sub-CPMK mana pun.",
+          lokasi: di,
+        });
+      }
+    }
   }
 
   // ── Sub-CPMK: setiap yang tersedia harus terjadwal, tidak boleh asing ──
@@ -266,7 +379,12 @@ export function periksaDraf(konteks: KonteksDraf, draf: DrafRpkps): TemuanDraf[]
   }
 
   // ── Bobot: mingguan + tugas harus 100% dan sama dengan komponen nilai ──
-  const bobotMingguan = bulat(draf.pertemuan.reduce((s, p) => s + p.bobot, 0));
+  // Baris ujian ikut dijumlahkan: sejak draf boleh memberi bobot pada UTS/UAS,
+  // "bobot mingguan" berarti seluruh tabel, persis seperti B1 pada validator.
+  const bobotMingguan = bulat(
+    draf.pertemuan.reduce((s, p) => s + p.bobot, 0) +
+      draf.ujian.reduce((s, u) => s + u.bobot, 0),
+  );
   const bobotKomponen = bulat(draf.komponenNilai.reduce((s, k) => s + k.bobot, 0));
   if (Math.abs(bobotKomponen - 100) > TOLERANSI) {
     temuan.push({
@@ -280,10 +398,65 @@ export function periksaDraf(konteks: KonteksDraf, draf: DrafRpkps): TemuanDraf[]
       pesan: `Total bobot mingguan ${bobotMingguan}%, seharusnya 100%.`,
     });
   }
-  // Tidak ada pemeriksaan rekonsiliasi terpisah: sejak komponen nilai ikut
-  // datang dari draf yang sama, keduanya rekonsiliasi dengan sendirinya begitu
-  // masing-masing berjumlah 100. Aturan B2 pada validator RPKPS tetap menjaga
-  // dokumen yang tersimpan, di mana keduanya bisa berubah sendiri-sendiri.
+  // Rekonsiliasi tidak berhenti pada dua total yang sama-sama 100. Sejak tiap
+  // baris menyebut komponennya, yang harus cocok adalah TIAP komponen dengan
+  // baris yang merincinya — itulah yang membuat `PA-KOMPONEN-TIDAK-COCOK` dan
+  // `PA-KOMPONEN-TANPA-ASESMEN` tidak mungkin muncul pada dokumen hasil draf.
+  const dirinci = new Map<string, number>();
+  const barisBerbobot: { komponen: string | null; bobot: number }[] = [
+    ...draf.pertemuan.map((p) => ({ komponen: p.komponenNilai, bobot: p.bobot })),
+    ...draf.ujian.map((u) => ({ komponen: u.komponenNilai, bobot: u.bobot })),
+  ];
+  for (const b of barisBerbobot) {
+    if (b.bobot <= TOLERANSI || b.komponen === null) continue;
+    dirinci.set(b.komponen, (dirinci.get(b.komponen) ?? 0) + b.bobot);
+  }
+  for (const k of draf.komponenNilai) {
+    if (k.bobot <= TOLERANSI) continue;
+    const jumlah = dirinci.get(k.nama);
+    if (jumlah === undefined) {
+      temuan.push({
+        kode: "D-KOMPONEN-TANPA-ASESMEN",
+        pesan:
+          `Komponen "${k.nama}" berbobot ${bulat(k.bobot)}% tetapi tidak dirinci baris ` +
+          "mingguan mana pun, sehingga nilainya tidak akan pernah dapat dikumpulkan.",
+      });
+    } else if (Math.abs(bulat(jumlah) - bulat(k.bobot)) > TOLERANSI) {
+      temuan.push({
+        kode: "D-KOMPONEN-TIDAK-COCOK",
+        pesan:
+          `Baris mingguan pada komponen "${k.nama}" berjumlah ${bulat(jumlah)}%, ` +
+          `sedangkan komponennya ${bulat(k.bobot)}%.`,
+      });
+    }
+  }
+
+  // ── Setiap Sub-CPMK harus benar-benar terukur ────────────────────────
+  // Satu-satunya temuan di berkas ini yang TIDAK punya tambalan otomatis:
+  // menambalnya berarti mengarang butir ujian, dan butir ujian karangan server
+  // lebih buruk daripada draf yang ditolak dengan alasan jelas (docs/12 §3.4).
+  const terukur = new Set<string>();
+  for (const p of draf.pertemuan) {
+    if (p.bobot <= TOLERANSI) continue;
+    for (const kode of konteks.subCpmkPerMinggu[p.minggu] ?? []) terukur.add(kode);
+  }
+  for (const u of draf.ujian) {
+    if (u.bobot <= TOLERANSI) continue;
+    for (const k of draf.kisiKisi) {
+      if (k.jenis !== u.jenis) continue;
+      for (const b of k.butir) if (b.skor > 0) terukur.add(b.subCpmkKode);
+    }
+  }
+  const takTerukur = konteks.subCpmkTersedia.filter((k) => !terukur.has(k));
+  if (takTerukur.length > 0) {
+    temuan.push({
+      kode: "D-SUB-CPMK-TIDAK-TERUKUR",
+      pesan:
+        `${takTerukur.length} Sub-CPMK tidak diukur oleh satu pun asesmen berbobot: ` +
+        `${takTerukur.slice(0, 5).join(", ")}${takTerukur.length > 5 ? ", …" : ""}. ` +
+        "Jadwalkan pada minggu berbobot, atau ujikan lewat kisi-kisi UTS/UAS.",
+    });
+  }
 
   // ── Tugas ─────────────────────────────────────────────────────────────
   const nomorTugas = new Set<number>();
@@ -440,6 +613,9 @@ export function ringkasDraf(draf: DrafRpkps): {
     jumlahButirUjian: draf.kisiKisi.reduce((s, k) => s + k.butir.length, 0),
     jumlahKomponen: draf.komponenNilai.length,
     jumlahPustakaBaru: draf.pustakaBaru.length,
-    bobotMingguan: bulat(draf.pertemuan.reduce((s, p) => s + p.bobot, 0)),
+    bobotMingguan: bulat(
+      draf.pertemuan.reduce((s, p) => s + p.bobot, 0) +
+        draf.ujian.reduce((s, u) => s + u.bobot, 0),
+    ),
   };
 }

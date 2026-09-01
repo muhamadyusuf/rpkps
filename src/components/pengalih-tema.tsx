@@ -4,11 +4,16 @@ import { useSyncExternalStore } from "react";
 import { useTheme } from "next-themes";
 import { Monitor, Moon, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useBahasa } from "@/components/penyedia-bahasa";
 
+/**
+ * Label diambil dari kamus lewat `kunci`, bukan ditulis di sini: daftar ini
+ * adalah konstanta modul, sedangkan bahasanya baru diketahui saat render.
+ */
 const PILIHAN = [
-  { nilai: "system", label: "Sistem", ikon: Monitor },
-  { nilai: "light", label: "Terang", ikon: Sun },
-  { nilai: "dark", label: "Gelap", ikon: Moon },
+  { nilai: "system", kunci: "sistem", ikon: Monitor },
+  { nilai: "light", kunci: "terang", ikon: Sun },
+  { nilai: "dark", kunci: "gelap", ikon: Moon },
 ] as const;
 
 type Nilai = (typeof PILIHAN)[number]["nilai"];
@@ -40,6 +45,7 @@ export function PengalihTema({
 }) {
   const { theme, setTheme } = useTheme();
   const terpasang = useTerpasang();
+  const { k } = useBahasa();
 
   const aktif = (terpasang ? (theme as Nilai) : "system") ?? "system";
   const indeks = Math.max(
@@ -50,7 +56,7 @@ export function PengalihTema({
   return (
     <div
       role="radiogroup"
-      aria-label="Tema tampilan"
+      aria-label={k.komponen.tema.aria}
       className={cn(
         "relative isolate grid grid-cols-3 rounded-lg border border-border bg-muted/60 p-0.5",
         className,
@@ -65,7 +71,8 @@ export function PengalihTema({
           opacity: terpasang ? 1 : 0,
         }}
       />
-      {PILIHAN.map(({ nilai, label, ikon: Ikon }) => {
+      {PILIHAN.map(({ nilai, kunci, ikon: Ikon }) => {
+        const label = k.komponen.tema[kunci];
         const dipilih = terpasang && aktif === nilai;
         return (
           <button
@@ -99,6 +106,7 @@ export function PengalihTema({
 export function TombolTema({ className }: { className?: string }) {
   const { theme, setTheme } = useTheme();
   const terpasang = useTerpasang();
+  const { k, isi } = useBahasa();
 
   const aktif = (terpasang ? (theme as Nilai) : "system") ?? "system";
   const indeks = Math.max(
@@ -107,19 +115,23 @@ export function TombolTema({ className }: { className?: string }) {
   );
   const berikutnya = PILIHAN[(indeks + 1) % PILIHAN.length];
   const Ikon = PILIHAN[indeks].ikon;
+  const sekarang = k.komponen.tema[PILIHAN[indeks].kunci];
 
   return (
     <button
       type="button"
       onClick={() => setTheme(berikutnya.nilai)}
-      title={`Tema: ${PILIHAN[indeks].label} — ketuk untuk ${berikutnya.label}`}
+      title={isi(k.komponen.tema.petunjuk, {
+        sekarang,
+        berikutnya: k.komponen.tema[berikutnya.kunci],
+      })}
       className={cn(
         "inline-flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95 focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none",
         className,
       )}
     >
       <Ikon className="size-4" />
-      <span className="sr-only">Ubah tema (sekarang: {PILIHAN[indeks].label})</span>
+      <span className="sr-only">{isi(k.komponen.tema.ubah, { sekarang })}</span>
     </button>
   );
 }

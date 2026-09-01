@@ -154,7 +154,7 @@ describe("periksaButir — rujukan dan kelengkapan", () => {
         }),
       ]),
     );
-    assert.ok(kode(temuan).includes("U-KODE-DIPAKAI"));
+    assert.ok(kode(temuan).includes("U-KODE-DIPAKAI-SUB"));
   });
 
   it("menuntut CPMK baru punya peta CPL dan minimal satu Sub-CPMK", () => {
@@ -382,11 +382,11 @@ describe("periksaJalurRalat", () => {
     );
   });
 
-  it("menolak perubahan yang menggeser kata kerja operasional", () => {
+  it("menolak perubahan yang menggeser level Bloom rumusan", () => {
     const temuan = ralat({
       rumusan: "Mahasiswa mampu membandingkan konsep dasar basis data relasional.",
     });
-    assert.ok(kode(temuan).includes("U-RALAT-BUKAN-EJAAN"));
+    assert.ok(kode(temuan).includes("U-RALAT-GESER-BLOOM"));
   });
 
   it("menolak penulisan ulang yang melampaui ambang jarak sunting", () => {
@@ -394,7 +394,7 @@ describe("periksaJalurRalat", () => {
       rumusan:
         "Mahasiswa mampu menjelaskan model data, kunci, dan batasan integritas pada basis data.",
     });
-    assert.ok(kode(temuan).includes("U-RALAT-BUKAN-EJAAN"));
+    assert.ok(kode(temuan).includes("U-RALAT-TERLALU-JAUH"));
   });
 
   it("menolak jenis butir selain perbaikan rumusan", () => {
@@ -402,7 +402,7 @@ describe("periksaJalurRalat", () => {
       jenis: "SUB_PENSIUN",
       rumusan: null,
     });
-    assert.ok(kode(temuan).includes("U-RALAT-BUKAN-EJAAN"));
+    assert.ok(kode(temuan).includes("U-RALAT-JENIS-SALAH"));
   });
 
   it("tidak berlaku bila usulan tidak mengaku ralat", () => {

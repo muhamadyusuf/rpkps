@@ -12,6 +12,28 @@ import { validasiRpkps } from "@/domain/rpkps/validator";
 import { validasiKurikulum } from "@/domain/kurikulum/validator";
 import { validasiKisiKisi } from "@/domain/rpkps/kisi-kisi";
 import { periksaKelayakanHapus, statusSetelahPulih } from "@/domain/rpkps/daur-hidup";
+import {
+  bolehSuntingKurikulum,
+  periksaKelayakanHapusCpl,
+  periksaKelayakanHapusCpmk,
+  periksaKelayakanHapusMk,
+  periksaKelayakanHapusSubCpmk,
+} from "@/domain/kurikulum/sunting";
+import {
+  sensusCpl,
+  sensusCpmk,
+  sensusKurikulum,
+  sensusMataKuliah,
+  sensusSubCpmk,
+  setelMatriksCplMk,
+} from "@/lib/kurikulum/sunting-inti";
+import { tulisKomponenNilai } from "@/lib/rpkps/komponen-inti";
+import { nilaiTenggatDokumen } from "@/domain/rpkps/tenggat";
+import {
+  barisMingguan,
+  susunUlangKerangkaDb,
+  terapkanStruktur,
+} from "@/lib/rpkps/struktur";
 import { periksaPenerapan, periksaUsulanRevisi } from "@/domain/kurikulum/usulan";
 import {
   keUsulanInput,
@@ -20,6 +42,7 @@ import {
   terapkanUsulan,
 } from "@/lib/kurikulum/usulan-inti";
 import type { KategoriWaktu } from "@/generated/prisma";
+import { pesanTemuanId } from "@/lib/bahasa/temuan";
 
 function cek(nama: string, syarat: boolean, detail?: string) {
   console.log(`${syarat ? "  OK  " : " GAGAL"} ${nama}${detail ? ` — ${detail}` : ""}`);
@@ -284,10 +307,41 @@ async function main() {
   cek("14 Sub-CPMK terjadwal otomatis", terjadwal.length === 14, terjadwal.slice(0, 3).join(", ") + ", …");
 
   // ── 5 · Validator RPKPS terhadap data nyata ───────────────────
-  const input = keRpkpsInput(muat);
+  //
+  // Rantai pengesahan (docs/14 §2.2): sebelum ada paraf, dokumen selengkap
+  // apa pun tetap tertahan — dan itulah yang diperiksa lebih dulu.
+  // Sidik penuh dihitung dari muatan lengkap (§9 di bawah); di sini yang
+  // diuji adalah gerbangnya, jadi cukup satu nilai yang konsisten. Aturan
+  // "paraf gugur saat isinya berubah" punya ujinya sendiri di
+  // src/domain/rpkps/paraf.test.ts.
+  const sidikParaf = "uji-integrasi-sidik-paraf";
+  const tanpaParaf = validasiRpkps(keRpkpsInput(muat), kebijakan);
+  cek(
+    "tanpa paraf pengampu, pengajuan tertahan",
+    tanpaParaf.pemblokir.some((t) => t.kode === "B-PARAF-BELUM-LENGKAP"),
+    tanpaParaf.pemblokir.map((t) => t.kode).join(", ") || "tidak ada pemblokir",
+  );
+
+  await prisma.tandaTanganRpkps.createMany({
+    data: muat.pengampu.map((p) => ({
+      rpkpsId: rpkps.id,
+      versi: muat.versi,
+      peran: "PENGAMPU" as const,
+      penggunaId: p.penggunaId,
+      nama: p.pengguna.nama,
+      identitas: p.pengguna.nidn ?? p.pengguna.nip,
+      sidik: sidikParaf,
+    })),
+  });
+  const ttdParaf = await prisma.tandaTanganRpkps.findMany({
+    where: { rpkpsId: rpkps.id },
+    orderBy: [{ versi: "desc" }, { ditandatanganiPada: "asc" }],
+  });
+
+  const input = keRpkpsInput({ ...muat, tandaTangan: ttdParaf });
   const hasil = validasiRpkps(input, kebijakan);
   cek("validator RPKPS lolos", hasil.lolos,
-    hasil.lolos ? "tanpa pemblokir" : hasil.pemblokir.map((t) => `${t.kode}: ${t.pesan}`).join(" | "));
+    hasil.lolos ? "tanpa pemblokir" : hasil.pemblokir.map((t) => `${t.kode}: ${pesanTemuanId(t)}`).join(" | "));
   cek("bobot mingguan 100%", hasil.ringkasan.totalBobotMingguan === 100, `${hasil.ringkasan.totalBobotMingguan}%`);
   cek("seluruh Sub-CPMK terjadwal", hasil.ringkasan.subCpmkBelumDijadwalkan.length === 0);
   cek("satu tugas tersimpan", hasil.ringkasan.jumlahTugas === 1);
@@ -345,6 +399,7 @@ async function main() {
         },
       },
       pengampu: { orderBy: { urutan: "asc" }, include: { pengguna: { select: { id: true, nama: true, gelarDepan: true, gelarBelakang: true, nidn: true, nip: true } } } },
+      tandaTangan: { orderBy: [{ versi: "desc" as const }, { ditandatanganiPada: "asc" as const }] },
       pustaka: { orderBy: [{ jenis: "asc" }, { nomor: "asc" }] },
       komponenNilai: { orderBy: { urutan: "asc" } },
       tugas: {
@@ -781,6 +836,521 @@ async function main() {
     statusSetelahPulih(snapshotSesudahArsip > 0) === "TERBIT",
   );
   await prisma.rpkps.update({ where: { id: rpkps.id }, data: { status: "TERBIT" } });
+
+  // ── 10 · Struktur mingguan manual (docs/09) ────────────────────
+  //
+  // Bagian ini menguji yang TIDAK dapat diuji secara murni: penomoran ulang
+  // yang harus lolos `@@unique([rpkpsId, minggu])`, dan pemindahan
+  // `nilai_asesmen.asesmen_kode` yang harus lolos
+  // `@@unique([pesertaKelasId, asesmenKode])`.
+  const struktur = await prisma.rpkps.create({
+    data: {
+      mataKuliahId: mk.id,
+      tahunAkademikId: tahunDepan.id,
+      status: "DRAF",
+      pertemuan: {
+        create: [
+          { minggu: 1, topik: "Mg1", bobot: 10 },
+          { minggu: 2, topik: "Mg2", bobot: 20 },
+          { minggu: 3, topik: "Mg3", bobot: 0 },
+          { minggu: 4, topik: "Mg4", bobot: 30 },
+          { minggu: 5, topik: "Mg5", bobot: 40 },
+        ],
+      },
+      komponenNilai: { create: [{ nama: "UTS", bobot: 100, urutan: 0 }] },
+      tugas: {
+        create: [
+          {
+            nomor: 1,
+            nama: "Tugas besar",
+            mingguMulai: 2,
+            mingguSelesai: 4,
+            deskripsi: "Rancang dan bangun.",
+            linimasa: { create: [{ minggu: 3, tahapan: "Proposal", aktivitas: "Menyusun proposal" }] },
+          },
+        ],
+      },
+      kelas: { create: [{ kode: "A" }] },
+    },
+    select: { id: true, kelas: { select: { id: true } } },
+  });
+
+  const mhs = await prisma.mahasiswa.create({
+    data: { prodiId: prodi.id, nim: "2025001", nama: "Mahasiswa Uji" },
+  });
+  const peserta = await prisma.pesertaKelas.create({
+    data: { kelasId: struktur.kelas[0].id, mahasiswaId: mhs.id },
+  });
+  await prisma.nilaiAsesmen.createMany({
+    data: [
+      { pesertaKelasId: peserta.id, asesmenKode: "M1", skor: 70 },
+      { pesertaKelasId: peserta.id, asesmenKode: "M2", skor: 80 },
+      { pesertaKelasId: peserta.id, asesmenKode: "M4", skor: 90 },
+      { pesertaKelasId: peserta.id, asesmenKode: "M5", skor: 60 },
+    ],
+  });
+
+  const petaTopik = async () =>
+    (await barisMingguan(prisma, struktur.id)).length === 0
+      ? ""
+      : (
+          await prisma.pertemuan.findMany({
+            where: { rpkpsId: struktur.id },
+            orderBy: { minggu: "asc" },
+            select: { minggu: true, topik: true },
+          })
+        )
+          .map((p) => `${p.minggu}:${p.topik ?? "-"}`)
+          .join(" ");
+
+  const petaNilai = async () =>
+    (
+      await prisma.nilaiAsesmen.findMany({
+        where: { peserta: { kelas: { rpkpsId: struktur.id } } },
+        orderBy: { skor: "asc" },
+        select: { asesmenKode: true, skor: true },
+      })
+    )
+      .map((n) => `${n.asesmenKode}=${Number(n.skor)}`)
+      .join(" ");
+
+  // Sisip setelah minggu 1: 2→3, 3→4, 4→5, 5→6 — pergeseran yang menabrak
+  // dirinya sendiri bila dikerjakan satu fase.
+  const hasilSisip = await terapkanStruktur(prisma, struktur.id, { jenis: "SISIP", setelah: 1 });
+  cek("sisip pertemuan berhasil", hasilSisip.ok, hasilSisip.pesan);
+  cek(
+    "isi baris ikut bergeser bersama nomornya, baris baru kosong di minggu 2",
+    (await petaTopik()) === "1:Mg1 2:- 3:Mg2 4:Mg3 5:Mg4 6:Mg5",
+    await petaTopik(),
+  );
+  cek(
+    "nilai ikut berpindah kode: M2→M3, M4→M5, M5→M6 (M3 lama tanpa bobot tak berkode)",
+    (await petaNilai()) === "M6=60 M1=70 M3=80 M5=90",
+    await petaNilai(),
+  );
+
+  const tugasSesudah = await prisma.tugas.findFirstOrThrow({
+    where: { rpkpsId: struktur.id },
+    select: { mingguMulai: true, mingguSelesai: true, linimasa: { select: { minggu: true } } },
+  });
+  cek(
+    "rujukan minggu pada tugas dan linimasa ikut digeser",
+    tugasSesudah.mingguMulai === 3 &&
+      tugasSesudah.mingguSelesai === 5 &&
+      tugasSesudah.linimasa[0]?.minggu === 4,
+    `${tugasSesudah.mingguMulai}–${tugasSesudah.mingguSelesai}, linimasa ${tugasSesudah.linimasa[0]?.minggu}`,
+  );
+
+  // Geser: tukar dua nomor sekaligus — kasus tabrakan paling langsung.
+  const hasilGeser = await terapkanStruktur(prisma, struktur.id, {
+    jenis: "GESER",
+    minggu: 3,
+    arah: "NAIK",
+  });
+  cek("geser pertemuan berhasil", hasilGeser.ok, hasilGeser.pesan);
+  cek(
+    "dua baris bertukar nomor tanpa menabrak kunci unik",
+    (await petaTopik()) === "1:Mg1 2:Mg2 3:- 4:Mg3 5:Mg4 6:Mg5",
+    await petaTopik(),
+  );
+  cek(
+    "nilai baris yang digeser ikut pindah: M3→M2",
+    (await petaNilai()) === "M6=60 M1=70 M2=80 M5=90",
+    await petaNilai(),
+  );
+
+  // Hapus: nilai baris yang lenyap TIDAK ikut dihapus, hanya menganggur.
+  const hasilHapus = await terapkanStruktur(prisma, struktur.id, { jenis: "HAPUS", minggu: 2 });
+  cek("hapus pertemuan berhasil", hasilHapus.ok, hasilHapus.pesan);
+  cek(
+    "baris sesudahnya naik satu nomor",
+    (await petaTopik()) === "1:Mg1 2:- 3:Mg3 4:Mg4 5:Mg5",
+    await petaTopik(),
+  );
+  cek(
+    "nilai M2 menganggur, tidak ikut terhapus; sisanya bergeser turun",
+    (await petaNilai()) === "M5=60 M1=70 M2=80 M4=90",
+    await petaNilai(),
+  );
+
+  const hasilTambah = await terapkanStruktur(prisma, struktur.id, { jenis: "TAMBAH" });
+  cek(
+    "tambah pertemuan mendarat di akhir dengan alokasi waktu terisi",
+    hasilTambah.ok && hasilTambah.nomorBaru === 6,
+    `minggu ${hasilTambah.nomorBaru}`,
+  );
+  const menitBaru = await prisma.aktivitasBelajar.aggregate({
+    where: { pertemuan: { rpkpsId: struktur.id, minggu: 6 } },
+    _sum: { menit: true },
+  });
+  const paguMinggu6 = rencana.minggu.find((m) => m.minggu === 6)?.pagu.total ?? 0;
+  cek(
+    "alokasi baris baru sama dengan pagu minggunya",
+    (menitBaru._sum.menit ?? 0) === paguMinggu6,
+    `${menitBaru._sum.menit} dari pagu ${paguMinggu6}`,
+  );
+
+  const hasilJenis = await terapkanStruktur(prisma, struktur.id, {
+    jenis: "UBAH_JENIS",
+    minggu: 4,
+    ke: "UTS",
+  });
+  cek("ubah jenis pertemuan berhasil", hasilJenis.ok, hasilJenis.pesan);
+  cek(
+    "nilai M4 berpindah ke kode UTS mengikuti jenis barisnya",
+    (await petaNilai()) === "M5=60 M1=70 M2=80 UTS=90",
+    await petaNilai(),
+  );
+
+  const hasilSusunUlang = await susunUlangKerangkaDb(prisma, struktur.id);
+  cek(
+    "susun ulang kerangka mengembalikan tabel utuh sesuai kebijakan",
+    hasilSusunUlang.ok &&
+      (await prisma.pertemuan.count({ where: { rpkpsId: struktur.id } })) ===
+        KEBIJAKAN_BAWAAN.mingguPerSemester,
+    hasilSusunUlang.pesan,
+  );
+  cek(
+    "nilai mahasiswa tetap ada setelah kerangka disusun ulang, hanya menganggur",
+    (await prisma.nilaiAsesmen.count({
+      where: { peserta: { kelas: { rpkpsId: struktur.id } } },
+    })) === 4,
+  );
+
+  await prisma.rpkps.delete({ where: { id: struktur.id } });
+
+  // ── 11 · Komponen nilai: identitas baris harus bertahan ────────
+  //
+  // Menyimpan daftar dengan cara hapus-lalu-buat-ulang memberi tiap komponen
+  // id baru, sehingga `onDelete: SetNull` melepas SELURUH tautan pertemuan dan
+  // tugas tanpa pesan apa pun. Uji domain tidak dapat melihatnya; hanya
+  // Postgres sungguhan yang bisa.
+  const tugasProyek = await prisma.tugas.findFirstOrThrow({ where: { rpkpsId: rpkps.id } });
+  await prisma.tugas.update({
+    where: { id: tugasProyek.id },
+    data: { komponenNilaiId: komponenTugas.id },
+  });
+
+  /** Tautan dicatat sebagai id, bukan nama, supaya kebal terhadap penggantian nama. */
+  const petaTautan = async () => {
+    const p = await prisma.pertemuan.findMany({
+      where: { rpkpsId: rpkps.id, komponenNilaiId: { not: null } },
+      select: { minggu: true, komponenNilaiId: true },
+      orderBy: { minggu: "asc" },
+    });
+    const t = await prisma.tugas.findMany({
+      where: { rpkpsId: rpkps.id, komponenNilaiId: { not: null } },
+      select: { nomor: true, komponenNilaiId: true },
+      orderBy: { nomor: "asc" },
+    });
+    return [
+      ...p.map((b) => `M${b.minggu}=${b.komponenNilaiId}`),
+      ...t.map((b) => `T${b.nomor}=${b.komponenNilaiId}`),
+    ].join(" ");
+  };
+  const daftarKomponen = () =>
+    prisma.komponenNilai.findMany({
+      where: { rpkpsId: rpkps.id },
+      orderBy: { urutan: "asc" },
+      select: { id: true, nama: true, bobot: true },
+    });
+  const kirim = (
+    baris: { id: string; nama: string; bobot: unknown }[],
+    ubah: (k: { id: string; nama: string }) => string = (k) => k.nama,
+  ) => baris.map((k) => ({ id: k.id, nama: ubah(k), bobot: Number(k.bobot) }));
+
+  /** Rangkuman pendek untuk keluaran; perbandingannya tetap atas peta lengkap. */
+  const ringkas = (peta: string) => `${peta.split(" ").filter(Boolean).length} tautan`;
+
+  const tautanAwal = await petaTautan();
+  cek("tautan awal terpasang", tautanAwal.includes("T1="), ringkas(tautanAwal));
+
+  const simpanUlang = await tulisKomponenNilai(prisma, rpkps.id, kirim(await daftarKomponen()));
+  cek(
+    "menyimpan daftar yang sama tidak melepas satu tautan pun",
+    simpanUlang.ok && (await petaTautan()) === tautanAwal,
+    ringkas(await petaTautan()),
+  );
+
+  const hasilGanti = await tulisKomponenNilai(prisma, rpkps.id, [
+    ...kirim(await daftarKomponen(), (k) => (k.nama === "Tugas" ? "Tugas Besar" : k.nama)),
+    { id: null, nama: "Kuis", bobot: 0 },
+  ]);
+  cek(
+    "ganti nama dan tambah komponen tidak menyentuh tautan yang ada",
+    hasilGanti.ok && (await petaTautan()) === tautanAwal,
+    ringkas(await petaTautan()),
+  );
+  cek(
+    "komponen baru bertambah tanpa membuat ulang yang lama",
+    (await prisma.komponenNilai.count({ where: { rpkpsId: rpkps.id } })) === 4,
+  );
+
+  const hasilTukar = await tulisKomponenNilai(
+    prisma,
+    rpkps.id,
+    kirim(await daftarKomponen(), (k) =>
+      k.nama === "UTS" ? "UAS" : k.nama === "UAS" ? "UTS" : k.nama,
+    ),
+  );
+  cek(
+    "menukar nama dua komponen tidak menabrak @@unique([rpkpsId, nama])",
+    hasilTukar.ok && (await petaTautan()) === tautanAwal,
+    hasilTukar.ok ? ringkas(await petaTautan()) : hasilTukar.galat,
+  );
+
+  const sisaKomponen = (await daftarKomponen()).filter((k) => k.id !== komponenTugas.id);
+  const hasilBuangKomponen = await tulisKomponenNilai(prisma, rpkps.id, kirim(sisaKomponen));
+  cek(
+    "membuang komponen melaporkan berapa baris yang kehilangan tautannya",
+    hasilBuangKomponen.ok && hasilBuangKomponen.lepasTugas === 1 && hasilBuangKomponen.lepasPertemuan > 0,
+    hasilBuangKomponen.ok ? `${hasilBuangKomponen.lepasPertemuan} pertemuan, ${hasilBuangKomponen.lepasTugas} tugas` : hasilBuangKomponen.galat,
+  );
+  cek(
+    "hanya baris milik komponen yang dibuang yang terlepas",
+    (await petaTautan()) ===
+      tautanAwal
+        .split(" ")
+        .filter((x) => !x.endsWith(`=${komponenTugas.id}`))
+        .join(" "),
+    ringkas(await petaTautan()),
+  );
+
+  // ── 12 · Notifikasi: urutan "belum dibaca lebih dulu" ─────────
+  //
+  // Yang diuji di sini bukan kalimatnya — itu murni dan sudah diuji domain —
+  // melainkan hal yang hanya database yang tahu: enum `JenisNotifikasi` yang
+  // baru, dan pengurutan `dibaca_pada` dengan NULL didahulukan, yang gagal
+  // saat dijalankan bila sintaksnya tidak diterima.
+  const kabar = async (judul: string, dibacaPada: Date | null) =>
+    prisma.notifikasi.create({
+      data: {
+        penggunaId: pengguna.id,
+        jenis: "RPKPS_DIAJUKAN",
+        judul,
+        ringkasan: `ringkasan ${judul}`,
+        tautan: `/rpkps/${rpkps.id}`,
+        entitas: "rpkps",
+        entitasId: rpkps.id,
+        dibacaPada,
+        dibuatPada: new Date(Date.now() - (dibacaPada ? 0 : 60_000)),
+      },
+    });
+  await kabar("sudah dibaca", new Date());
+  await kabar("belum dibaca A", null);
+  await kabar("belum dibaca B", null);
+
+  const belum = await prisma.notifikasi.count({
+    where: { penggunaId: pengguna.id, dibacaPada: null },
+  });
+  cek("notifikasi belum dibaca terhitung", belum === 2, `${belum}`);
+
+  const urut = await prisma.notifikasi.findMany({
+    where: { penggunaId: pengguna.id },
+    orderBy: [{ dibacaPada: { sort: "asc", nulls: "first" } }, { dibuatPada: "desc" }],
+    select: { judul: true },
+  });
+  cek(
+    "yang belum dibaca berada di atas, yang terbaru lebih dulu",
+    urut.map((n) => n.judul).join(" | ") ===
+      "belum dibaca B | belum dibaca A | sudah dibaca",
+    urut.map((n) => n.judul).join(" | "),
+  );
+
+  await prisma.notifikasi.updateMany({
+    where: { penggunaId: pengguna.id, dibacaPada: null },
+    data: { dibacaPada: new Date() },
+  });
+  cek(
+    "tandai semua dibaca menyisakan nol",
+    (await prisma.notifikasi.count({
+      where: { penggunaId: pengguna.id, dibacaPada: null },
+    })) === 0,
+  );
+
+  // Tenggat: kolom baru pada tahun akademik, dinilai domain yang sama dengan UI.
+  await prisma.tahunAkademik.update({
+    where: { id: tahun.id },
+    data: { tenggatPenyusunan: new Date(Date.now() - 2 * 86_400_000) },
+  });
+  const taTenggat = await prisma.tahunAkademik.findUniqueOrThrow({ where: { id: tahun.id } });
+  const nilai = nilaiTenggatDokumen({
+    status: "DRAF",
+    tenggat: {
+      penyusunan: taTenggat.tenggatPenyusunan,
+      review: taTenggat.tenggatReview,
+      pengesahan: taTenggat.tenggatPengesahan,
+    },
+    diajukanPada: null,
+    disetujuiPada: null,
+    jaminanHari: taTenggat.jaminanHariPutusan,
+    sekarang: new Date(),
+  });
+  cek("tenggat terbaca kembali dan dinilai terlambat", nilai.tingkat === "LEWAT", nilai.label);
+
+  // ── 13 · Kunci optimistik: penyimpanan yang kalah balapan ─────
+  //
+  // Yang dibuktikan di sini adalah mekanismenya, bukan aksinya: (a) `@updatedAt`
+  // benar-benar bergerak setiap kali baris ditulis — bila tidak, kunci ini tidak
+  // pernah menyala sama sekali; dan (b) `updateMany` dengan cap pada `where`
+  // menolak penulisan basi TANPA menyentuh isi baris.
+  const barisM1 = await prisma.pertemuan.findFirstOrThrow({
+    where: { rpkpsId: rpkps.id, minggu: 1 },
+    select: { id: true, topik: true, diubahPada: true },
+  });
+  const capLama = barisM1.diubahPada;
+
+  // Penyunting kedua menyimpan lebih dahulu.
+  await prisma.pertemuan.update({
+    where: { id: barisM1.id },
+    data: { topik: "Ditulis penyunting kedua" },
+  });
+  const setelahOrangLain = await prisma.pertemuan.findUniqueOrThrow({
+    where: { id: barisM1.id },
+    select: { topik: true, diubahPada: true },
+  });
+  cek(
+    "cap diubah_pada bergerak setiap penyimpanan",
+    setelahOrangLain.diubahPada.getTime() > capLama.getTime(),
+    `${capLama.toISOString()} → ${setelahOrangLain.diubahPada.toISOString()}`,
+  );
+
+  // Penyunting pertama menekan simpan dengan cap yang sudah basi.
+  const kalah = await prisma.pertemuan.updateMany({
+    where: { id: barisM1.id, diubahPada: capLama },
+    data: { topik: "Ditulis penyunting pertama" },
+  });
+  const setelahKalah = await prisma.pertemuan.findUniqueOrThrow({
+    where: { id: barisM1.id },
+    select: { topik: true },
+  });
+  cek(
+    "penyimpanan dengan cap basi ditolak dan tidak menimpa apa pun",
+    kalah.count === 0 && setelahKalah.topik === "Ditulis penyunting kedua",
+    `count=${kalah.count} topik="${setelahKalah.topik}"`,
+  );
+
+  // Setelah memuat ulang, penyimpanan yang sama berhasil.
+  const menang = await prisma.pertemuan.updateMany({
+    where: { id: barisM1.id, diubahPada: setelahOrangLain.diubahPada },
+    data: { topik: "Ditulis setelah memuat ulang" },
+  });
+  cek(
+    "dengan cap segar, penyimpanan yang sama diterima",
+    menang.count === 1 &&
+      (await prisma.pertemuan.findUniqueOrThrow({
+        where: { id: barisM1.id },
+        select: { topik: true },
+      })).topik === "Ditulis setelah memuat ulang",
+    `count=${menang.count}`,
+  );
+
+
+  // ── 14 · Gerbang penyuntingan kurikulum langsung (docs/15) ─────
+  //
+  // Yang diuji di sini BUKAN putusannya — itu sudah ditutup uji domain dengan
+  // data karangan. Yang diuji adalah SENSUS-nya: apakah kueri Prisma benar
+  // menemukan RPKPS terbit, salinan beku, dan baris mingguan yang menggantung
+  // pada capaian. Sensus yang salah relasi membuat gerbang menjawab "boleh"
+  // untuk baris yang sesungguhnya menopang dokumen sah.
+
+  cek(
+    "G1 menolak kurikulum BERLAKU dan mengarahkan ke usulan revisi",
+    !bolehSuntingKurikulum("BERLAKU").boleh &&
+      bolehSuntingKurikulum("BERLAKU").alasan.join(" ").includes("Usulan Revisi"),
+  );
+  cek("G1 mengizinkan kurikulum DRAF", bolehSuntingKurikulum("DRAF").boleh);
+
+  // TI214 menggantung RPKPS terbit bersalinan beku (bagian 8).
+  const sensusMk = await sensusMataKuliah(prisma, mk.id);
+  cek(
+    "sensus mata kuliah menemukan RPKPS beserta salinan bekunya",
+    sensusMk !== null &&
+      sensusMk.rpkps.length > 0 &&
+      sensusMk.rpkps.some((r) => r.jumlahSnapshot > 0),
+    `${sensusMk?.rpkps.length ?? 0} RPKPS`,
+  );
+  const hapusMk = periksaKelayakanHapusMk(sensusMk!);
+  cek(
+    "mata kuliah ber-RPKPS ditolak untuk dihapus, menyebut kodenya",
+    !hapusMk.boleh && hapusMk.alasan.join(" ").includes(mk.kode),
+    hapusMk.alasan.join(" ").slice(0, 90),
+  );
+
+  // Sub-CPMK yang dirujuk baris mingguan: cascade-nya melenyapkan baris itu.
+  const subTerpakai = await prisma.subCpmk.findFirstOrThrow({
+    where: { cpmk: { mataKuliahId: mk.id }, pertemuan: { some: {} } },
+    select: { id: true, kode: true, cpmkId: true },
+  });
+  const sensusSub = await sensusSubCpmk(prisma, subTerpakai.id);
+  cek(
+    "sensus Sub-CPMK menghitung rujukan baris mingguan",
+    sensusSub !== null && sensusSub.jumlahPertemuan > 0,
+    `${sensusSub?.jumlahPertemuan} pertemuan, ${sensusSub?.jumlahTugas} tugas, ${sensusSub?.jumlahButirKisiKisi} butir`,
+  );
+  const hapusSub = periksaKelayakanHapusSubCpmk(sensusSub!);
+  cek(
+    "Sub-CPMK terpakai ditolak — capaian dipensiunkan, tidak dihapus",
+    !hapusSub.boleh && hapusSub.alasan.join(" ").includes("dipensiunkan"),
+  );
+
+  // CPMK mewarisi penolakan dari Sub-CPMK di bawahnya.
+  const sensusCpmkTerpakai = await sensusCpmk(prisma, subTerpakai.cpmkId);
+  const hapusCpmkTerpakai = periksaKelayakanHapusCpmk(sensusCpmkTerpakai!);
+  cek(
+    "CPMK mewarisi penolakan dari Sub-CPMK yang dirujuk dokumen",
+    !hapusCpmkTerpakai.boleh &&
+      hapusCpmkTerpakai.alasan.join(" ").includes(subTerpakai.kode),
+    `${hapusCpmkTerpakai.alasan.length} alasan`,
+  );
+
+  // CPL yang dibebankan pada MK ber-RPKPS.
+  const sensusCplBeban = await sensusCpl(prisma, cpl06.id);
+  cek(
+    "sensus CPL menembus matriks CPL×MK sampai ke RPKPS",
+    sensusCplBeban !== null && sensusCplBeban.rpkps.length > 0,
+    `${sensusCplBeban?.rpkps.length ?? 0} RPKPS, ${sensusCplBeban?.jumlahCpmk ?? 0} CPMK`,
+  );
+  cek(
+    "CPL yang menopang dokumen terbit ditolak untuk dihapus",
+    !periksaKelayakanHapusCpl(sensusCplBeban!).boleh,
+  );
+
+  // Lubang yang ditambal bersama fitur ini (docs/15, lampiran): kurikulum
+  // ARSIP pun menjangkau rpkps_snapshot lewat cascade.
+  const gantungKurikulum = await sensusKurikulum(prisma, kurikulum.id);
+  cek(
+    "sensus kurikulum menemukan seluruh RPKPS di bawahnya",
+    gantungKurikulum.length > 0,
+    `${gantungKurikulum.length} RPKPS — hapusKurikulum wajib menolak`,
+  );
+
+  // Matriks CPL×MK: melepas CPL harus ikut merapikan peta CPMK×CPL, kalau
+  // tidak ada CPMK yang menunjuk CPL yang tak lagi dibebankan padanya.
+  const petaSebelum = await prisma.petaCpmkCpl.count({
+    where: { cpmk: { mataKuliahId: mk.id }, cplId: cpl06.id },
+  });
+  await setelMatriksCplMk(prisma, mk.id, [cpl08.id]);
+  const petaSesudah = await prisma.petaCpmkCpl.count({
+    where: { cpmk: { mataKuliahId: mk.id }, cplId: cpl06.id },
+  });
+  cek(
+    "melepas CPL dari mata kuliah ikut melepas peta CPMK×CPL yang basi",
+    petaSebelum > 0 && petaSesudah === 0,
+    `${petaSebelum} → ${petaSesudah}`,
+  );
+
+  // notIn: [] pada Prisma bernilai selalu benar — tanpa CPL yang dibebankan,
+  // tak satu pun pemetaan CPMK→CPL masih sah.
+  await setelMatriksCplMk(prisma, mk.id, []);
+  const petaKosong = await prisma.petaCpmkCpl.count({
+    where: { cpmk: { mataKuliahId: mk.id } },
+  });
+  cek(
+    "melepas SELURUH CPL mengosongkan peta CPMK×CPL (notIn: [] = selalu benar)",
+    petaKosong === 0,
+    `sisa ${petaKosong}`,
+  );
 
   writeFileSync("uji/keluaran-rpkps.docx", buffer);
   console.log("     dokumen contoh: uji/keluaran-rpkps.docx");

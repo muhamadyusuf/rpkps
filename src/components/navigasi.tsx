@@ -1,8 +1,9 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { Tautan } from "@/components/tautan";
+import { useBahasa, useJalurTanpaBahasa } from "@/components/penyedia-bahasa";
 import {
+  Bell,
   BookMarked,
   CalendarRange,
   FileText,
@@ -29,7 +30,27 @@ const IKON: Record<KunciIkon, LucideIcon> = {
   tahun: CalendarRange,
   pengguna: Users,
   kunci: KeyRound,
+  lonceng: Bell,
 };
+
+/**
+ * Angka belum-dibaca. Dibatasi "9+" supaya lebar butir menu tidak melar dan
+ * angkanya tetap terbaca sebagai isyarat, bukan sebagai data.
+ */
+function Lencana({ jumlah, kecil }: { jumlah: number; kecil?: boolean }) {
+  const { k, isi } = useBahasa();
+  return (
+    <span
+      aria-label={isi(k.kerangka.belumDibaca, { jumlah })}
+      className={cn(
+        "ml-auto shrink-0 rounded-full bg-cahaya/15 font-mono tabular-nums text-cahaya ring-1 ring-cahaya/30",
+        kecil ? "px-1 text-[10px] leading-4" : "px-1.5 text-[11px] leading-5",
+      )}
+    >
+      {jumlah > 9 ? "9+" : jumlah}
+    </span>
+  );
+}
 
 function sedangAktif(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
@@ -41,18 +62,19 @@ function sedangAktif(pathname: string, href: string) {
  * tahu posisinya di dalam aplikasi.
  */
 export function NavigasiSamping({ menu }: { menu: readonly ButirMenu[] }) {
-  const pathname = usePathname();
+  const pathname = useJalurTanpaBahasa();
+  const { k } = useBahasa();
 
   return (
     <nav className="flex-1 px-2.5 py-3">
       <p className="label-teknis mb-2 px-2.5 text-muted-foreground/70">Modul</p>
 
       <div className="space-y-0.5">
-        {menu.map(({ href, label, ikon }) => {
+        {menu.map(({ href, label, ikon, lencana }) => {
           const Ikon = IKON[ikon];
           const aktif = sedangAktif(pathname, href);
           return (
-            <Link
+            <Tautan
               key={href}
               href={href}
               aria-current={aktif ? "page" : undefined}
@@ -70,8 +92,9 @@ export function NavigasiSamping({ menu }: { menu: readonly ButirMenu[] }) {
                   aktif ? "text-cahaya" : "opacity-75",
                 )}
               />
-              <span className="truncate">{label}</span>
-            </Link>
+              <span className="truncate">{k.menu[label]}</span>
+              {lencana ? <Lencana jumlah={lencana} /> : null}
+            </Tautan>
           );
         })}
       </div>
@@ -81,15 +104,16 @@ export function NavigasiSamping({ menu }: { menu: readonly ButirMenu[] }) {
 
 /** Bilah keping yang dapat digulir untuk layar sempit. */
 export function NavigasiPonsel({ menu }: { menu: readonly ButirMenu[] }) {
-  const pathname = usePathname();
+  const pathname = useJalurTanpaBahasa();
+  const { k } = useBahasa();
 
   return (
     <nav className="flex gap-1.5 overflow-x-auto px-4 pb-2.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-      {menu.map(({ href, label, ikon }) => {
+      {menu.map(({ href, label, ikon, lencana }) => {
         const Ikon = IKON[ikon];
         const aktif = sedangAktif(pathname, href);
         return (
-          <Link
+          <Tautan
             key={href}
             href={href}
             aria-current={aktif ? "page" : undefined}
@@ -103,8 +127,9 @@ export function NavigasiPonsel({ menu }: { menu: readonly ButirMenu[] }) {
             <Ikon
               className={cn("size-3.5 shrink-0", aktif ? "text-cahaya" : "")}
             />
-            {label}
-          </Link>
+            {k.menu[label]}
+            {lencana ? <Lencana jumlah={lencana} kecil /> : null}
+          </Tautan>
         );
       })}
     </nav>

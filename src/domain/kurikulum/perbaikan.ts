@@ -262,9 +262,17 @@ function terapkanKeCpmk(cpmk: CpmkInput, usulan: UsulanPerbaikan[]): CpmkInput {
  * dibebankan padanya. Mengirim seluruh kurikulum akan membengkakkan token
  * tanpa menambah informasi yang dibutuhkan model untuk memperbaiki temuan.
  */
+/**
+ * Konteks untuk prompt perbaikan AI.
+ *
+ * `temuan` diterima SUDAH berkalimat, bukan sebagai `TemuanKurikulum` mentah:
+ * sejak L3 validator hanya menghasilkan kode dan parameter, dan kamus yang
+ * merakit kalimatnya hidup di lapisan bahasa. Model memang perlu membaca
+ * kalimatnya — tetapi yang memilih bahasa adalah pemanggil, bukan domain.
+ */
 export function konteksPerbaikan(
   kurikulum: KurikulumInput,
-  temuan: TemuanKurikulum[],
+  temuan: (TemuanKurikulum & { pesan: string; saran?: string })[],
 ): {
   cpl: { kode: string; deskripsi: string }[];
   mataKuliah: unknown[];

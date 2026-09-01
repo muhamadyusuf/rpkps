@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { GalatAi } from "../galat";
+import { bersihkanPesan, kalimatDaftarModel, type HasilModel } from "./galat-http";
 import type { JawabanPenyedia, PermintaanPenyedia, Penyedia } from "./tipe";
 
 /**
@@ -55,7 +56,7 @@ export function penyediaAnthropic(apiKey: string): Penyedia {
         });
         respons = await aliran.finalMessage();
       } catch (galat) {
-        throw new GalatAi(pesanGalat(galat));
+        throw new GalatAi(await pesanGalat(galat, klien, apiKey, p.model));
       }
 
       const pemakaian = {
@@ -79,13 +80,55 @@ export function penyediaAnthropic(apiKey: string): Penyedia {
   };
 }
 
+/**
+ * Katalog model milik kunci ini, dipakai saat model yang diminta ditolak.
+ * Retry dimatikan dan batas waktunya pendek: ini penyelidikan tambahan di
+ * jalur galat, bukan permintaan yang ditunggu pengguna.
+ */
+async function daftarModel(klien: Anthropic): Promise<HasilModel> {
+  try {
+    const halaman = await klien.models.list(
+      { limit: 50 },
+      { timeout: 15_000, maxRetries: 0 },
+    );
+    const model = halaman.data.map((m) => m.id).sort();
+    return model.length > 0 ? { jenis: "daftar", model } : { jenis: "tertutup" };
+  } catch (galat) {
+    return galat instanceof Anthropic.AuthenticationError ||
+      galat instanceof Anthropic.PermissionDeniedError
+      ? { jenis: "tertutup" }
+      : { jenis: "gagal" };
+  }
+}
+
 /** Memetakan galat SDK jadi pesan Indonesia tanpa membocorkan kunci. */
-function pesanGalat(galat: unknown): string {
+async function pesanGalat(
+  galat: unknown,
+  klien: Anthropic,
+  apiKey: string,
+  model: string,
+): Promise<string> {
+  // Kalimat SDK ikut dikutip: tanpanya "tidak berwenang" tidak pernah
+  // menerangkan APA yang tidak berwenang, dan dosen hanya bisa menebak.
+  const alasan =
+    galat instanceof Anthropic.APIError && galat.message
+      ? ` Anthropic menjawab: "${bersihkanPesan(galat.message, apiKey)}".`
+      : "";
+
   if (galat instanceof Anthropic.AuthenticationError) {
-    return `Anthropic menolak kunci API Anda. Perbarui di Pengaturan → Kunci AI.`;
+    return `Anthropic menolak kunci API Anda.${alasan} Perbarui di Pengaturan → Kunci AI.`;
   }
   if (galat instanceof Anthropic.PermissionDeniedError) {
-    return `Kunci Anthropic Anda tidak berwenang memakai model ini. Pilih model lain, atau periksa saldo akun Anthropic Anda. Perbarui di Pengaturan → Kunci AI.`;
+    return (
+      `Kunci Anthropic Anda sah, tetapi tidak berwenang memakai model "${model}".` +
+      `${alasan} ${kalimatDaftarModel(await daftarModel(klien), "Anthropic")}`
+    );
+  }
+  if (galat instanceof Anthropic.NotFoundError) {
+    return (
+      `Model Anthropic "${model}" tidak ditemukan.${alasan} ` +
+      kalimatDaftarModel(await daftarModel(klien), "Anthropic")
+    );
   }
   if (galat instanceof Anthropic.RateLimitError) {
     return "Batas pemakaian Anthropic tercapai. Coba lagi beberapa saat lagi.";

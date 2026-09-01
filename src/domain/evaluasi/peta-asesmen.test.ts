@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { petaKomponenSubCpmk, susunPetaAsesmen, type SumberPeta } from "./peta-asesmen";
+import { pesanTemuanId } from "@/lib/bahasa/temuan";
 
 /**
  * Mata kuliah sehat: dua CPMK, empat Sub-CPMK, tiga komponen berjumlah 100%.
@@ -225,7 +226,7 @@ describe("bobot yang tidak mengalir ke capaian", () => {
     s.cpmk[1].subCpmkKode = ["S3", "S4", "S5"];
     const h = susunPetaAsesmen(s);
     const t = h.temuan.find((x) => x.kode === "PA-SUB-CPMK-TANPA-BOBOT")!;
-    assert.ok(t.pesan.includes("S5"));
+    assert.ok(pesanTemuanId(t).includes("S5"));
     assert.equal(h.ringkasan.subCpmkTerukur, 4);
     assert.equal(h.ringkasan.subCpmkSeluruh, 5);
   });
@@ -242,7 +243,7 @@ describe("bobot yang tidak mengalir ke capaian", () => {
     s.cplDibebankan = ["CPL1", "CPL2", "CPL6"];
     const h = susunPetaAsesmen(s);
     const t = h.temuan.find((x) => x.kode === "PA-CPL-TANPA-BOBOT")!;
-    assert.ok(t.pesan.includes("CPL6"));
+    assert.ok(pesanTemuanId(t).includes("CPL6"));
     assert.equal(h.ringkasan.cplTerukur, 2);
     assert.equal(h.ringkasan.cplDibebankan, 3);
   });
@@ -290,5 +291,37 @@ describe("tabel distribusi penilaian (bagian E)", () => {
     s.pertemuan[3].komponen = null;
     const peta = petaKomponenSubCpmk(susunPetaAsesmen(s));
     assert.equal(peta.has("UTS"), false);
+  });
+});
+
+describe("kisi-kisi yang tidak punya baris ujian", () => {
+  it("menganggur setelah baris UTS diubah menjadi pertemuan efektif", () => {
+    // Yang dapat terjadi sejak tabel mingguan disusun manual (docs/09 §K5):
+    // jenis baris berubah, kisi-kisinya tertinggal tanpa asesmen mana pun.
+    const s = sumberSehat();
+    s.pertemuan = s.pertemuan.map((p) =>
+      p.jenis === "UTS" ? { ...p, jenis: "EFEKTIF" as const } : p,
+    );
+    const h = susunPetaAsesmen(s);
+
+    const temuan = h.peringatan.find((t) => t.kode === "PA-KISI-TANPA-UJIAN");
+    assert.ok(temuan, kode(h).join(","));
+    assert.match(pesanTemuanId(temuan!), /Kisi-kisi UTS berisi 2 butir/);
+  });
+
+  it("baris ujian tanpa bobot juga membuat kisi-kisinya menganggur", () => {
+    const s = sumberSehat();
+    s.pertemuan = s.pertemuan.map((p) => (p.jenis === "UAS" ? { ...p, bobot: 0 } : p));
+    assert.ok(kode(susunPetaAsesmen(s)).includes("PA-KISI-TANPA-UJIAN"));
+  });
+
+  it("kisi-kisi kosong tidak dilaporkan menganggur", () => {
+    const s = sumberSehat();
+    s.kisiKisi = [{ jenis: "UTS", butir: [] }, { jenis: "UAS", butir: [] }];
+    assert.ok(!kode(susunPetaAsesmen(s)).includes("PA-KISI-TANPA-UJIAN"));
+  });
+
+  it("peta yang sehat tidak memunculkan temuan ini", () => {
+    assert.ok(!kode(susunPetaAsesmen(sumberSehat())).includes("PA-KISI-TANPA-UJIAN"));
   });
 });

@@ -1,5 +1,11 @@
 import { z } from "zod";
 import { GalatAi } from "../galat";
+import {
+  alasanPenyedia,
+  ambilDaftarModel,
+  kalimatDaftarModel,
+  kutipAlasan,
+} from "./galat-http";
 import type { JawabanPenyedia, PermintaanPenyedia, Penyedia } from "./tipe";
 
 /**
@@ -215,7 +221,7 @@ async function kirim(apiKey: string, model: string, badan: unknown): Promise<unk
     throw new GalatAi("Server tidak dapat menghubungi Gemini.");
   }
 
-  if (!respons.ok) throw new GalatAi(pesanGalat(respons.status));
+  if (!respons.ok) throw new GalatAi(await pesanGalat(respons, apiKey, model));
   try {
     return await respons.json();
   } catch {
@@ -223,21 +229,60 @@ async function kirim(apiKey: string, model: string, badan: unknown): Promise<unk
   }
 }
 
-function pesanGalat(status: number): string {
+/**
+ * Katalog model milik kunci ini. Nama pada respons berawalan `models/`;
+ * yang diisikan dosen di kolom Model adalah bagian setelahnya.
+ */
+async function daftarModel(apiKey: string) {
+  return ambilDaftarModel(
+    URL_DASAR,
+    { method: "GET", headers: { "x-goog-api-key": apiKey } },
+    (badan) => {
+      const terurai = z
+        .object({ models: z.array(z.object({ name: z.string() })) })
+        .safeParse(badan);
+      return terurai.success
+        ? terurai.data.models.map((m) => m.name.replace(/^models\//, "")).sort()
+        : null;
+    },
+  );
+}
+
+/**
+ * Alasan asli dari badan respons ikut dikutip. Tanpa itu 401/403 Gemini
+ * bergabung menjadi satu kalimat kabur yang tidak membedakan kunci ditolak
+ * dari model tidak berwenang — dua hal dengan perbaikan yang berbeda.
+ */
+async function pesanGalat(
+  respons: Response,
+  apiKey: string,
+  model: string,
+): Promise<string> {
+  const status = respons.status;
+  const alasan = kutipAlasan("Gemini", await alasanPenyedia(respons, apiKey));
+
   switch (status) {
     case 400:
       // Gemini memakai 400 untuk kunci tidak sah DAN untuk permintaan cacat.
-      return `Gemini menolak permintaan (400) — lazimnya kunci API tidak sah. Perbarui di Pengaturan → Kunci AI.`;
+      return `Gemini menolak permintaan (400) — lazimnya kunci API tidak sah.${alasan} Perbarui di Pengaturan → Kunci AI.`;
     case 401:
     case 403:
-      return `Gemini menolak kunci API Anda, atau kunci itu tidak berwenang memakai model ini. Perbarui di Pengaturan → Kunci AI.`;
+      return (
+        `Gemini menolak kunci API Anda, atau kunci itu tidak berwenang memakai model "${model}" (${status}).` +
+        `${alasan} ${kalimatDaftarModel(await daftarModel(apiKey), "Gemini")}`
+      );
     case 404:
-      return "Model Gemini yang diminta tidak ditemukan. Periksa AI_MODEL.";
+      // `AI_MODEL` sudah pensiun bersama kunci institusi (docs/08): model kini
+      // melekat pada kredensial milik dosen, jadi ke situlah pesannya menunjuk.
+      return (
+        `Model Gemini "${model}" tidak ditemukan (404).${alasan} ` +
+        kalimatDaftarModel(await daftarModel(apiKey), "Gemini")
+      );
     case 429:
-      return "Batas pemakaian Gemini tercapai. Coba lagi beberapa saat lagi.";
+      return `Batas pemakaian Gemini tercapai.${alasan} Coba lagi beberapa saat lagi.`;
     default:
       return status >= 500
         ? "Gemini sedang bermasalah. Coba lagi beberapa saat lagi."
-        : `Gemini mengembalikan galat ${status}.`;
+        : `Gemini mengembalikan galat ${status}.${alasan}`;
   }
 }

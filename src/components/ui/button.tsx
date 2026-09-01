@@ -1,4 +1,4 @@
-import Link from "next/link"
+import { Tautan } from "@/components/tautan";
 import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { cva, type VariantProps } from "class-variance-authority"
 
@@ -60,7 +60,7 @@ function Button({
 /**
  * Tautan yang tampil seperti tombol.
  *
- * Sengaja BUKAN `<Button render={<Link />}>`: primitif Button milik Base UI
+ * Sengaja BUKAN `<Button render={<Tautan />}>`: primitif Button milik Base UI
  * memasang `role="button"` pada elemen non-`<button>`, sehingga pembaca layar
  * mengumumkan tautan navigasi sebagai tombol dan afordansi tautan hilang —
  * buka di tab baru, salin alamat, daftar tautan. Menyetel `nativeButton={false}`
@@ -74,9 +74,9 @@ function ButtonLink({
   variant = "default",
   size = "default",
   ...props
-}: React.ComponentProps<typeof Link> & VariantProps<typeof buttonVariants>) {
+}: React.ComponentProps<typeof Tautan> & VariantProps<typeof buttonVariants>) {
   return (
-    <Link
+    <Tautan
       data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}

@@ -7,12 +7,14 @@ function konteks(): KonteksDraf {
   return {
     mingguEfektif: [1, 2, 3],
     semuaMinggu: [1, 2, 3, 4],
+    mingguUjian: [{ minggu: 4, jenis: "UTS" as const }],
     subCpmkTersedia: ["CPMK081-1", "CPMK081-2"],
+    subCpmkPerMinggu: { 1: ["CPMK081-1"], 2: ["CPMK081-2"], 3: [], 4: [] },
     refPustaka: ["UTAMA-1", "UTAMA-2"],
   };
 }
 
-function pertemuan(minggu: number, bobot: number) {
+function pertemuan(minggu: number, bobot: number, komponen = "Tugas") {
   return {
     minggu,
     topik: `Topik minggu ${minggu}`,
@@ -24,6 +26,7 @@ function pertemuan(minggu: number, bobot: number) {
     penilaianJenis: "Kuis",
     penilaianSistem: "Skor 0-100",
     bobot,
+    komponenNilai: bobot > 0 ? komponen : null,
     indikator: ["Ketepatan jawaban"],
     pustakaRef: ["UTAMA-1"],
   };
@@ -42,14 +45,19 @@ function draf(): DrafRpkps {
     pustakaBaru: [
       { jenis: "UTAMA", nomor: 3, teks: "Elmasri & Navathe (2016). Fundamentals of Database Systems.", url: null },
     ],
-    pertemuan: [pertemuan(1, 30), pertemuan(2, 30), pertemuan(3, 40)],
+    // Minggu 3 tidak menjadwalkan Sub-CPMK pada konteks, jadi ia tidak boleh
+    // diberi bobot — persis aturan yang ditegakkan D-MINGGU-BERBOBOT-TANPA-SUB-CPMK.
+    pertemuan: [pertemuan(1, 30), pertemuan(2, 30), pertemuan(3, 0)],
+    ujian: [
+      { minggu: 4, jenis: "UTS", bobot: 40, komponenNilai: "Ujian Tengah Semester" },
+    ],
     tugas: [
       {
         nomor: 1,
         nama: "Studi kasus basis data",
         jenis: "KELOMPOK",
-        mingguMulai: 2,
-        mingguSelesai: 3,
+        mingguMulai: 1,
+        mingguSelesai: 2,
         bobot: 60,
         komponenNilai: "Tugas",
         deskripsi: "Menganalisis kebutuhan data sebuah organisasi.",
@@ -111,7 +119,7 @@ describe("periksaDraf — batas yang tidak boleh dilanggar model", () => {
 
   it("menuntut seluruh pertemuan efektif terisi", () => {
     const d = draf();
-    d.pertemuan = [pertemuan(1, 100)];
+    d.pertemuan = [pertemuan(1, 60)];
     const t = periksaDraf(konteks(), d);
     const x = t.find((y) => y.kode === "D-MINGGU-BELUM-DIISI");
     assert.ok(x);
@@ -126,7 +134,7 @@ describe("periksaDraf — batas yang tidak boleh dilanggar model", () => {
 
   it("memeriksa bobot mingguan dan bobot komponen sebagai dua tuntutan terpisah", () => {
     const d = draf();
-    d.pertemuan[0].bobot = 20; // mingguan jadi 90
+    d.pertemuan[0].bobot = 20; // mingguan jadi 90 (20 + 30 + 40)
     d.komponenNilai = [{ nama: "Tugas", bobot: 70 }];
     const t = periksaDraf(konteks(), d);
     assert.ok(t.some((x) => x.kode === "D-BOBOT-MINGGUAN"));
@@ -239,5 +247,90 @@ describe("periksaDraf — batas yang tidak boleh dilanggar model", () => {
     const t = periksaDraf(konteks(), d);
     assert.ok(t.some((x) => x.kode === "D-DESKRIPSI-PENDEK"));
     assert.ok(t.some((x) => x.kode === "D-PEMBUKA-PENDEK"));
+  });
+});
+
+/**
+ * Temuan yang menutup peta asesmen (docs/12 §3.4).
+ *
+ * Seluruhnya seharusnya TIDAK PERNAH menyala pada draf yang lewat
+ * `alokasikanAsesmen`. Yang diuji di sini adalah penahannya: bila alokasi
+ * bocor, atau bila kiriman klien dirusak sebelum persetujuan, draf tidak boleh
+ * lolos ke dokumen.
+ */
+describe("periksaDraf — peta asesmen harus tertutup", () => {
+  it("menolak baris berbobot yang tidak menunjuk komponen nilai", () => {
+    const d = draf();
+    d.pertemuan[0].komponenNilai = null;
+    assert.ok(periksaDraf(konteks(), d).some((x) => x.kode === "D-MINGGU-TANPA-KOMPONEN"));
+  });
+
+  it("menolak baris yang menunjuk komponen yang tidak ada", () => {
+    const d = draf();
+    d.pertemuan[0].komponenNilai = "Kuis";
+    assert.ok(periksaDraf(konteks(), d).some((x) => x.kode === "D-MINGGU-KOMPONEN-ASING"));
+  });
+
+  it("menolak komponen yang tidak dirinci baris mingguan mana pun", () => {
+    const d = draf();
+    d.komponenNilai = [
+      { nama: "Tugas", bobot: 60 },
+      { nama: "Kuis", bobot: 40 },
+    ];
+    assert.ok(periksaDraf(konteks(), d).some((x) => x.kode === "D-KOMPONEN-TANPA-ASESMEN"));
+  });
+
+  it("menolak komponen yang jumlah barisnya tidak sama dengan bobotnya", () => {
+    const d = draf();
+    d.komponenNilai = [
+      { nama: "Tugas", bobot: 50 },
+      { nama: "Ujian Tengah Semester", bobot: 50 },
+    ];
+    const t = periksaDraf(konteks(), d);
+    assert.equal(t.filter((x) => x.kode === "D-KOMPONEN-TIDAK-COCOK").length, 2);
+  });
+
+  it("menolak bobot pada minggu yang tidak menjadwalkan Sub-CPMK", () => {
+    const d = draf();
+    d.pertemuan[2].bobot = 10; // minggu 3 tidak punya Sub-CPMK
+    d.pertemuan[2].komponenNilai = "Tugas";
+    assert.ok(
+      periksaDraf(konteks(), d).some((x) => x.kode === "D-MINGGU-BERBOBOT-TANPA-SUB-CPMK"),
+    );
+  });
+
+  it("menolak bobot ujian tanpa kisi-kisi — bobot yang tidak mengukur apa pun", () => {
+    const d = draf();
+    d.kisiKisi = [];
+    assert.ok(periksaDraf(konteks(), d).some((x) => x.kode === "D-UJIAN-BERBOBOT-TANPA-KISI"));
+  });
+
+  it("menolak baris ujian yang bukan minggu ujian", () => {
+    const d = draf();
+    d.ujian[0].minggu = 2;
+    assert.ok(periksaDraf(konteks(), d).some((x) => x.kode === "D-UJIAN-BUKAN-MINGGU-UJIAN"));
+  });
+
+  it("menolak Sub-CPMK yang tidak diukur asesmen berbobot mana pun", () => {
+    const d = draf();
+    // Bobot minggu 2 dipindah ke minggu 1, dan ujian tidak berbobot: CPMK081-2
+    // tidak lagi diukur oleh apa pun.
+    d.pertemuan[0].bobot = 60;
+    d.pertemuan[1].bobot = 0;
+    d.pertemuan[1].komponenNilai = null;
+    d.ujian[0].bobot = 0;
+    const t = periksaDraf(konteks(), d);
+    const x = t.find((y) => y.kode === "D-SUB-CPMK-TIDAK-TERUKUR");
+    assert.ok(x);
+    assert.match(x!.pesan, /CPMK081-2/);
+  });
+
+  it("menganggap Sub-CPMK terukur bila diuji lewat kisi-kisi ujian berbobot", () => {
+    const d = draf();
+    d.pertemuan[1].bobot = 0;
+    d.pertemuan[1].komponenNilai = null;
+    d.pertemuan[0].bobot = 60;
+    // Ujian tetap berbobot, dan kisi-kisinya menguji CPMK081-2.
+    assert.ok(!periksaDraf(konteks(), d).some((x) => x.kode === "D-SUB-CPMK-TIDAK-TERUKUR"));
   });
 });

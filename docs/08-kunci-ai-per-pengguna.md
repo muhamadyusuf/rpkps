@@ -1,6 +1,8 @@
 # Kunci AI Milik Dosen (Mode A)
 
-> Status: **DIPUTUSKAN 24 Agustus 2026, sedang dipasang.**
+> Status: **TERPASANG (diputuskan 24 Agustus 2026, seluruh butir §4 selesai).**
+> Diverifikasi 30 Agustus 2026: tidak ada satu pun variabel lingkungan kunci
+> yang masih dibaca kode, dan singleton klien Anthropic sudah dibuang.
 > Menggantikan keputusan Agustus 2026 pada [01 §2.1](./01-konsep-ai-byok.md) —
 > "satu kunci institusi dari variabel lingkungan" — dengan **Mode A**: setiap
 > dosen mendaftarkan kuncinya sendiri, dan hanya kunci itu yang dipakai.

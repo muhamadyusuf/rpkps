@@ -1,5 +1,6 @@
 import "server-only";
-import type { DrafRpkps } from "@/domain/rpkps/draf";
+import { alokasikanAsesmen } from "@/domain/rpkps/alokasi-asesmen";
+import type { DrafRpkps, KonteksDraf } from "@/domain/rpkps/draf";
 import { normalisasiKe100 } from "@/domain/rpkps/normalisasi";
 import { jalankanTugasAi } from "./gerbang";
 import { pakaiKredensial } from "./kredensial";
@@ -75,7 +76,9 @@ Kerangka RPKPS sudah ada sebelum Anda dipanggil:
 - Sub-CPMK yang dijadwalkan pada tiap minggu, berasal dari buku kurikulum.
 - Daftar pustaka yang sudah ada.
 
-Isi HANYA minggu yang ditandai EFEKTIF. Minggu ujian tidak diisi.
+ISI minggu — topik, aktivitas, indikator — hanya untuk minggu yang ditandai
+EFEKTIF. Minggu ujian tidak diisi isinya. Yang boleh Anda tetapkan untuk minggu
+ujian hanyalah bobot penilaian dan komponen nilainya.
 
 # Cara mengosongkan sebuah isian
 
@@ -120,21 +123,46 @@ Yang Anda susun:
   diulang — ia dipertahankan otomatis. Nomor untuk pustaka baru dimulai dari
   "nomorBerikutnya" pada konteks, naik satu per satu untuk tiap jenis. Isi url
   dengan "" bila pustaka itu tidak punya alamat daring.
-- bobot_minggu: bobot penilaian tiap minggu EFEKTIF terhadap nilai akhir.
-  Minggu yang tidak dinilai diberi bobot 0, dan tetap harus disebut.
+- bobot_minggu: bobot penilaian tiap minggu terhadap nilai akhir, BESERTA nama
+  komponen nilai yang menampungnya. Sebutkan SELURUH minggu pada konteks —
+  minggu efektif maupun minggu ujian. Minggu yang tidak dinilai diberi bobot 0
+  dan komponen "".
+
+# Setiap bobot wajib menyebut komponennya
+
+Ini bagian yang paling sering dilewatkan dan akibatnya paling parah. Nilai
+\`komponen\` harus SAMA PERSIS dengan salah satu nama pada komponen_nilai yang
+Anda tulis sendiri di atas — huruf demi huruf. Bobot yang tidak menyebut
+komponen tidak dapat dikumpulkan menjadi nilai mahasiswa.
+
+Jumlah bobot seluruh minggu yang menunjuk satu komponen harus sama dengan bobot
+komponen itu. Contoh: bila komponen "Tugas" berbobot 30, maka minggu-minggu
+yang menunjuk "Tugas" harus berjumlah 30 — misalnya 15 + 15, atau 10 + 20.
+
+Tiga aturan tambahan yang menentukan minggu mana yang boleh diberi bobot:
+
+1. Minggu UJIAN adalah tempat bobot UTS dan UAS hidup. Beri bobot pada baris
+   ujian, dan tunjuk komponen ujian yang bersangkutan.
+2. Minggu efektif hanya boleh diberi bobot bila ia menjadwalkan Sub-CPMK
+   (lihat "subCpmkTerjadwal" pada konteks). Minggu tanpa Sub-CPMK yang diberi
+   bobot menghasilkan nilai yang tidak mengukur capaian apa pun.
+3. Lembar tugas pada tahap 3 BUKAN bobot tambahan — ia merinci minggu yang
+   sudah Anda beri bobot di sini. Jadi bobot tugas sudah termasuk dalam angka
+   yang Anda tulis sekarang.
 
 # Aritmetika — kerjakan dengan urutan ini, jangan dengan menaksir
 
 Dua deret angka harus berjumlah TEPAT 100: komponen_nilai dan bobot_minggu.
-Keduanya tidak perlu cocok baris per baris, hanya jumlahnya yang harus sama.
+Lebih dari itu, keduanya harus cocok PER KOMPONEN seperti dijelaskan di atas.
 
 Aturan yang membuat penjumlahan ini mudah dan jangan dilanggar:
 
 1. SETIAP bobot ditulis dalam KELIPATAN 5 — 5, 10, 15, 20, 25, dan seterusnya.
    Jangan menulis 7, 12,5, atau 33. Angka kelipatan 5 dapat dijumlahkan tanpa
    keliru; angka lain tidak.
-2. Pada bobot_minggu, pilih 4–7 minggu yang benar-benar menagih pekerjaan dan
-   beri bobot hanya pada minggu itu. SEMUA minggu efektif lain diberi 0.
+2. Pada bobot_minggu, pilih 4–7 minggu yang benar-benar menagih pekerjaan —
+   minggu ujian SELALU termasuk — dan beri bobot hanya pada minggu itu. SEMUA
+   minggu lain diberi 0.
    Menyebar bobot kecil ke belasan minggu adalah cara tercepat salah hitung,
    dan juga bukan cara mata kuliah dinilai sesungguhnya.
 3. Jumlahkan bobot yang bukan nol satu per satu, berurutan dari atas.
@@ -144,11 +172,16 @@ Aturan yang membuat penjumlahan ini mudah dan jangan dilanggar:
    terbesar — sebesar selisihnya. Jangan menyesuaikan beberapa angka sekaligus;
    itu justru sumber kesalahan berikutnya.
 
-Contoh pembagian yang sah untuk 14 minggu efektif:
+Contoh pembagian yang sah untuk 14 minggu efektif dengan UTS di minggu 8 dan
+UAS di minggu 16:
 
   komponen_nilai : Tugas 30, Kuis 15, UTS 25, UAS 30            → 100
-  bobot_minggu   : minggu 4 = 15, minggu 7 = 25, minggu 10 = 15,
-                   minggu 12 = 15, minggu 14 = 30, sisanya 0    → 100
+  bobot_minggu   : minggu 4 = 15 (Kuis), minggu 7 = 15 (Tugas),
+                   minggu 8 = 25 (UTS), minggu 12 = 15 (Tugas),
+                   minggu 16 = 30 (UAS), sisanya 0 dan ""       → 100
+
+  Periksa per komponen: Kuis 15 = 15 ✓, Tugas 15+15 = 30 ✓,
+  UTS 25 ✓, UAS 30 ✓.
 
 Kesalahan yang PALING SERING terjadi: bobot_minggu berjumlah 105 atau 110
 karena satu minggu terakhir ditambahkan tanpa mengurangi minggu lain. Sebelum
@@ -213,14 +246,26 @@ sesuai cara pengerjaannya, lalu jelaskan bentuknya pada deskripsi.
    SATU butir berskor terbesar sebesar selisihnya — bukan beberapa butir
    sekaligus. Kisi-kisi UTS dan UAS masing-masing berjumlah 100, bukan 100
    untuk keduanya digabung.
-3. Bobot tiap tugas harus muat di dalam komponen nilai yang menampungnya, dan
-   nama komponen yang Anda sebut harus PERSIS seperti pada komponen_nilai yang
-   sudah ditetapkan tahap 1 dan diberikan di konteks.
+3. Lembar tugas TIDAK menambah bobot baru. Ia merinci minggu yang sudah diberi
+   bobot pada tahap 1. Karena itu:
+   - nama komponen yang Anda sebut harus PERSIS seperti pada komponen_nilai
+     yang sudah ditetapkan tahap 1, dan komponen itu harus sudah ditunjuk oleh
+     setidaknya satu minggu pada bobot_minggu;
+   - jumlah bobot seluruh tugas dalam satu komponen sama dengan bobot komponen
+     itu — bukan ditambahkan di atasnya;
+   - rentang minggu tugas berakhir pada minggu yang memang berbobot untuk
+     komponen itu, karena di sanalah tagihannya jatuh.
 
 # Aturan kisi-kisi
 
 4. Kisi-kisi UTS hanya menguji Sub-CPMK yang dijadwalkan SEBELUM minggu UTS;
-   UAS menguji yang setelahnya. Seluruh Sub-CPMK harus teruji di salah satunya.
+   UAS menguji yang setelahnya. Seluruh Sub-CPMK harus teruji di salah satunya —
+   tidak boleh ada satu pun yang terlewat. Sub-CPMK yang tidak teruji dan tidak
+   berada di minggu berbobot membuat SELURUH draf ditolak, karena capaiannya
+   tidak akan pernah dapat dihitung.
+4b. Susun kisi-kisi untuk SETIAP minggu ujian yang ada pada konteks. Baris ujian
+   tidak menempel Sub-CPMK; kisi-kisilah yang menyatakan apa yang diukurnya,
+   sehingga ujian tanpa kisi-kisi adalah bobot yang mengambang.
 5. level_bloom tiap butir ujian tidak boleh melampaui level Sub-CPMK yang diuji.
 6. Indikator butir sebaiknya bersandar pada topik minggu yang bersangkutan,
    yang sudah tersedia di konteks.
@@ -260,6 +305,15 @@ export async function susunDraf(opsi: {
   penggunaId: string;
   rpkpsId: string;
   konteks: unknown;
+  /**
+   * Batas RPKPS yang sebenarnya — minggu ujian dan Sub-CPMK tiap minggu.
+   *
+   * Dipakai menutup peta asesmen (docs/12 §3.3), pekerjaan yang tidak dapat
+   * dikerjakan dari keluaran model saja: model hanya menyebut nomor minggu,
+   * sedangkan yang menentukan apakah sebuah bobot dapat mengalir ke capaian
+   * adalah jenis baris itu dan Sub-CPMK yang dijadwalkan padanya.
+   */
+  batas: KonteksDraf;
   /** Kosong berarti kunci bawaan dosen. */
   kredensialId?: string | null;
 }): Promise<HasilDraf> {
@@ -336,7 +390,7 @@ export async function susunDraf(opsi: {
   });
   const t: KeluaranTugasKisi = tugasKisi.data;
 
-  const { draf, catatan } = gabungkan(k, p, t);
+  const { draf, catatan } = gabungkan(k, p, t, opsi.batas);
 
   return {
     // Penyedia dan model dilaporkan dari tahap terakhir; ketiganya memakai
@@ -377,65 +431,84 @@ function rapikan(
  * Bobot pertemuan diambil dari tahap 1, bukan dari tahap 2 — tahap 2 memang
  * tidak memilikinya. Minggu yang bobotnya tidak disebut tahap 1 dianggap 0.
  *
- * # Mengapa aritmetikanya dinormalkan di sini
+ * # Mengapa aritmetikanya diselesaikan di sini
  *
- * Empat deret angka pada draf wajib berjumlah tepat 100: bobot komponen nilai,
- * bobot mingguan, bobot kriteria tiap tugas, dan skor butir tiap kisi-kisi.
- * Menjumlahkan belasan angka dalam kepala adalah hal yang tidak dapat
- * diandalkan dari sebuah model bahasa, dan meleset sedikit saja membuat
- * periksaDraf() menolak SELURUH draf — dosen kehilangan isi yang sebenarnya
- * bagus gara-gara jumlah yang 110, bukan gara-gara isinya.
+ * Deret angka pada draf yang wajib berjumlah tepat 100 ada empat: bobot
+ * komponen nilai, bobot seluruh baris mingguan, bobot kriteria tiap tugas, dan
+ * skor butir tiap kisi-kisi. Menjumlahkan belasan angka dalam kepala adalah hal
+ * yang tidak dapat diandalkan dari sebuah model bahasa, dan meleset sedikit
+ * saja membuat periksaDraf() menolak SELURUH draf — dosen kehilangan isi yang
+ * sebenarnya bagus gara-gara jumlah yang 110, bukan gara-gara isinya.
  *
- * Karena itu jumlahnya dirapikan di sini, deterministik, dengan proporsi
- * antar angka dipertahankan. Prompt tetap meminta jumlah yang tepat — makin
- * jarang penormalan terpakai, makin dekat hasilnya dengan maksud model — dan
- * periksaDraf() tetap penjaga terakhir untuk keluaran yang jumlahnya terlalu
- * jauh untuk disebut kesalahan hitung (lihat normalisasi.ts).
+ * Dua yang terakhir dirapikan `rapikan()` di bawah. Dua yang pertama tidak
+ * cukup dirapikan sendiri-sendiri: sejak tiap baris mingguan menyebut komponen
+ * yang menampungnya, keduanya harus cocok PER KOMPONEN, bukan sekadar
+ * sama-sama berjumlah 100. Pekerjaan itu — beserta penambalan baris yang lupa
+ * menyebut komponen dan penyelarasan lembar tugas — dikerjakan
+ * `alokasikanAsesmen` di domain, dan hasilnya adalah dokumen yang petanya
+ * tertutup menurut konstruksi (docs/12 §3.3).
  *
- * Penormalan sengaja dikerjakan DI SINI, bukan tepat setelah tahap 1. Artinya
- * tahap 3 masih melihat bobot komponen versi model saat menakar bobot tiap
- * tugas. Itu dapat diterima karena bobot tugas tidak diadu secara angka dengan
- * komponen nilai oleh periksaDraf() — yang diperiksa hanya nama komponennya.
- * Memindahkannya ke muka akan lebih rapi dan sudah dipertimbangkan; syaratnya
- * susunDraf() disentuh, dan itu ditahan selama alur kredensial di sana masih
- * berubah.
+ * Penutupan itu sengaja dikerjakan DI SINI, bukan tepat setelah tahap 1:
+ * sebelum tahap 3 selesai, belum diketahui kisi-kisi mana yang benar-benar
+ * berisi butir dan lembar tugas mana yang menunjuk komponen apa — dua hal yang
+ * ikut menentukan bobot mana yang sah. Konsekuensinya tahap 3 masih melihat
+ * angka komponen versi model; itu dapat diterima karena yang dipakainya dari
+ * sana hanyalah NAMA komponen.
  */
 function gabungkan(
   k: KeluaranKerangka,
   p: KeluaranPertemuan,
   t: KeluaranTugasKisi,
+  batas: KonteksDraf,
 ): { draf: DrafRpkps; catatan: string[] } {
   const catatan: string[] = [];
-  const bobot = new Map(k.bobot_minggu.map((b) => [b.minggu, b.bobot]));
 
-  const bobotKomponen = rapikan(
-    k.komponen_nilai.map((x) => x.bobot),
-    "Bobot komponen nilai",
-    catatan,
-  );
+  // ── Penutupan peta asesmen ───────────────────────────────────────────
+  // Di sinilah ketiga tahap pertama kali terlihat bersamaan, dan hanya di sini
+  // pertanyaan "komponen mana yang dirinci baris mingguan" dapat dijawab.
+  // Bobot komponen, bobot mingguan, dan bobot tugas keluar dari sini sudah
+  // saling rekonsiliasi — lihat alokasi-asesmen.ts.
+  const usulan = new Map(k.bobot_minggu.map((b) => [b.minggu, b]));
+  const jenisUjian = new Map(batas.mingguUjian.map((u) => [u.minggu, u.jenis]));
 
-  // Dinormalkan atas minggu yang benar-benar ada pada draf, bukan atas
-  // bobot_minggu mentah: itulah deret yang nanti dijumlahkan periksaDraf().
-  const bobotMingguan = rapikan(
-    p.pertemuan.map((x) => bobot.get(x.minggu) ?? 0),
-    "Bobot mingguan",
-    catatan,
-  );
+  const alokasi = alokasikanAsesmen({
+    komponen: k.komponen_nilai.map((x) => ({ nama: x.nama.trim(), bobot: x.bobot })),
+    baris: batas.semuaMinggu.map((m) => ({
+      minggu: m,
+      jenis: jenisUjian.get(m) ?? "EFEKTIF",
+      bobot: usulan.get(m)?.bobot ?? 0,
+      komponen: teksAtauNull(usulan.get(m)?.komponen ?? ""),
+    })),
+    tugas: t.tugas.map((x) => ({
+      nomor: x.nomor,
+      mingguMulai: x.minggu_mulai,
+      mingguSelesai: x.minggu_selesai,
+      bobot: x.bobot,
+      komponen: teksAtauNull(x.komponen_nilai),
+    })),
+    kisiKisiBerisi: t.kisi_kisi.filter((x) => x.butir.length > 0).map((x) => x.jenis),
+    mingguBerSubCpmk: batas.semuaMinggu.filter(
+      (m) => (batas.subCpmkPerMinggu[m] ?? []).length > 0,
+    ),
+  });
+  catatan.push(...alokasi.catatan);
+
+  // Baris dipetakan lewat nomor minggu (unik menurut konstruksi) dan tugas
+  // lewat POSISI, bukan nomornya: nomor tugas boleh saja berulang pada
+  // keluaran model, dan periksaDraf() yang menolaknya nanti.
+  const perMinggu = new Map(alokasi.baris.map((b) => [b.minggu, b]));
 
   const draf: DrafRpkps = {
     deskripsi: k.deskripsi.trim(),
     kalimatPembukaCpmk: k.kalimat_pembuka_cpmk.trim(),
-    komponenNilai: k.komponen_nilai.map((x, i) => ({
-      nama: x.nama.trim(),
-      bobot: bobotKomponen[i],
-    })),
+    komponenNilai: alokasi.komponen.map((x) => ({ nama: x.nama, bobot: x.bobot })),
     pustakaBaru: k.pustaka_baru.map((b) => ({
       jenis: b.jenis,
       nomor: b.nomor,
       teks: b.teks.trim(),
       url: teksAtauNull(b.url),
     })),
-    pertemuan: p.pertemuan.map((x, i) => ({
+    pertemuan: p.pertemuan.map((x) => ({
       minggu: x.minggu,
       topik: x.topik.trim(),
       subtopik: bersihkanDaftar(x.subtopik),
@@ -445,18 +518,29 @@ function gabungkan(
       tugasTerstruktur: teksAtauNull(x.tugas_terstruktur),
       penilaianJenis: teksAtauNull(x.penilaian_jenis),
       penilaianSistem: teksAtauNull(x.penilaian_sistem),
-      bobot: bobotMingguan[i],
+      bobot: perMinggu.get(x.minggu)?.bobot ?? 0,
+      komponenNilai: perMinggu.get(x.minggu)?.komponen ?? null,
       indikator: bersihkanDaftar(x.indikator),
       pustakaRef: x.pustaka_ref.map((r) => r.trim().toUpperCase()),
     })),
-    tugas: t.tugas.map((x) => ({
+    // Baris ujian TIDAK melewati tahap 2 — isinya bukan urusan model. Yang
+    // dibawa ke dokumen hanya bobot dan komponennya.
+    ujian: alokasi.baris
+      .filter((b) => b.jenis !== "EFEKTIF")
+      .map((b) => ({
+        minggu: b.minggu,
+        jenis: b.jenis as "UTS" | "UAS",
+        bobot: b.bobot,
+        komponenNilai: b.komponen,
+      })),
+    tugas: t.tugas.map((x, i) => ({
       nomor: x.nomor,
       nama: x.nama.trim(),
       jenis: x.jenis,
       mingguMulai: x.minggu_mulai,
       mingguSelesai: x.minggu_selesai,
-      bobot: x.bobot,
-      komponenNilai: teksAtauNull(x.komponen_nilai),
+      bobot: alokasi.tugas[i]?.bobot ?? 0,
+      komponenNilai: alokasi.tugas[i]?.komponen ?? null,
       deskripsi: x.deskripsi.trim(),
       uraianTugas: teksAtauNull(x.uraian_tugas),
       formatLuaran: teksAtauNull(x.format_luaran),

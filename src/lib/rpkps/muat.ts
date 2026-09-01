@@ -1,44 +1,15 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { KEBIJAKAN_BAWAAN } from "@/domain/beban-belajar/kebijakan-bawaan";
-import type { Kebijakan } from "@/domain/beban-belajar/tipe";
+import { muatKebijakanDari } from "@/lib/rpkps/kebijakan-inti";
 
 /**
  * Memuat kebijakan beban belajar yang berlaku. Bila belum ada di database,
  * dipakai bawaan SN-Dikti supaya kalkulator tetap jalan — tetapi halaman
  * pemanggil bertanggung jawab memberi tahu bahwa kebijakan belum dikunci.
  */
-export async function muatKebijakan(): Promise<{ kebijakan: Kebijakan; dariDatabase: boolean }> {
-  const baris = await prisma.kebijakanBebanBelajar.findFirst({
-    orderBy: [{ status: "asc" }, { dibuatPada: "desc" }],
-    include: { bentuk: true },
-  });
-
-  if (!baris || baris.bentuk.length === 0) {
-    return { kebijakan: KEBIJAKAN_BAWAAN, dariDatabase: false };
-  }
-
-  return {
-    dariDatabase: true,
-    kebijakan: {
-      mingguPerSemester: baris.mingguPerSemester,
-      pertemuanEfektifTeori: baris.pertemuanEfektifTeori,
-      pertemuanEfektifPraktik: baris.pertemuanEfektifPraktik,
-      hitungMingguUjian: baris.hitungMingguUjian,
-      menitTmPerUjian: baris.menitTmPerUjian,
-      jamPerSksPerSemester: Number(baris.jamPerSksPerSemester),
-      toleransiSemesterPersen: Number(baris.toleransiSemesterPersen),
-      toleransiPertemuanPersen: Number(baris.toleransiPertemuanPersen),
-      bentuk: baris.bentuk.map((b) => ({
-        bentuk: b.bentuk,
-        tm: b.menitTmPerSks,
-        pt: b.menitPtPerSks,
-        bm: b.menitBmPerSks,
-        tmTerjadwal: b.tmTerjadwal,
-        butuhRuangKhusus: b.butuhRuangKhusus,
-      })),
-    },
-  };
+/** Kebijakan yang berlaku, memakai klien global. Lihat `kebijakan-inti.ts`. */
+export async function muatKebijakan() {
+  return muatKebijakanDari(prisma);
 }
 
 export type RpkpsLengkap = NonNullable<Awaited<ReturnType<typeof muatRpkps>>>;
@@ -71,6 +42,12 @@ export async function muatRpkps(id: string) {
           },
         },
       },
+      /**
+       * Seluruh ronde ikut dimuat, bukan hanya yang berjalan: halaman dokumen
+       * menampilkan riwayat tanda tangan, dan penyaringan per ronde dikerjakan
+       * `statusParaf` yang murni.
+       */
+      tandaTangan: { orderBy: [{ versi: "desc" }, { ditandatanganiPada: "asc" }] },
       pustaka: { orderBy: [{ jenis: "asc" }, { nomor: "asc" }] },
       komponenNilai: { orderBy: { urutan: "asc" } },
       kisiKisi: {
