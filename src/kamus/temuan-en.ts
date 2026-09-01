@@ -480,6 +480,12 @@ export const temuanEn: KamusTemuan = {
     pesan: "No item was accepted, so there is nothing to apply.",
     saran: "Reject this proposal, or return it for revision.",
   },
+  "W8-TERJEMAHAN-PARSIAL": {
+    pesan:
+      "The English translation is only partial; the document will read half in each language.",
+    saran:
+      "Finish the translation, or clear it entirely. Translation never blocks submission.",
+  },
   "W-MINGGU-BERLEBIH": {
     pesan:
       "Week {daftar} falls outside the {minggu} semester weeks set by the study-load policy.",

@@ -183,6 +183,13 @@ halaman MK. Tidak ada yang berubah bagi pengguna kurikulum hidup.
 Pemetaan memakai deretan tombol-jungkit dengan tombol "Simpan pemetaan", sama
 seperti `PemetaanCpl` — mencentang empat CPL tidak berarti empat kali tulis.
 
+Sejak 1 September 2026 tiap medan teks di sini berpasangan dengan medan
+berbahasa Inggris — nama dan deskripsi mata kuliah, rumusan CPL, CPMK, dan
+Sub-CPMK — memakai `AreaTeksDwibahasa`. Terjemahannya selalu opsional dan
+tidak pernah memblokir apa pun; yang sah tetap teks Indonesia. Gerbang G1 dan
+G2 berlaku sama atasnya, termasuk `periksaKelayakanUbahMk`. Rinciannya di
+docs/11 §5.1b.
+
 Wewenang: `ADMIN` dan `KAPRODI` dalam cakupan prodinya, sama seperti
 `aksi-profil.ts`. Tidak ada peran baru.
 

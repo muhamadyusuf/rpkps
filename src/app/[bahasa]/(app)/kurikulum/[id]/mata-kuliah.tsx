@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AreaTeks, Pilihan } from "@/components/ui/pilihan";
+import { Pilihan } from "@/components/ui/pilihan";
+import { AreaTeksDwibahasa } from "@/components/dwibahasa";
 import { TombolIkon } from "@/components/tombol-ikon";
 import {
   Table,
@@ -18,6 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { pilihTeks } from "@/lib/bahasa/teks";
 import { cn } from "@/lib/utils";
 import { useAksiKurikulum } from "../aksi-klien";
 import {
@@ -40,7 +42,9 @@ export type MkTampil = {
   id: string;
   kode: string;
   nama: string;
+  namaEn: string | null;
   deskripsi: string | null;
+  deskripsiEn: string | null;
   semester: number;
   status: string;
   sksTeori: number;
@@ -75,7 +79,7 @@ export function PengelolaMataKuliah({
   daftar: MkTampil[];
 }) {
   const { menunggu, jalankan } = useAksiKurikulum();
-  const { k, isi } = useBahasa();
+  const { k, isi, bahasa } = useBahasa();
   const [menyunting, setMenyunting] = useState<string | null>(null);
   const [menambah, setMenambah] = useState(false);
 
@@ -107,7 +111,7 @@ export function PengelolaMataKuliah({
                     </Tautan>
                   </TableCell>
                   <TableCell className="text-sm">
-                    {mk.nama}
+                    {pilihTeks(mk.nama, mk.namaEn, bahasa).teks}
                     {mk.status !== "WAJIB" ? (
                       <Badge variant="outline" className="ml-2 text-[10px]">
                         {k.enum.statusMataKuliah[mk.status as keyof typeof k.enum.statusMataKuliah]}
@@ -230,7 +234,7 @@ function FormulirMk({
   onSimpan: (masukan: MasukanMk, reset: () => void) => void;
   onBatal?: () => void;
 }) {
-  const { k } = useBahasa();
+  const { k, isi } = useBahasa();
   const idForm = baru ? "form-mk-baru" : `form-mk-${awal?.id}`;
 
   return (
@@ -238,12 +242,20 @@ function FormulirMk({
       id={idForm}
       className="space-y-3"
       action={(fd) => {
-        const deskripsi = String(fd.get("deskripsi") ?? "").trim();
+        // Kedua bahasa selalu berangkat bersama. Mengirim hanya yang
+        // Indonesia akan menghapus terjemahannya tanpa satu pesan pun —
+        // `update` menulis seluruh muatan (docs/11 §5.3).
+        const kosongkan = (nama: string) => {
+          const v = String(fd.get(nama) ?? "").trim();
+          return v === "" ? null : v;
+        };
         onSimpan(
           {
             kode: String(fd.get("kode") ?? ""),
             nama: String(fd.get("nama") ?? ""),
-            deskripsi: deskripsi === "" ? null : deskripsi,
+            namaEn: kosongkan("namaEn"),
+            deskripsi: kosongkan("deskripsi"),
+            deskripsiEn: kosongkan("deskripsiEn"),
             semester: Number(fd.get("semester") ?? 1),
             status: String(fd.get("status") ?? "WAJIB"),
             sksTeori: Number(fd.get("sksTeori") ?? 0),
@@ -266,16 +278,6 @@ function FormulirMk({
             defaultValue={awal?.kode ?? ""}
             placeholder={k.kurikulum.sunting.contohKodeMk}
             className="w-28 font-mono"
-            required
-          />
-        </Ruas>
-
-        <Ruas label={k.kurikulum.detail.kolomNama} htmlFor={`${idForm}-nama`} lebar>
-          <Input
-            id={`${idForm}-nama`}
-            name="nama"
-            defaultValue={awal?.nama ?? ""}
-            placeholder={k.kurikulum.sunting.contohNamaMk}
             required
           />
         </Ruas>
@@ -306,6 +308,35 @@ function FormulirMk({
               </option>
             ))}
           </Pilihan>
+        </Ruas>
+      </div>
+
+      {/*
+        Nama ditaruh berdampingan, Indonesia di kiri sebagai acuan: itulah mode
+        kerja penerjemah yang sesungguhnya (docs/11 §5.5). Yang Inggris tidak
+        pernah wajib — dokumen yang sah adalah yang Indonesia.
+      */}
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Ruas label={k.kurikulum.detail.kolomNama} htmlFor={`${idForm}-nama`}>
+          <Input
+            id={`${idForm}-nama`}
+            name="nama"
+            defaultValue={awal?.nama ?? ""}
+            placeholder={k.kurikulum.sunting.contohNamaMk}
+            required
+          />
+        </Ruas>
+
+        <Ruas
+          label={isi(k.dwibahasa.labelEn, { label: k.kurikulum.detail.kolomNama })}
+          htmlFor={`${idForm}-namaEn`}
+        >
+          <Input
+            id={`${idForm}-namaEn`}
+            name="namaEn"
+            defaultValue={awal?.namaEn ?? ""}
+            placeholder={k.kurikulum.sunting.contohNamaMkEn}
+          />
         </Ruas>
       </div>
 
@@ -377,15 +408,14 @@ function FormulirMk({
         </div>
       </div>
 
-      <div className="space-y-1.5">
-        <Label htmlFor={`${idForm}-deskripsi`}>{k.kurikulum.sunting.deskripsiMk}</Label>
-        <AreaTeks
-          id={`${idForm}-deskripsi`}
-          nama="deskripsi"
-          nilai={awal?.deskripsi ?? ""}
-          placeholder={k.kurikulum.sunting.contohDeskripsiMk}
-        />
-      </div>
+      <AreaTeksDwibahasa
+        id={idForm}
+        nama="deskripsi"
+        label={k.kurikulum.sunting.deskripsiMk}
+        nilai={awal?.deskripsi ?? ""}
+        nilaiEn={awal?.deskripsiEn ?? ""}
+        petunjuk={k.kurikulum.sunting.contohDeskripsiMk}
+      />
 
       <div className="flex gap-2">
         <Button type="submit" disabled={menunggu}>

@@ -35,6 +35,7 @@ export default async function HalamanUsulanBaru({
       id: true,
       kode: true,
       nama: true,
+      namaEn: true,
       semester: true,
       kurikulum: { select: { nama: true, tahun: true } },
     },

@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
+import { bahasaBerkas } from "@/lib/dokumen/bahasa-berkas";
 import { siapkanUnduhanRpkps } from "@/lib/dokumen/siapkan-unduhan";
 
 export const runtime = "nodejs";
+
+
 
 /**
  * Unduhan dokumen resmi tanpa login.
@@ -17,11 +20,14 @@ export const runtime = "nodejs";
  * tetap dibatasi sehari, bukan setahun.
  */
 export async function GET(
-  _permintaan: Request,
+  permintaan: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const berkas = await siapkanUnduhanRpkps(id, { hanyaTerbit: true });
+  const berkas = await siapkanUnduhanRpkps(id, {
+    hanyaTerbit: true,
+    bahasa: bahasaBerkas(permintaan),
+  });
 
   if (!berkas) {
     return NextResponse.json(

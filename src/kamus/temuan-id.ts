@@ -557,6 +557,12 @@ export const temuanId = {
       "Tidak ada butir yang diterima, jadi tidak ada yang dapat diterapkan.",
     saran: "Tolak usulan ini, atau kembalikan untuk revisi.",
   },
+  "W8-TERJEMAHAN-PARSIAL": {
+    pesan:
+      "Terjemahan bahasa Inggris baru sebagian; dokumen akan tampil separuh dua bahasa.",
+    saran:
+      "Selesaikan terjemahannya, atau kosongkan seluruhnya. Terjemahan tidak pernah menghalangi pengajuan.",
+  },
   "W-MINGGU-BERLEBIH": {
     pesan:
       "Minggu {daftar} berada di luar {minggu} minggu semester menurut kebijakan beban belajar.",

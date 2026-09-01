@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
 import { ArrowLeft, Lock } from "lucide-react";
 import { ButtonLink } from "@/components/ui/button";
-import { kamus } from "@/lib/bahasa/server";
-import { isi } from "@/lib/bahasa/teks";
+import { bahasaAktif, kamus } from "@/lib/bahasa/server";
+import { isi, namaMk } from "@/lib/bahasa/teks";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { wajibAktif } from "@/lib/otorisasi";
 import { wenangAtasRpkps } from "@/lib/rpkps/wenang";
@@ -84,6 +84,7 @@ export default async function HalamanKisiKisi({
           totalSkor: baris ? Number(baris.totalSkor) : 100,
           durasiMenit: baris?.durasiMenit ?? null,
           catatan: baris?.catatan ?? null,
+          catatanEn: baris?.catatanEn ?? null,
           butir: (baris?.butir ?? []).map((b) => ({
             subCpmkId: b.subCpmkId,
             levelBloom: b.levelBloom,
@@ -91,6 +92,7 @@ export default async function HalamanKisiKisi({
             jumlahButir: b.jumlahButir,
             skor: Number(b.skor),
             indikator: b.indikator,
+            indikatorEn: b.indikatorEn,
           })),
         },
       };
@@ -98,13 +100,14 @@ export default async function HalamanKisiKisi({
   );
 
   const k = await kamus();
+  const b = await bahasaAktif();
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <div>
         <ButtonLink variant="ghost" size="sm" href={`/rpkps/${id}`}>
           <ArrowLeft />
-          {rpkps.mataKuliah.kode} — {rpkps.mataKuliah.nama}
+          {rpkps.mataKuliah.kode} — {namaMk(rpkps.mataKuliah, b)}
         </ButtonLink>
       </div>
 

@@ -1,6 +1,6 @@
 # Dwibahasa: Antarmuka dan Isi RPKPS
 
-> Status: **L1–L3 TERPASANG (31 Agustus 2026). L4–L7 belum.**
+> Status: **L1–L5 TERPASANG (31 Agustus 2026). L6–L7 belum.**
 > Menjawab dua kebutuhan yang sering dikira satu: (a) *antarmuka* aplikasi
 > harus dapat dibaca dalam bahasa Inggris, dan (b) *dokumen RPKPS* harus
 > tersedia dalam dua bahasa. Keduanya berbeda sifat, berbeda tempat
@@ -460,7 +460,7 @@ Skema **sudah** memulai konvensi ini dan meninggalkannya setengah jalan:
 `Cpl.deskripsiEn`, `MataKuliah.namaEn`, `Cpmk.rumusanEn`,
 `SubCpmk.rumusanEn`, `ButirUsulan.rumusanEn` ada di basis data tetapi tidak
 dipakai satu baris pun di kode. Rencana ini melanjutkannya, bukan
-menggantinya.
+menggantinya — dan §5.1b menuntaskan empat di antaranya.
 
 Kolom baru, semuanya `String?` (atau `String[]`) dan **selalu opsional**:
 
@@ -471,7 +471,7 @@ Kolom baru, semuanya `String?` (atau `String[]`) dan **selalu opsional**:
 | `bahan_kajian` | `nama_en`, `deskripsi_en` |
 | `rpkps` | `deskripsi_en`, `kalimat_pembuka_cpmk_en`, `catatan_evaluasi_en` |
 | `pertemuan` | `topik_en`, `subtopik_en[]`, `metode_narasi_en`, `aktivitas_dosen_en`, `aktivitas_mahasiswa_en`, `tugas_terstruktur_en`, `penilaian_jenis_en`, `penilaian_sistem_en` |
-| `aktivitas_belajar` | `nama_en`, `metode_en` |
+| `aktivitas_belajar` | `nama_en` (`metode_en` **tidak** — lihat §5.1a) |
 | `indikator` | `teks_en` |
 | `komponen_nilai` | `nama_en` |
 | `pertemuan_pustaka` | `catatan_en` |
@@ -481,6 +481,15 @@ Kolom baru, semuanya `String?` (atau `String[]`) dan **selalu opsional**:
 | `kisi_kisi` | `catatan_en` |
 | `butir_kisi_kisi` | `indikator_en` |
 | `prodi`, `fakultas`, `institusi` | `nama_en` |
+
+#### 5.1a `aktivitas_belajar.metode` tidak dicerminkan
+
+Rencana semula mencantumkannya. Saat dikerjakan ternyata `metode` sendiri
+tidak ditulis penyunting mana pun dan tidak dibaca satu tampilan pun — kolom
+mati. Mencerminkannya berarti menambah `metode_en` yang tak akan pernah bisa
+diisi siapa pun, dan membuat penjaga muatan simpan (§5.3) gagal selamanya
+tanpa ada yang dapat memperbaikinya. Bila suatu hari `metode` mendapat
+penyuntingnya, kembarannya menyusul bersamaan.
 
 **Yang sengaja TIDAK diterjemahkan:**
 
@@ -492,6 +501,61 @@ Kolom baru, semuanya `String?` (atau `String[]`) dan **selalu opsional**:
 - `catatan_usulan.isi`, `dasar_butir.kutipan`, `temuan_evaluasi.akar_masalah`
   — percakapan dan kesaksian antar manusia. Menerjemahkannya berarti
   memalsukan apa yang ditulis orang.
+
+#### 5.1b Lapisan kurikulum: kolom lama yang akhirnya punya penyunting
+
+**Terpasang (1 September 2026.)** Lima kolom yang disebut di awal §5.1 sebagai
+"ada di basis data tetapi tidak dipakai satu baris pun" sekarang dapat diisi:
+
+| Tabel | Kolom | Penyuntingnya |
+|---|---|---|
+| `mata_kuliah` | `nama_en`, `deskripsi_en` | `kurikulum/aksi-mk.ts` + tabel MK |
+| `cpl` | `deskripsi_en` | `kurikulum/aksi-cpl.ts` |
+| `cpmk` | `rumusan_en` | `kurikulum/aksi-cpmk.ts` |
+| `sub_cpmk` | `rumusan_en` | `kurikulum/aksi-cpmk.ts` |
+
+Borangnya memakai `AreaTeksDwibahasa` (`src/components/dwibahasa.tsx`) —
+sepupu tak terkendali dari `Medan`, karena borang kurikulum membaca isinya
+dari `FormData`, bukan dari state. Bentuk berdampingannya sama: Indonesia di
+kiri sebagai acuan, Inggris di kanan.
+
+**Gerbangnya tidak dilonggarkan.** Ketiga aksi tetap melewati
+`pastikanWenangSunting` (kurikulum DRAF saja), dan `perbaruiMataKuliah` tetap
+melewati `periksaKelayakanUbahMk`. Artinya nama Inggris sebuah mata kuliah
+tidak dapat lagi diubah setelah RPKPS-nya punya salinan beku — dan itu
+disengaja: `nama_en` masuk ruang sidik kedua lewat `proyeksiIsiEn()`, jadi
+menggesernya pada dokumen terbit persoalannya sama dengan menggeser sidik
+Indonesianya (§6.2). Konsekuensinya jujur dan perlu diketahui: mata kuliah
+yang RPKPS-nya sudah terbit baru bisa mendapat nama Inggris pada kurikulum
+berikutnya.
+
+**Menampilkannya selalu lewat `namaMk()`** (`src/lib/bahasa/teks.ts`), bungkus
+sebaris untuk `pilihTeks` yang dipakai ±20 tempat: kepala halaman RPKPS,
+daftar RPKPS, peta semester, papan koordinator, dasbor dosen, dan pemilih mata
+kuliah pada usulan serta salin RPKPS. Aturan lapisannya: **pemuat data
+mengembalikan KEDUA kolom, yang memilih bahasa adalah tampilan.** Karena itu
+`BarisPenugasan`, `BarisRpkpsDosen`, dan `SasaranSalin` bertambah `namaEn`
+alih-alih memanggil `bahasaAktif()` di dalam pemuatnya — pemuat yang sama juga
+dipakai jalur yang tidak punya bahasa alamat.
+
+**Pencarian ikut kolom Inggris.** Kotak cari pada `/rpkps`, `/usulan`, dan
+papan koordinator menambahkan `namaEn` ke `OR`-nya. Tanpa itu pembaca
+antarmuka Inggris mengetik nama yang dilihatnya di layar dan tidak menemukan
+apa pun.
+
+Penjaganya `src/lib/kurikulum/terjemahan.test.ts`. Bentuknya sama dengan
+penjaga §5.3, kegagalan yang dijaganya berbeda: di lapisan kurikulum kolom
+yang tertinggal dari skema Zod tidak terhapus, ia hanya tidak akan pernah
+dapat diisi siapa pun — kegagalan yang lebih senyap lagi, dan persis nasib
+`mata_kuliah.nama_en` selama ini.
+
+**Yang masih menganggur setelah ini:** `profil_lulusan.deskripsi_en`,
+`bahan_kajian.nama_en`/`deskripsi_en`, dan `butir_usulan.rumusan_en` —
+ketiganya belum punya penyunting, jadi sengaja belum didaftarkan pada
+penjaga (alasan yang sama dengan §5.1a). Impor kurikulum (JSON) juga belum
+membawa medan `*En`: berkas impor lama tetap sah, dan mengimpor ulang tidak
+menghapus terjemahan yang sudah ada karena `createMany` hanya menulis
+kurikulum baru. Katalog publik menyusul di L5, ekspor DOCX/Excel di L6.
 
 ### 5.2 `komponen_nilai.nama_en` tidak menyentuh identitas baris
 
@@ -513,6 +577,13 @@ bentuk persis sama seperti hilangnya id `komponen_nilai`.
 Penyunting mengirim kedua bahasa dalam satu muatan, satu kunci optimistik,
 satu transaksi. Tidak ada "simpan hanya bahasa Inggris".
 
+**Penjaganya tekstual, karena tidak bisa lain.** `tsc` tidak dapat melihat
+kolom yang hilang dari muatan simpan — Prisma menerima `data` parsial dengan
+senang hati. Jadi `src/lib/rpkps/terjemahan.test.ts` membaca `schema.prisma`,
+mengumpulkan setiap kolom `*En` pada model isi RPKPS, dan menuntut namanya
+disebut di berkas aksi yang menulis model itu. Penjaga ini langsung bekerja
+pada hari pertama: ia menemukan `metode_en` yang tidak punya penulis (§5.1a).
+
 ### 5.4 Pemilihan teks saat menampilkan
 
 ```ts
@@ -520,6 +591,18 @@ satu transaksi. Tidak ada "simpan hanya bahasa Inggris".
 pilihTeks(baris.topik, baris.topikEn, bahasa)
 // → { teks: string, asli: boolean }
 ```
+
+**Arah cadangan hanya satu.** Pembaca Inggris melihat teks Indonesia bila
+terjemahannya belum ada; pembaca Indonesia TIDAK pernah melihat teks Inggris.
+Membalik arahnya akan memunculkan kalimat Inggris di tengah dokumen resmi
+berbahasa Indonesia, yang adalah versi yang ditandatangani. `BAHASA_ASAL`
+terpisah dari `BAHASA_BAWAAN` supaya jawabannya tidak ikut berubah kalau suatu
+saat bahasa bawaan antarmuka diganti.
+
+**Yang belum tersentuh di L4:** halaman katalog publik masih seluruhnya
+Indonesia. Isinya datang dari salinan beku lewat `proyeksiIsi`, dan proyeksi
+itu tidak boleh bertambah medan (§6.1) — jadi versi Inggrisnya menunggu ruang
+sidik kedua di L5.
 
 `asli: true` berarti nilai Inggris kosong dan yang tampil adalah teks
 Indonesia. Antarmuka Inggris menandainya halus (bukan peringatan merah —
@@ -534,8 +617,16 @@ Formulir mingguan dan tugas mendapat sakelar `ID | EN | Berdampingan`.
 sebagai acuan, isian Inggris di kanan. Menerjemahkan tanpa melihat aslinya
 adalah cara paling cepat menghasilkan terjemahan yang salah.
 
-Ringkasan kelengkapan (mis. "12 dari 34 medan diterjemahkan") tampil di
-halaman ikhtisar RPKPS. Angka itu **tidak** memblokir apa pun.
+Ringkasan kelengkapan ("12 dari 34 medan diterjemahkan") tampil di halaman
+ikhtisar RPKPS. Angka itu **tidak** memblokir apa pun.
+
+Penyebutnya hanya medan yang ADA ISINYA di bahasa Indonesia: topik kosong
+bukan pekerjaan terjemahan yang tertinggal, ia memang tidak ada. Memasukkannya
+membuat angkanya berbohong. Hitungannya murni di
+`src/domain/rpkps/terjemahan.ts`; pengumpul pasangannya di
+`src/lib/rpkps/terjemahan.ts`, dan ia sengaja menulis daftarnya apa adanya
+alih-alih memindai nama kolom berakhiran "En" — kolom `*En` juga ada di lapisan
+kurikulum, yang tidak dapat disunting dari halaman RPKPS.
 
 ### 5.6 Tidak memblokir pengajuan
 
@@ -558,12 +649,13 @@ bahwa berkas yang dicetak hari ini sama dengan yang disahkan Kaprodi.
 
 ### 6.2 Ruang sidik kedua
 
-Polanya sudah ada di proyek ini — evaluasi memakai proyeksinya sendiri di
-`src/domain/evaluasi/proyeksi.ts` dengan alasan yang sama persis.
+**Terpasang (31 Agustus 2026).** Polanya sudah ada di proyek ini — evaluasi
+memakai proyeksinya sendiri di `src/domain/evaluasi/proyeksi.ts` dengan alasan
+yang sama persis.
 
 ```
-src/domain/rpkps/proyeksi.ts      ← TIDAK BERUBAH sama sekali
-src/domain/rpkps/proyeksi-en.ts   ← baru: proyeksiIsiEn(), sidikDokumenEn()
+src/domain/rpkps/proyeksi.ts      ← TIDAK BERUBAH satu baris pun
+src/domain/rpkps/proyeksi-en.ts   ← proyeksiIsiEn(), sidikDokumenEn()
 ```
 
 ```prisma
@@ -575,17 +667,65 @@ model RpkpsSnapshot {
 }
 ```
 
-Uji regresi wajib menyertai perubahan ini: sebuah kasus uji yang mengunci
-sidik dari sebuah RPKPS contoh sebagai nilai harfiah, sehingga setiap
-perubahan yang tidak sengaja menyentuh `proyeksiIsi()` gagal seketika.
+#### Kunci regresi dipasang LEBIH DULU
+
+`src/domain/rpkps/proyeksi.test.ts` mengunci sidik sebuah dokumen contoh
+sebagai nilai harfiah, dan ditulis **sebelum** apa pun di sekitarnya disentuh —
+sehingga ia benar-benar membuktikan bahwa L5 tidak menggeser apa-apa, bukan
+sekadar mencatat keadaan sesudahnya.
+
+Contoh dan kuncinya sengaja di berkas yang sama: siapa pun yang mengubah
+contohnya melihat nilai kunci tepat di bawahnya, dan tahu bahwa memperbarui
+angka itu berarti menyatakan sidik seluruh arsip boleh bergeser. Berkas itu
+juga memuat penjaga arah: proyeksi Indonesia tidak boleh memuat satu pun medan
+berakhiran `En`.
+
+#### `SumberProyeksiEn` ditulis berdiri sendiri
+
+Percobaan pertama memperluas `SumberProyeksi` dengan intersection dan langsung
+gagal — persis seperti yang sudah dicatat komentar di `proyeksi.ts`:
+`cpl: A[] & cpl: B[]` menghasilkan elemen yang tidak punya properti keduanya.
+Duplikasi tipenya disengaja dan lebih murah daripada tipe yang berbohong.
+
+#### Cadangan per MEDAN, bukan per dokumen
+
+`proyeksiIsiEn` mencadangkan tiap medan ke bahasa Indonesia. Dokumen Inggris
+yang separuh medannya kosong tidak berguna bagi siapa pun; yang belum
+diterjemahkan tampil apa adanya, dan halaman publik menerangkan keadaan itu
+sekali di kepala dokumen. Pengenal — kode MK, kode CPL/CPMK, nomor pustaka,
+nama orang, NIDN, entri bibliografi — ikut apa adanya: menerjemahkannya justru
+memutus penelusuran antara kedua versi.
+
+#### Kapan `isiEn` ditulis
+
+`bekukanRpkps` menulisnya hanya bila ADA yang diterjemahkan. Nol terjemahan
+berarti `proyeksiIsiEn` menghasilkan dokumen yang identik dengan versi
+Indonesia — dan menyimpannya akan membuat `/en/katalog` menyatakan "versi
+Inggris terbit" atas dokumen yang satu katanya pun tidak berbahasa Inggris.
+Uji menegaskan kesamaan itu, jadi aturannya bukan tebakan.
+
+Sebaliknya terjemahan yang belum lengkap TETAP dibekukan. Menahan seluruh
+dokumen sampai medan terakhir selesai adalah cara tercepat membuat terjemahan
+tidak pernah terbit.
 
 ### 6.3 Yang dilihat publik
 
-Halaman `/en/katalog/…` membaca `isiEn` bila ada. Bila tidak ada, ia
-menampilkan salinan Indonesia dengan sepasang keterangan: bahwa versi
+**Terpasang.** Halaman `/en/katalog/…` membaca `isiEn` bila ada. Bila tidak,
+ia menampilkan salinan Indonesia dengan sepasang keterangan: bahwa versi
 Inggris belum diterbitkan, dan bahwa **versi Indonesia adalah yang sah**.
-Halaman publik tetap hanya membaca salinan beku, tetap hanya status
-`TERBIT`, dan tetap seluruhnya lewat `src/lib/publik/muat.ts`.
+Kalimat kedua yang terpenting — halaman ini dokumen resmi, dan pembaca berhak
+tahu versi mana yang berlaku bila keduanya berbeda.
+
+Kedua sidik tampil berdampingan; yang Inggris TIDAK menggantikan yang
+Indonesia, karena sidik Indonesia harus tetap dapat dibandingkan dengan berkas
+DOCX yang dipegang orang. `alternates.languages` per halaman menghubungkan
+kedua alamat sebagai satu dokumen dalam dua bahasa.
+
+Halaman publik tetap hanya membaca salinan beku, tetap hanya status `TERBIT`,
+dan tetap seluruhnya lewat `src/lib/publik/muat.ts`. Kartu katalog adalah
+kekecualian yang disengaja: ia membaca data LANGSUNG (`MataKuliah.nama`), bukan
+salinan beku, jadi di sana `pilihTeks` sudah cukup dan larangan menyentuh
+proyeksi sidik tidak berlaku.
 
 ## BAGIAN 7 — Ekspor dokumen
 
@@ -644,8 +784,8 @@ Berfase, dan tiap fase berdiri sendiri: aplikasi tetap jalan dan tetap lulus
 | ~~**L1**~~ | ✅ **Terpasang.** Rangka: `[bahasa]`, proxy, kamus + `PenyediaBahasa`, `Tautan`, `segarkan`, pengalih bahasa, `Pengguna.bahasa`, sitemap/robots dwibahasa, pagar ESLint | — |
 | ~~**L2**~~ | ✅ **Terpasang.** Kamus antarmuka: `(app)`, `(publik)`, `components`; 163 pesan aksi; pesan Zod berkunci `@` (§4.2b) | — |
 | ~~**L3**~~ | ✅ **Terpasang.** Temuan validator (§4.1, 127 kode), notifikasi (§4.2, 12 kunci), riwayat RPKPS (§4.2c, 16 kunci), label enum (§4.3) | — |
-| **L4** | Kolom `*En` + penyunting berdampingan + `pilihTeks` | Sedang — migrasi besar, satu arah |
-| **L5** | `proyeksi-en.ts`, `isiEn`/`sidikEn`, katalog publik EN, hreflang | **Tinggi** — bersinggungan dengan sidik dokumen terbit |
+| ~~**L4**~~ | ✅ **Terpasang.** 33 kolom `*En`, penyunting berdampingan, `pilihTeks`, ringkasan kelengkapan, W8 | — |
+| ~~**L5**~~ | ✅ **Terpasang.** `proyeksi-en.ts`, `isiEn`/`sidikEn`, katalog publik EN, hreflang per halaman, kunci regresi sidik | — |
 | **L6** | Ekspor DOCX/Excel dua bahasa | Rendah |
 | **L7** | `terjemahkanRpkps` (AI) | Rendah — fitur baru, tidak mengubah yang ada |
 

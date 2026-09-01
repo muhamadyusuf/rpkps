@@ -275,6 +275,7 @@ export default async function HalamanKoordinatorMk({
                       kurikulumId: id,
                       kode: b.kode,
                       nama: b.nama,
+                      namaEn: b.namaEn,
                       semester: b.semester,
                       sks: b.sks,
                       koordinator: b.koordinator,

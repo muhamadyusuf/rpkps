@@ -71,6 +71,8 @@ export type BarisPenugasan = {
   mataKuliahId: string;
   kode: string;
   nama: string;
+  /** Nama Inggris apa adanya; yang memilih bahasanya adalah tampilan. */
+  namaEn: string | null;
   semester: number;
   sks: number;
   koordinator: { penggunaId: string; nama: string; nonaktif: boolean } | null;
@@ -105,6 +107,7 @@ export async function muatPapanPenugasan(opsi: {
       id: true,
       kode: true,
       nama: true,
+      namaEn: true,
       semester: true,
       sksTeori: true,
       sksPraktik: true,
@@ -140,6 +143,7 @@ export async function muatPapanPenugasan(opsi: {
       mataKuliahId: m.id,
       kode: m.kode,
       nama: m.nama,
+      namaEn: m.namaEn,
       semester: m.semester,
       sks: m.sksTeori + m.sksPraktik,
       koordinator: tugas
@@ -171,6 +175,7 @@ export function saringPapan(opsi: {
           OR: [
             { kode: { contains: opsi.kata, mode: "insensitive" as const } },
             { nama: { contains: opsi.kata, mode: "insensitive" as const } },
+            { namaEn: { contains: opsi.kata, mode: "insensitive" as const } },
           ],
         }
       : {}),

@@ -100,6 +100,22 @@ export const en: Kamus = {
     DIREVISI: "returned for revision",
     DITOLAK: "rejected",
   },
+  dwibahasa: {
+    mode: "Language",
+    modeId: "Indonesian",
+    modeEn: "English",
+    modeDamping: "Side by side",
+    petunjukDamping: "Indonesian on the left for reference, English on the right.",
+    labelEn: "{label} (English)",
+    belumDiterjemahkan: "Not translated yet",
+    kelengkapanJudul: "Translation coverage",
+    kelengkapan: "{terisi} of {total} fields translated",
+    kelengkapanKosong: "No fields translated yet",
+    kelengkapanPenuh: "Every field is translated",
+    kelengkapanKeterangan:
+      "Translation is optional and never blocks submission.",
+    menampilkanAsli: "Showing the Indonesian text — this part is not translated yet.",
+  },
   validasi: {
     siap: "Ready to submit",
     perluDiperbaiki: "{n} findings must be fixed",
@@ -678,6 +694,13 @@ export const en: Kamus = {
   },
 
   dokumenPublik: {
+    versiInggris: {
+      belumTerbit: "An English version of this document has not been published.",
+      sebagian: "Parts that are not translated appear in Indonesian.",
+      indonesiaYangSah:
+        "The Indonesian version is the official, signed document.",
+      sidikEn: "English version fingerprint",
+    },
     metaTidakDitemukan: "Document not found",
     metaDeskripsiCadangan: "RPKPS for {nama} ({sks}), {prodi} study programme, {ta}.",
     metaOg: "{judul} · RPKPS ITTS",
@@ -1036,6 +1059,7 @@ export const en: Kamus = {
       contohKodeCpl: "CPL06",
       contohKodeMk: "TI214",
       contohNamaMk: "Software Engineering",
+      contohNamaMkEn: "Software Engineering",
       contohKodeCpmk: "CPMK081",
       contohKodeSub: "CPMK081-1",
       contohKko: "analyse",
@@ -2097,6 +2121,8 @@ export const en: Kamus = {
       rujukanHilang: "The draft refers to data that does not exist on this RPKPS.",
       transaksiKurikulum: "The save exceeded the transaction time limit and was rolled back entirely — no data was left half-written. Try again; if it repeats, check the database connection.",
       transaksiDraf: "The write exceeded the transaction time limit and was rolled back entirely — no content was left half-written.",
+      transaksiNilai: "Saving the scores exceeded the transaction time limit and was rolled back entirely — no score was left half-written. Try again; if it repeats, check the database connection.",
+      gagalNilai: "Could not save the scores",
       gagalKurikulum: "Could not save the curriculum",
       gagalDraf: "Could not apply the draft",
       galat: "Error",
@@ -2184,6 +2210,7 @@ export const en: Kamus = {
         "Only an administrator may delete a ratified RPKPS. Archive it to withdraw it from the public catalogue without destroying anything.",
       dihapusPaksa:
         "RPKPS {label} was force-deleted. Recorded in the audit log together with the fingerprint of every frozen copy.",
+      komponenNamaBerulang: "Assessment component names must not repeat.",
       takSedangArsip: "This RPKPS is not archived.",
       hanyaDiajukanDisetujui: "Only a submitted RPKPS can be approved.",
       hanyaDisetujuiDisahkan: "Only an RPKPS approved by the Head of Study Programme can be ratified.",
@@ -2291,6 +2318,8 @@ export const en: Kamus = {
       dihapus: "Class {kode} deleted.",
       adaNilai: "Class {kode} already holds {jumlah} scores and cannot be deleted.",
       tanpaAsesmen: "This RPKPS has no weighted assessment — its score template is empty.",
+      nilaiTersimpan: "{jumlah} rows saved for class {kode}.",
+      nilaiTersimpanButir: "{jumlah} rows saved for class {kode}, including {butir} per-item scores.",
     },
     evaluasi: {
       belumDitutup: "The evaluation is not closed.",

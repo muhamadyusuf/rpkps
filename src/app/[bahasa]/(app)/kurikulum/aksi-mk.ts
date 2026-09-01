@@ -55,7 +55,15 @@ const SkemaMk = z
       .max(20, "@aksi.periksa.kodeMkPanjang")
       .transform(normalkanKode),
     nama: z.string().trim().min(3, "@aksi.periksa.namaMkPendek"),
+    /**
+     * Nama dan deskripsi berbahasa Inggris. Selalu opsional — terjemahan
+     * bukan syarat apa pun (docs/11 §5.6) — tetapi SELALU ikut dalam muatan
+     * simpan: `update` di bawah menulis seluruh `parsed.data`, jadi medan yang
+     * tidak dikirim borang akan terhapus tanpa satu pesan pun (docs/11 §5.3).
+     */
+    namaEn: z.string().trim().max(200).nullable(),
     deskripsi: z.string().trim().max(4000).nullable(),
+    deskripsiEn: z.string().trim().max(4000).nullable(),
     semester: z.number().int().min(1).max(14),
     status: z.enum(STATUS as [StatusMataKuliah, ...StatusMataKuliah[]]),
     sksTeori: z.number().int().min(0).max(12),
@@ -128,6 +136,11 @@ export async function perbaruiMataKuliah(
   // Kode, nama, semester, dan sks seluruhnya ikut `proyeksiIsi()`. Yang
   // menghalangi bukan keberadaan RPKPS, melainkan RPKPS yang sudah punya
   // SALINAN BEKU — draf belum menandatangani apa pun (docs/15 §2.3).
+  //
+  // `namaEn` dan `deskripsiEn` ikut terkunci di gerbang yang sama meski tidak
+  // menyentuh `proyeksiIsi()`: keduanya masuk ruang sidik kedua lewat
+  // `proyeksiIsiEn()`, dan menggeser sidik Inggris sebuah dokumen terbit sama
+  // saja artinya dengan menggeser sidik Indonesianya (docs/11 §6.2).
   const sensus = await sensusMataKuliah(id);
   if (!sensus) return { ok: false, pesan: kam.aksi.takAda.mataKuliah };
   const kelayakan = periksaKelayakanUbahMk(sensus);

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AreaTeks, Pilihan } from "@/components/ui/pilihan";
+import { namaMk } from "@/lib/bahasa/teks";
 import { buatUsulan } from "../aksi";
 
 export function FormulirUsulanBaru({
@@ -18,6 +19,7 @@ export function FormulirUsulanBaru({
     id: string;
     kode: string;
     nama: string;
+    namaEn: string | null;
     semester: number;
     kurikulum: { nama: string; tahun: number };
   }[];
@@ -25,7 +27,7 @@ export function FormulirUsulanBaru({
 }) {
   const [menunggu, mulai] = useTransition();
   const router = useRouter();
-  const { jalur, k, isi } = useBahasa();
+  const { jalur, k, isi, bahasa } = useBahasa();
 
   return (
     <form
@@ -49,7 +51,7 @@ export function FormulirUsulanBaru({
             <option key={mk.id} value={mk.id}>
               {isi(k.usulan.baru.pilihanMk, {
                 kode: mk.kode,
-                nama: mk.nama,
+                nama: namaMk(mk, bahasa),
                 semester: mk.semester,
                 tahun: mk.kurikulum.tahun,
               })}

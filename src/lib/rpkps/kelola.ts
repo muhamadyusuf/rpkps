@@ -20,6 +20,7 @@ export type DataKelola = {
     id: string;
     kode: string;
     nama: string;
+    namaEn: string | null;
     semester: number;
     taTerpakai: string[];
   }[];
@@ -72,6 +73,7 @@ export async function muatDataKelola(
         id: true,
         kode: true,
         nama: true,
+        namaEn: true,
         semester: true,
         rpkps: { select: { tahunAkademikId: true } },
       },
@@ -126,6 +128,7 @@ export async function muatDataKelola(
       id: m.id,
       kode: m.kode,
       nama: m.nama,
+      namaEn: m.namaEn,
       semester: m.semester,
       taTerpakai: m.rpkps.map((r) => r.tahunAkademikId),
     })),

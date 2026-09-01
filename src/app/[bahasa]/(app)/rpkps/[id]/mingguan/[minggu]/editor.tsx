@@ -21,6 +21,13 @@ import {
 import { formatMenit } from "@/domain/beban-belajar/kalkulator";
 import type { Pagu } from "@/domain/beban-belajar/tipe";
 import { simpanPertemuan, type IsiPertemuan } from "../../../aksi";
+import {
+  DaftarDwibahasa,
+  DaftarPasangan,
+  Medan,
+  SakelarBahasa,
+  type ModeBahasa,
+} from "@/components/dwibahasa";
 
 type Kategori = "TM" | "PT" | "BM";
 
@@ -42,40 +49,11 @@ interface Props {
   awal: IsiPertemuan;
 }
 
-function Area({
-  id,
-  label,
-  nilai,
-  ubah,
-  baris = 3,
-  petunjuk,
-}: {
-  id: string;
-  label: string;
-  nilai: string;
-  ubah: (v: string) => void;
-  baris?: number;
-  petunjuk?: string;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <Label htmlFor={id}>{label}</Label>
-      <textarea
-        id={id}
-        rows={baris}
-        value={nilai}
-        placeholder={petunjuk}
-        onChange={(e) => ubah(e.target.value)}
-        className="w-full rounded-lg border bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-      />
-    </div>
-  );
-}
-
 export function EditorPertemuan(props: Props) {
   const { pagu, toleransiPersen } = props;
   const { k, isi } = useBahasa();
   const [d, setD] = useState<IsiPertemuan>(props.awal);
+  const [mode, setMode] = useState<ModeBahasa>("id");
   const [menunggu, mulai] = useTransition();
   const router = useRouter();
 
@@ -104,8 +82,12 @@ export function EditorPertemuan(props: Props) {
           ...d,
           aktivitas: d.aktivitas.map((a) => ({ ...a, menit: Number(a.menit) || 0 })),
           bobot: Number(d.bobot) || 0,
-          subtopik: d.subtopik.filter((s) => s.trim() !== ""),
-          indikator: d.indikator.filter((s) => s.trim() !== ""),
+          // Disaring BERPASANGAN: membuang baris Indonesia kosong tanpa
+          // membuang pasangan Inggrisnya akan menggeser seluruh daftar, dan
+          // subtopik ketiga berbahasa Inggris berakhir menjelaskan subtopik
+          // keempat berbahasa Indonesia.
+          ...saringBerpasangan(d.subtopik, d.subtopikEn),
+          indikator: d.indikator.filter((x) => x.teks.trim() !== ""),
         },
         props.capVersi,
       );
@@ -121,25 +103,30 @@ export function EditorPertemuan(props: Props) {
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_18rem] lg:items-start">
       <div className="min-w-0 space-y-6">
+        <SakelarBahasa mode={mode} ubah={setMode} />
         <Card>
           <CardHeader>
             <CardTitle className="text-base">{k.rpkps.mingguEditor.topikJudul}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="topik">{k.rpkps.mingguEditor.topik}</Label>
-              <Input
-                id="topik"
-                value={d.topik ?? ""}
-                onChange={(e) => ubah("topik", e.target.value || null)}
-                placeholder={k.rpkps.mingguEditor.contohTopik}
-              />
-            </div>
+            <Medan
+              mode={mode}
+              id="topik"
+              label={k.rpkps.mingguEditor.topik}
+              nilai={d.topik ?? ""}
+              nilaiEn={d.topikEn ?? ""}
+              ubah={(v) => ubah("topik", v || null)}
+              ubahEn={(v) => ubah("topikEn", v || null)}
+              petunjuk={k.rpkps.mingguEditor.contohTopik}
+            />
 
-            <DaftarTeks
+            <DaftarDwibahasa
+              mode={mode}
               label={k.rpkps.mingguEditor.subtopik}
               nilai={d.subtopik}
+              nilaiEn={d.subtopikEn}
               ubah={(v) => ubah("subtopik", v)}
+              ubahEn={(v) => ubah("subtopikEn", v)}
               petunjuk={k.rpkps.mingguEditor.contohSubtopik}
             />
 
@@ -191,31 +178,46 @@ export function EditorPertemuan(props: Props) {
             <CardDescription>{k.rpkps.mingguEditor.metodeKeterangan}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Area
+            <Medan
+              mode={mode}
               id="metodeNarasi"
               label={k.rpkps.mingguEditor.metodePembelajaran}
               baris={4}
               nilai={d.metodeNarasi ?? ""}
+              nilaiEn={d.metodeNarasiEn ?? ""}
               ubah={(v) => ubah("metodeNarasi", v || null)}
+              ubahEn={(v) => ubah("metodeNarasiEn", v || null)}
               petunjuk={k.rpkps.mingguEditor.contohMetode}
             />
-            <Area
+            <Medan
+              mode={mode}
               id="aktivitasDosen"
               label={k.rpkps.mingguEditor.aktivitasDosen}
+              baris={3}
               nilai={d.aktivitasDosen ?? ""}
+              nilaiEn={d.aktivitasDosenEn ?? ""}
               ubah={(v) => ubah("aktivitasDosen", v || null)}
+              ubahEn={(v) => ubah("aktivitasDosenEn", v || null)}
             />
-            <Area
+            <Medan
+              mode={mode}
               id="aktivitasMahasiswa"
               label={k.rpkps.mingguEditor.aktivitasMahasiswa}
+              baris={3}
               nilai={d.aktivitasMahasiswa ?? ""}
+              nilaiEn={d.aktivitasMahasiswaEn ?? ""}
               ubah={(v) => ubah("aktivitasMahasiswa", v || null)}
+              ubahEn={(v) => ubah("aktivitasMahasiswaEn", v || null)}
             />
-            <Area
+            <Medan
+              mode={mode}
               id="tugasTerstruktur"
               label={k.rpkps.mingguEditor.tugasTerstruktur}
+              baris={3}
               nilai={d.tugasTerstruktur ?? ""}
+              nilaiEn={d.tugasTerstrukturEn ?? ""}
               ubah={(v) => ubah("tugasTerstruktur", v || null)}
+              ubahEn={(v) => ubah("tugasTerstrukturEn", v || null)}
             />
           </CardContent>
         </Card>
@@ -227,12 +229,15 @@ export function EditorPertemuan(props: Props) {
           <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-[1fr_8rem]">
               <div className="space-y-1.5">
-                <Label htmlFor="penilaianJenis">{k.rpkps.mingguEditor.jenisPenilaian}</Label>
-                <Input
+                <Medan
+                  mode={mode}
                   id="penilaianJenis"
-                  value={d.penilaianJenis ?? ""}
-                  onChange={(e) => ubah("penilaianJenis", e.target.value || null)}
-                  placeholder={k.rpkps.mingguEditor.contohJenisPenilaian}
+                  label={k.rpkps.mingguEditor.jenisPenilaian}
+                  nilai={d.penilaianJenis ?? ""}
+                  nilaiEn={d.penilaianJenisEn ?? ""}
+                  ubah={(v) => ubah("penilaianJenis", v || null)}
+                  ubahEn={(v) => ubah("penilaianJenisEn", v || null)}
+                  petunjuk={k.rpkps.mingguEditor.contohJenisPenilaian}
                 />
               </div>
               <div className="space-y-1.5">
@@ -275,16 +280,20 @@ export function EditorPertemuan(props: Props) {
               </p>
             </div>
 
-            <Area
+            <Medan
+              mode={mode}
               id="penilaianSistem"
               label={k.rpkps.mingguEditor.sistemPenilaian}
               baris={2}
               nilai={d.penilaianSistem ?? ""}
+              nilaiEn={d.penilaianSistemEn ?? ""}
               ubah={(v) => ubah("penilaianSistem", v || null)}
+              ubahEn={(v) => ubah("penilaianSistemEn", v || null)}
               petunjuk={k.rpkps.mingguEditor.contohSistem}
             />
 
-            <DaftarTeks
+            <DaftarPasangan
+              mode={mode}
               label={k.rpkps.mingguEditor.indikator}
               nilai={d.indikator}
               ubah={(v) => ubah("indikator", v)}
@@ -467,7 +476,7 @@ export function EditorPertemuan(props: Props) {
                 onClick={() =>
                   ubah("aktivitas", [
                     ...d.aktivitas,
-                    { nama: "", kategori: "BM" as Kategori, menit: 0 },
+                    { nama: "", namaEn: null, kategori: "BM" as Kategori, menit: 0 },
                   ])
                 }
               >
@@ -486,46 +495,26 @@ export function EditorPertemuan(props: Props) {
   );
 }
 
-function DaftarTeks({
-  label,
-  nilai,
-  ubah,
-  petunjuk,
-}: {
-  label: string;
-  nilai: string[];
-  ubah: (v: string[]) => void;
-  petunjuk?: string;
-}) {
-  const { k, isi } = useBahasa();
-
-  return (
-    <div className="space-y-2">
-      <Label>{label}</Label>
-      {nilai.map((t, i) => (
-        <div key={i} className="flex items-center gap-2">
-          <span className="w-4 shrink-0 text-xs tabular-nums text-muted-foreground">
-            {i + 1}.
-          </span>
-          <Input
-            value={t}
-            placeholder={petunjuk}
-            onChange={(e) => ubah(nilai.map((x, j) => (j === i ? e.target.value : x)))}
-          />
-          <TombolIkon
-            petunjuk={isi(k.rpkps.mingguEditor.hapusButir, {
-              label: label.toLowerCase(),
-            })}
-            onClick={() => ubah(nilai.filter((_, j) => j !== i))}
-          >
-            <Trash2 />
-          </TombolIkon>
-        </div>
-      ))}
-      <Button variant="outline" size="sm" onClick={() => ubah([...nilai, ""])}>
-        <Plus />
-        {isi(k.rpkps.mingguEditor.tambahButir, { label: label.toLowerCase() })}
-      </Button>
-    </div>
-  );
+/**
+ * Membuang baris yang KEDUA bahasanya kosong, dan hanya baris itu.
+ *
+ * Menyaring tiap bahasa sendiri-sendiri akan menggeser pasangannya: satu
+ * subtopik Indonesia yang dikosongkan membuat seluruh terjemahan di bawahnya
+ * naik satu baris, dan tidak ada yang menyadarinya sampai dokumen dicetak.
+ */
+function saringBerpasangan(
+  asal: string[],
+  terjemahan: string[],
+): { subtopik: string[]; subtopikEn: string[] } {
+  const jumlah = Math.max(asal.length, terjemahan.length);
+  const subtopik: string[] = [];
+  const subtopikEn: string[] = [];
+  for (let i = 0; i < jumlah; i++) {
+    const a = (asal[i] ?? "").trim();
+    const b = (terjemahan[i] ?? "").trim();
+    if (a === "" && b === "") continue;
+    subtopik.push(a);
+    subtopikEn.push(b);
+  }
+  return { subtopik, subtopikEn };
 }

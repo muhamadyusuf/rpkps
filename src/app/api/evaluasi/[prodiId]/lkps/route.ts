@@ -5,13 +5,14 @@ import { prisma } from "@/lib/prisma";
 import { muatBarisCapaian, muatKonteksProdi } from "@/lib/evaluasi/muat";
 import { agregasiProdi } from "@/domain/evaluasi/agregasi";
 import { buatTabelLkps } from "@/lib/evaluasi/excel-lkps";
+import { bahasaBerkas } from "@/lib/dokumen/bahasa-berkas";
 
 export const runtime = "nodejs";
 
 const AMBANG_PRODI = 85;
 
 export async function GET(
-  _permintaan: Request,
+  permintaan: Request,
   { params }: { params: Promise<{ prodiId: string }> },
 ) {
   const sesi = await sesiSaatIni();
@@ -50,7 +51,7 @@ export async function GET(
     agregasi,
     baris,
     dibuatPada: new Date(),
-  });
+  }, bahasaBerkas(permintaan));
 
   const namaBerkas = `Capaian CPL ${prodi.kode} - ${kurikulum.nama}.xlsx`.replace(
     /[/\\?%*:|"<>]/g,

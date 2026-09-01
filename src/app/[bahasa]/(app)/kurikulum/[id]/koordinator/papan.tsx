@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { CircleAlert, UserCheck, UserMinus } from "lucide-react";
 import { toast } from "sonner";
 import { useBahasa } from "@/components/penyedia-bahasa";
+import { namaMk } from "@/lib/bahasa/teks";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,6 +37,7 @@ export type BarisPapan = {
   kurikulumId: string;
   kode: string;
   nama: string;
+  namaEn: string | null;
   semester: number;
   sks: number;
   koordinator: { penggunaId: string; nama: string; nonaktif: boolean } | null;
@@ -86,7 +88,7 @@ export function BarisPenugasan({
   bolehKelola: boolean;
 }) {
   const { menunggu, jalankan } = useAksi();
-  const { k, isi } = useBahasa();
+  const { k, isi, bahasa } = useBahasa();
   const [pilihan, setPilihan] = useState<string>(baris.koordinator?.penggunaId ?? "");
   const [konfirmasi, setKonfirmasi] = useState(false);
 
@@ -116,7 +118,7 @@ export function BarisPenugasan({
           {baris.kode}
         </Tautan>
         <p className="text-xs text-muted-foreground">
-          {baris.nama} · smt {baris.semester} · {baris.sks} sks
+          {namaMk(baris, bahasa)} · smt {baris.semester} · {baris.sks} sks
         </p>
       </TableCell>
 

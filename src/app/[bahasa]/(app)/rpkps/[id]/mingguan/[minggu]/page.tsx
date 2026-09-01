@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { Tautan } from "@/components/tautan";
-import { kamus } from "@/lib/bahasa/server";
-import { isi } from "@/lib/bahasa/teks";
+import { bahasaAktif, kamus } from "@/lib/bahasa/server";
+import { isi, namaMk } from "@/lib/bahasa/teks";
 import { ArrowLeft, ArrowRight, ListChecks, Lock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
@@ -87,6 +87,7 @@ export default async function HalamanPertemuan({
         )?.id ?? null));
 
   const k = await kamus();
+  const b = await bahasaAktif();
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -124,7 +125,7 @@ export default async function HalamanPertemuan({
             ) : null}
           </div>
           <p className="mt-1.5 text-sm text-muted-foreground">
-            {rpkps.mataKuliah.kode} — {rpkps.mataKuliah.nama}
+            {rpkps.mataKuliah.kode} — {namaMk(rpkps.mataKuliah, b)}
           </p>
         </div>
         {bisaSunting ? (
@@ -171,19 +172,28 @@ export default async function HalamanPertemuan({
           }))}
           awal={{
             topik: pertemuan.topik,
+            topikEn: pertemuan.topikEn,
             subtopik: pertemuan.subtopik,
+            subtopikEn: pertemuan.subtopikEn,
             metodeNarasi: pertemuan.metodeNarasi,
+            metodeNarasiEn: pertemuan.metodeNarasiEn,
             aktivitasDosen: pertemuan.aktivitasDosen,
+            aktivitasDosenEn: pertemuan.aktivitasDosenEn,
             aktivitasMahasiswa: pertemuan.aktivitasMahasiswa,
+            aktivitasMahasiswaEn: pertemuan.aktivitasMahasiswaEn,
             tugasTerstruktur: pertemuan.tugasTerstruktur,
+            tugasTerstrukturEn: pertemuan.tugasTerstrukturEn,
             penilaianJenis: pertemuan.penilaianJenis,
+            penilaianJenisEn: pertemuan.penilaianJenisEn,
             penilaianSistem: pertemuan.penilaianSistem,
+            penilaianSistemEn: pertemuan.penilaianSistemEn,
             bobot: Number(pertemuan.bobot),
             komponenNilaiId: komponenUsulan,
             subCpmkId: pertemuan.subCpmk.map((s) => s.subCpmkId),
-            indikator: pertemuan.indikator.map((i) => i.teks),
+            indikator: pertemuan.indikator.map((i) => ({ teks: i.teks, teksEn: i.teksEn })),
             aktivitas: pertemuan.aktivitas.map((a) => ({
               nama: a.nama,
+              namaEn: a.namaEn,
               kategori: a.kategori,
               menit: a.menit,
             })),

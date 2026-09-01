@@ -28,6 +28,7 @@ import {
   setelMatriksCplMk,
 } from "@/lib/kurikulum/sunting-inti";
 import { tulisKomponenNilai } from "@/lib/rpkps/komponen-inti";
+import { simpanNilaiKelas, simpanSkorButir } from "@/lib/evaluasi/nilai-inti";
 import { nilaiTenggatDokumen } from "@/domain/rpkps/tenggat";
 import {
   barisMingguan,
@@ -1057,7 +1058,7 @@ async function main() {
   const kirim = (
     baris: { id: string; nama: string; bobot: unknown }[],
     ubah: (k: { id: string; nama: string }) => string = (k) => k.nama,
-  ) => baris.map((k) => ({ id: k.id, nama: ubah(k), bobot: Number(k.bobot) }));
+  ) => baris.map((k) => ({ id: k.id, nama: ubah(k), namaEn: null, bobot: Number(k.bobot) }));
 
   /** Rangkuman pendek untuk keluaran; perbandingannya tetap atas peta lengkap. */
   const ringkas = (peta: string) => `${peta.split(" ").filter(Boolean).length} tautan`;
@@ -1074,7 +1075,7 @@ async function main() {
 
   const hasilGanti = await tulisKomponenNilai(prisma, rpkps.id, [
     ...kirim(await daftarKomponen(), (k) => (k.nama === "Tugas" ? "Tugas Besar" : k.nama)),
-    { id: null, nama: "Kuis", bobot: 0 },
+    { id: null, nama: "Kuis", namaEn: null, bobot: 0 },
   ]);
   cek(
     "ganti nama dan tambah komponen tidak menyentuh tautan yang ada",
@@ -1351,6 +1352,215 @@ async function main() {
     petaKosong === 0,
     `sisa ${petaKosong}`,
   );
+
+  // ── E2 · Unggah nilai kelas ────────────────────────────────────
+  //
+  // `simpanNilaiKelas` menulis mahasiswa, peserta, dan skor sekaligus di dalam
+  // satu transaksi interaktif. Versi pertamanya melakukannya baris per baris
+  // dan melewati batas waktu transaksi pada ukuran kelas biasa; yang diperiksa
+  // di sini adalah bahwa versi jamaknya tetap punya SEMANTIK yang sama —
+  // termasuk pada bagian yang mudah hilang saat penulisan dijamakkan.
+  //
+  // Fixture-nya berdiri sendiri: RPKPS `struktur` sudah dihapus bagian daur
+  // hidup di atas, dan uji ini tidak boleh bergantung pada urutan itu.
+  const taNilai = await prisma.tahunAkademik.create({
+    data: {
+      kode: "2029/2030-GANJIL",
+      tahunMulai: 2029,
+      tahunSelesai: 2030,
+      semester: "GANJIL",
+    },
+  });
+  const subUntukButir = await prisma.subCpmk.findFirstOrThrow({
+    where: { cpmk: { mataKuliahId: mk.id } },
+    select: { id: true },
+  });
+  const rpkpsNilai = await prisma.rpkps.create({
+    data: {
+      mataKuliahId: mk.id,
+      tahunAkademikId: taNilai.id,
+      status: "DRAF",
+      kisiKisi: {
+        create: {
+          jenis: "UTS",
+          butir: {
+            create: [
+              { nomor: 1, subCpmkId: subUntukButir.id, levelBloom: "C2", skor: 50 },
+              { nomor: 2, subCpmkId: subUntukButir.id, levelBloom: "C3", skor: 50 },
+            ],
+          },
+        },
+      },
+    },
+    select: { id: true },
+  });
+
+  const kelasNilai = await prisma.kelas.create({
+    data: { rpkpsId: rpkpsNilai.id, kode: "Z" },
+    select: { id: true },
+  });
+
+  const unggah1 = await simpanNilaiKelas(prisma, {
+    kelasId: kelasNilai.id,
+    prodiId: prodi.id,
+    kolomDikenal: ["M1", "M3"],
+    baris: [
+      { nim: "2026001", nama: "Adi", angkatan: 2026, skor: { M1: 70, M3: 80 } },
+      { nim: "2026002", nama: "Budi", angkatan: null, skor: { M1: 60, M3: null } },
+    ],
+  });
+  cek(
+    "unggah pertama membuat mahasiswa, peserta, dan skor",
+    unggah1.mahasiswaBaru === 2 && unggah1.pesertaBaru === 2 && unggah1.skorDisimpan === 3,
+    `mhs ${unggah1.mahasiswaBaru}, peserta ${unggah1.pesertaBaru}, skor ${unggah1.skorDisimpan}`,
+  );
+
+  const bacaNilaiKelas = async () =>
+    (
+      await prisma.nilaiAsesmen.findMany({
+        where: { peserta: { kelasId: kelasNilai.id } },
+        orderBy: [{ peserta: { mahasiswa: { nim: "asc" } } }, { asesmenKode: "asc" }],
+        select: {
+          id: true,
+          asesmenKode: true,
+          skor: true,
+          dibuatPada: true,
+          peserta: { select: { mahasiswa: { select: { nim: true } } } },
+        },
+      })
+    ).map((n) => ({ ...n, nim: n.peserta.mahasiswa.nim }));
+
+  const sesudah1 = await bacaNilaiKelas();
+  cek(
+    "sel kosong tidak menjadi nol — ia memang tidak ditulis",
+    sesudah1.map((n) => `${n.nim}/${n.asesmenKode}=${Number(n.skor)}`).join(" ") ===
+      "2026001/M1=70 2026001/M3=80 2026002/M1=60",
+    sesudah1.map((n) => `${n.nim}/${n.asesmenKode}=${Number(n.skor)}`).join(" "),
+  );
+
+  // Kolom di luar `kolomDikenal` tidak boleh tersentuh unggahan berikutnya:
+  // berkas yang hanya memuat sebagian asesmen adalah hal biasa.
+  const pesertaAdi = await prisma.pesertaKelas.findFirstOrThrow({
+    where: { kelasId: kelasNilai.id, mahasiswa: { nim: "2026001" } },
+    select: { id: true },
+  });
+  await prisma.nilaiAsesmen.create({
+    data: { pesertaKelasId: pesertaAdi.id, asesmenKode: "M5", skor: 55 },
+  });
+
+  const idSebelum = new Map(sesudah1.map((n) => [`${n.nim}/${n.asesmenKode}`, n.id]));
+  const dibuatSebelum = new Map(
+    sesudah1.map((n) => [`${n.nim}/${n.asesmenKode}`, n.dibuatPada.getTime()]),
+  );
+
+  const unggah2 = await simpanNilaiKelas(prisma, {
+    kelasId: kelasNilai.id,
+    prodiId: prodi.id,
+    kolomDikenal: ["M1", "M3"],
+    baris: [
+      // M1 tetap 70 (tak berubah), M3 dikosongkan → ditarik kembali.
+      { nim: "2026001", nama: "Adi Diganti", angkatan: 2020, skor: { M1: 70, M3: null } },
+      // Skor berubah, dan angkatan yang tadinya kosong kini terisi.
+      { nim: "2026002", nama: "Budi", angkatan: 2026, skor: { M1: 65, M3: 90 } },
+    ],
+  });
+  cek(
+    "unggah ulang tidak membuat mahasiswa atau peserta baru",
+    unggah2.mahasiswaBaru === 0 && unggah2.pesertaBaru === 0,
+    `mhs ${unggah2.mahasiswaBaru}, peserta ${unggah2.pesertaBaru}`,
+  );
+  cek(
+    "sel yang dikosongkan dihapus, bukan disimpan sebagai nol",
+    unggah2.skorDihapus === 1,
+    `dihapus ${unggah2.skorDihapus}`,
+  );
+
+  const sesudah2 = await bacaNilaiKelas();
+  const peta2 = new Map(sesudah2.map((n) => [`${n.nim}/${n.asesmenKode}`, n]));
+  cek(
+    "kolom di luar berkas tidak tersentuh",
+    Number(peta2.get("2026001/M5")?.skor) === 55,
+    `M5 = ${peta2.get("2026001/M5")?.skor}`,
+  );
+  cek(
+    "baris yang sudah ada diperbarui di tempat — id dan dibuat_pada bertahan",
+    peta2.get("2026001/M1")?.id === idSebelum.get("2026001/M1") &&
+      peta2.get("2026002/M1")?.id === idSebelum.get("2026002/M1") &&
+      peta2.get("2026001/M1")?.dibuatPada.getTime() === dibuatSebelum.get("2026001/M1") &&
+      peta2.get("2026002/M1")?.dibuatPada.getTime() === dibuatSebelum.get("2026002/M1"),
+    `M1 Budi ${Number(peta2.get("2026002/M1")?.skor)}`,
+  );
+
+  const mhsSesudah = await prisma.mahasiswa.findMany({
+    where: { prodiId: prodi.id, nim: { in: ["2026001", "2026002"] } },
+    orderBy: { nim: "asc" },
+    select: { nim: true, nama: true, angkatan: true },
+  });
+  cek(
+    "angkatan hanya DIISI bila kosong, dan nama tidak pernah ditimpa berkas nilai",
+    mhsSesudah[0].angkatan === 2026 &&
+      mhsSesudah[0].nama === "Adi" &&
+      mhsSesudah[1].angkatan === 2026,
+    mhsSesudah.map((m) => `${m.nim} ${m.nama} ${m.angkatan}`).join(" | "),
+  );
+
+  // Sekelas penuh sekaligus: yang dijaga adalah jumlah kueri per transaksi
+  // tidak ikut membesar. Di sini yang dapat diperiksa hasilnya — 60 × 8 sel
+  // masuk utuh dalam satu transaksi, tanpa dipecah per baris.
+  const kelasBesar = await prisma.kelas.create({
+    data: { rpkpsId: rpkpsNilai.id, kode: "Y" },
+    select: { id: true },
+  });
+  const kolomBesar = ["M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8"];
+  const unggahBesar = await simpanNilaiKelas(prisma, {
+    kelasId: kelasBesar.id,
+    prodiId: prodi.id,
+    kolomDikenal: kolomBesar,
+    baris: Array.from({ length: 60 }, (_, i) => ({
+      nim: `2027${String(i).padStart(3, "0")}`,
+      nama: `Mahasiswa ${i}`,
+      angkatan: 2027,
+      skor: Object.fromEntries(kolomBesar.map((k, j) => [k, (i + j) % 101])),
+    })),
+  });
+  const selBesar = await prisma.nilaiAsesmen.count({
+    where: { peserta: { kelasId: kelasBesar.id } },
+  });
+  cek(
+    "satu kelas penuh (60 × 8 sel) masuk dalam satu transaksi",
+    unggahBesar.pesertaBaru === 60 && selBesar === 480,
+    `peserta ${unggahBesar.pesertaBaru}, sel ${selBesar}`,
+  );
+
+  // Skor per butir mengikuti aturan yang sama, ditambah satu: NIM yang belum
+  // terdaftar di kelas DILEWATI, bukan dibuat.
+  const butirUji = await prisma.butirKisiKisi.findMany({
+    where: { kisiKisi: { rpkpsId: rpkpsNilai.id } },
+    orderBy: { nomor: "asc" },
+    select: { id: true, nomor: true },
+    take: 2,
+  });
+  if (butirUji.length === 2) {
+    const butirId = new Map(butirUji.map((b) => [b.nomor, b.id]));
+    const hasilButir = await simpanSkorButir(prisma, {
+      kelasId: kelasNilai.id,
+      butirId,
+      peserta: [
+        { nim: "2026001", skor: { [butirUji[0].nomor]: 5, [butirUji[1].nomor]: null } },
+        { nim: "9999999", skor: { [butirUji[0].nomor]: 5 } },
+      ],
+    });
+    const selButir = await prisma.nilaiButir.count({
+      where: { peserta: { kelasId: kelasNilai.id } },
+    });
+    cek(
+      "skor butir tersimpan, NIM asing dilaporkan tanpa membuat peserta baru",
+      hasilButir.skorDisimpan === 1 &&
+        selButir === 1 &&
+        hasilButir.nimTakDikenal.join() === "9999999",
+      `disimpan ${hasilButir.skorDisimpan}, sel ${selButir}, asing ${hasilButir.nimTakDikenal.join()}`,
+    );
+  }
 
   writeFileSync("uji/keluaran-rpkps.docx", buffer);
   console.log("     dokumen contoh: uji/keluaran-rpkps.docx");

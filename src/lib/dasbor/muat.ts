@@ -116,6 +116,8 @@ export interface BarisRpkpsDosen {
   id: string;
   kode: string;
   nama: string;
+  /** Nama Inggris apa adanya; bahasanya dipilih oleh panel yang merendernya. */
+  namaEn: string | null;
   tahunAkademik: string;
   status: StatusRpkps;
   koordinator: boolean;
@@ -609,6 +611,7 @@ async function muatPanelDosen(sesi: PenggunaSesi): Promise<DataDosen> {
         select: {
           kode: true,
           nama: true,
+          namaEn: true,
           cpl: { select: { cpl: { select: { kode: true } } } },
           cpmk: {
             select: {
@@ -691,6 +694,7 @@ async function muatPanelDosen(sesi: PenggunaSesi): Promise<DataDosen> {
       id: r.id,
       kode: r.mataKuliah.kode,
       nama: r.mataKuliah.nama,
+      namaEn: r.mataKuliah.namaEn,
       tahunAkademik: r.tahunAkademik.kode,
       status: r.status,
       koordinator: r.pengampu.some(

@@ -1,6 +1,6 @@
 import { Tautan } from "@/components/tautan";
-import { kamus } from "@/lib/bahasa/server";
-import { isi } from "@/lib/bahasa/teks";
+import { bahasaAktif, kamus } from "@/lib/bahasa/server";
+import { isi, namaMk } from "@/lib/bahasa/teks";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ClipboardList } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -30,13 +30,14 @@ export default async function HalamanTugas({
   const bisaSunting = rpkps.status === "DRAF" || rpkps.status === "DIREVISI";
 
   const k = await kamus();
+  const b = await bahasaAktif();
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <div>
         <ButtonLink variant="ghost" size="sm" href={`/rpkps/${id}`}>
           <ArrowLeft />
-          {rpkps.mataKuliah.kode} — {rpkps.mataKuliah.nama}
+          {rpkps.mataKuliah.kode} — {namaMk(rpkps.mataKuliah, b)}
         </ButtonLink>
       </div>
 

@@ -61,7 +61,7 @@ export async function tulisKomponenNilai(
     for (const p of rencana.perbarui) {
       await tx.komponenNilai.update({
         where: { id: p.id },
-        data: { nama: p.nama, bobot: p.bobot, urutan: p.urutan },
+        data: { nama: p.nama, namaEn: p.namaEn, bobot: p.bobot, urutan: p.urutan },
       });
     }
     if (rencana.tambah.length > 0) {
@@ -69,6 +69,7 @@ export async function tulisKomponenNilai(
         data: rencana.tambah.map((k) => ({
           rpkpsId,
           nama: k.nama,
+          namaEn: k.namaEn,
           bobot: k.bobot,
           urutan: k.urutan,
         })),

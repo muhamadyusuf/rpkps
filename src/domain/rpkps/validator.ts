@@ -421,6 +421,17 @@ export function validasiRpkps(
     }
   }
 
+  /**
+   * Dokumen setengah-Inggris lebih membingungkan daripada dokumen yang
+   * seluruhnya Indonesia — pembaca tidak tahu bagian mana yang belum
+   * diterjemahkan dan mana yang memang berbeda. Peringatan, bukan pemblokir:
+   * terjemahan opsional, dan menahan dokumen yang sah karena fitur tambahan
+   * adalah cara tercepat membuat fitur itu dibenci.
+   */
+  if (rpkps.terjemahanSebagian) {
+    temuan.push({ kode: "W8-TERJEMAHAN-PARSIAL", tingkat: "PERINGATAN" });
+  }
+
   const pemblokir = temuan.filter((t) => t.tingkat === "PEMBLOKIR");
 
   return {

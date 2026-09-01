@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { bahasaBerkas } from "@/lib/dokumen/bahasa-berkas";
 import { prisma } from "@/lib/prisma";
 import { wenangAtasRpkps } from "@/lib/rpkps/wenang";
 import { sesiSaatIni } from "@/lib/sesi";
@@ -6,13 +7,15 @@ import { siapkanUnduhanRpkps } from "@/lib/dokumen/siapkan-unduhan";
 
 export const runtime = "nodejs";
 
+
+
 /**
  * Unduhan untuk pengguna terdaftar — termasuk draf yang belum disahkan.
  * Padanan publiknya ada di /api/publik/rpkps/[id]/docx dan hanya melayani
  * dokumen berstatus TERBIT.
  */
 export async function GET(
-  _permintaan: Request,
+  permintaan: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const sesi = await sesiSaatIni();
@@ -39,7 +42,7 @@ export async function GET(
     return NextResponse.json({ pesan: "Tidak berwenang." }, { status: 403 });
   }
 
-  const berkas = await siapkanUnduhanRpkps(id);
+  const berkas = await siapkanUnduhanRpkps(id, { bahasa: bahasaBerkas(permintaan) });
   if (!berkas) {
     return NextResponse.json({ pesan: "RPKPS tidak ditemukan." }, { status: 404 });
   }

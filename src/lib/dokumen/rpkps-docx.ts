@@ -28,28 +28,25 @@ import { namaLengkapPengampu } from "@/domain/rpkps/pemetaan";
 import { keSumberPeta } from "@/domain/evaluasi/pemetaan";
 import { petaKomponenSubCpmk, susunPetaAsesmen } from "@/domain/evaluasi/peta-asesmen";
 import type { RpkpsLengkap } from "@/lib/rpkps/muat";
+import { labelDokumen, type LabelDokumen } from "./label";
+import type { Bahasa } from "@/kamus";
+// `isi` sudah dipakai sebagai nama variabel lokal di beberapa bagian.
+import { isi as isi_ } from "@/lib/bahasa/teks";
 
 /**
  * Menghasilkan dokumen RPKPS sesuai template ITTS (bagian A–J).
  * Acuan struktur: docs/02-template-itts-dan-penyelarasan-industri.md §1.1–1.2.
  *
- * Tabel mingguan memakai 7 kolom dengan "Penilaian" bercabang tiga, bukan
+ * Tabel mingguan memakai 7 kolom dengan L.penilaian bercabang tiga, bukan
  * 9 kolom datar seperti format generik Diktiristek. Halaman untuk tabel itu
  * dibuat mendatar (landscape) di bagian terpisah.
  */
 
-const LABEL_JENIS_PUSTAKA: Record<string, string> = {
-  UTAMA: "Sumber Utama",
-  PENDUKUNG: "Sumber Pendukung",
-  DARING: "Sumber Belajar Daring",
-  TOOLS: "Perangkat Lunak dan Tools Praktikum",
-};
-
-function kepala(r: RpkpsLengkap) {
+function kepala(r: RpkpsLengkap, L: LabelDokumen) {
   return new Header({
     children: [
       paragraf(
-        [teks("KODE DOKUMEN : FORM RPKPS", { ukuran: 14, warna: "6B7280" })],
+        [teks(L.kodeDokumenFormRpkps, { ukuran: 14, warna: "6B7280" })],
         { spasi: { after: 0 } },
       ),
       paragraf(
@@ -60,15 +57,24 @@ function kepala(r: RpkpsLengkap) {
   });
 }
 
-function kaki(r: RpkpsLengkap) {
+function kaki(r: RpkpsLengkap, L: LabelDokumen) {
   const [tahun, semester] = r.tahunAkademik.kode.split("-");
-  const namaSemester = semester === "GANJIL" ? "Ganjil" : semester === "GENAP" ? "Genap" : "Antara";
+  const namaSemester =
+    semester === "GANJIL"
+      ? L.excel.semesterGanjil
+      : semester === "GENAP"
+        ? L.excel.semesterGenap
+        : L.excel.semesterAntara;
   return new Footer({
     children: [
       paragraf(
         [
           teks(
-            `${r.mataKuliah.kurikulum.prodi.nama} - ITTS    Tahun Akademik : ${namaSemester} ${tahun}`,
+            isi_(L.excel.kakiHalaman, {
+              prodi: r.mataKuliah.kurikulum.prodi.nama,
+              semester: namaSemester,
+              tahun: tahun ?? "",
+            }),
             { ukuran: 14, warna: "6B7280" },
           ),
         ],
@@ -78,7 +84,7 @@ function kaki(r: RpkpsLengkap) {
   });
 }
 
-function halamanPengesahan(r: RpkpsLengkap): (Paragraph | Table)[] {
+function halamanPengesahan(r: RpkpsLengkap, L: LabelDokumen): (Paragraph | Table)[] {
   const koordinator = r.pengampu.find((p) => p.peran === "KOORDINATOR") ?? r.pengampu[0];
 
   const barisTim = r.pengampu.map((p, i) =>
@@ -107,25 +113,25 @@ function halamanPengesahan(r: RpkpsLengkap): (Paragraph | Table)[] {
 
   return [
     paragraf(
-      [teks("RENCANA PROGRAM DAN KEGIATAN PEMBELAJARAN SEMESTER (RPKPS)", { tebal: true, ukuran: 24 })],
+      [teks(L.rencanaProgramDanKegiatanPembelaja, { tebal: true, ukuran: 24 })],
       { rata: AlignmentType.CENTER, spasi: { after: 40 } },
     ),
     paragraf(
-      [teks("INSTITUT TEKNOLOGI TANGERANG SELATAN", { tebal: true, ukuran: 24 })],
+      [teks(L.institutTeknologiTangerangSelatan, { tebal: true, ukuran: 24 })],
       { rata: AlignmentType.CENTER, spasi: { after: 320 } },
     ),
-    paragraf([teks("HALAMAN PENGESAHAN", { tebal: true, ukuran: UKURAN_JUDUL })], {
+    paragraf([teks(L.halamanPengesahan, { tebal: true, ukuran: UKURAN_JUDUL })], {
       rata: AlignmentType.CENTER,
       spasi: { after: 240 },
     }),
 
-    paragraf([teks("Nama Mata Kuliah\t: ", { tebal: true }), teks(r.mataKuliah.nama)]),
-    paragraf([teks("Kode Mata Kuliah\t: ", { tebal: true }), teks(r.mataKuliah.kode)]),
+    paragraf([teks(L.namaMataKuliah2, { tebal: true }), teks(r.mataKuliah.nama)]),
+    paragraf([teks(L.kodeMataKuliah, { tebal: true }), teks(r.mataKuliah.kode)]),
     paragraf([
-      teks("Koordinator Mata Kuliah\t: ", { tebal: true }),
+      teks(L.koordinatorMataKuliah2, { tebal: true }),
       teks(koordinator ? namaLengkapPengampu(koordinator.pengguna) : "-"),
     ]),
-    paragraf([teks("Tim Dosen Pengampu\t:", { tebal: true })], { spasi: { after: 120 } }),
+    paragraf([teks(L.timDosenPengampu, { tebal: true })], { spasi: { after: 120 } }),
 
     new Table({
       width: { size: 100, type: WidthType.PERCENTAGE },
@@ -133,10 +139,10 @@ function halamanPengesahan(r: RpkpsLengkap): (Paragraph | Table)[] {
         new TableRow({
           tableHeader: true,
           children: [
-            sel("No.", { lebar: 8, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
-            sel("Nama Dosen", { lebar: 47, tebal: true, latar: ABU }),
-            sel("NIDN / NIP / NIK", { lebar: 25, tebal: true, latar: ABU }),
-            sel("Tanda Tangan", { lebar: 20, tebal: true, latar: ABU }),
+            sel(L.no, { lebar: 8, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
+            sel(L.namaDosen, { lebar: 47, tebal: true, latar: ABU }),
+            sel(L.nidnNipNik, { lebar: 25, tebal: true, latar: ABU }),
+            sel(L.tandaTangan, { lebar: 20, tebal: true, latar: ABU }),
           ],
         }),
         ...barisTim,
@@ -150,9 +156,9 @@ function halamanPengesahan(r: RpkpsLengkap): (Paragraph | Table)[] {
       rows: [
         new TableRow({
           children: [
-            sel("a.n Tim penyusun RPKPS", { lebar: 33, tebal: true }),
-            sel("Disetujui oleh,", { lebar: 33, tebal: true }),
-            sel("Telah diperiksa dan dinyatakan sesuai dengan standar ITTS", {
+            sel(L.aNTimPenyusunRpkps, { lebar: 33, tebal: true }),
+            sel(L.disetujuiOleh, { lebar: 33, tebal: true }),
+            sel(L.telahDiperiksaDanDinyatakanSesuaiD, {
               lebar: 34,
               tebal: true,
             }),
@@ -160,9 +166,9 @@ function halamanPengesahan(r: RpkpsLengkap): (Paragraph | Table)[] {
         }),
         new TableRow({
           children: [
-            sel("Tanggal :", { lebar: 33 }),
-            sel("Tanggal :", { lebar: 33 }),
-            sel("Tanggal :", { lebar: 34 }),
+            sel(L.tanggal, { lebar: 33 }),
+            sel(L.tanggal, { lebar: 33 }),
+            sel(L.tanggal, { lebar: 34 }),
           ],
         }),
         new TableRow({
@@ -180,18 +186,18 @@ function halamanPengesahan(r: RpkpsLengkap): (Paragraph | Table)[] {
                   tebal: true,
                   spasi: { after: 0 },
                 }),
-                paragraf("Koordinator Mata Kuliah", { spasi: { after: 0 } }),
+                paragraf(L.koordinatorMataKuliah, { spasi: { after: 0 } }),
               ],
               { lebar: 33 },
             ),
             sel(
-              [paragraf("", { spasi: { after: 0 } }), paragraf("Ketua Program Studi", { spasi: { after: 0 } })],
+              [paragraf("", { spasi: { after: 0 } }), paragraf(L.ketuaProgramStudi, { spasi: { after: 0 } })],
               { lebar: 33 },
             ),
             sel(
               [
                 paragraf("", { spasi: { after: 0 } }),
-                paragraf("Kepala Penjaminan Mutu Internal", { spasi: { after: 0 } }),
+                paragraf(L.kepalaPenjaminanMutuInternal, { spasi: { after: 0 } }),
               ],
               { lebar: 34 },
             ),
@@ -199,45 +205,58 @@ function halamanPengesahan(r: RpkpsLengkap): (Paragraph | Table)[] {
         }),
       ],
     }),
+    /**
+     * Satu baris di kaki halaman pengesahan, hanya pada berkas Inggris:
+     * naskah yang sah adalah yang berbahasa Indonesia. Untuk keperluan
+     * akreditasi, yang diserahkan tetap berkas Indonesia (docs/11 §7).
+     */
+    ...(L.naskahSahIndonesia
+      ? [
+          paragraf([teks(L.naskahSahIndonesia, { ukuran: 14, warna: "6B7280" })], {
+            rata: AlignmentType.CENTER,
+            spasi: { before: 200 },
+          }),
+        ]
+      : []),
   ];
 }
 
-function bagianAwal(r: RpkpsLengkap): (Paragraph | Table)[] {
+function bagianAwal(r: RpkpsLengkap, L: LabelDokumen): (Paragraph | Table)[] {
   const sks = r.mataKuliah.sksTeori + r.mataKuliah.sksPraktik;
   const isi: (Paragraph | Table)[] = [
     paragraf(
-      [teks("RENCANA PROGRAM DAN KEGIATAN PEMBELAJARAN SEMESTER (RPKPS)", { tebal: true, ukuran: 24 })],
+      [teks(L.rencanaProgramDanKegiatanPembelaja, { tebal: true, ukuran: 24 })],
       { rata: AlignmentType.CENTER, spasi: { after: 40 } },
     ),
-    paragraf([teks("INSTITUT TEKNOLOGI TANGERANG SELATAN", { tebal: true, ukuran: 24 })], {
+    paragraf([teks(L.institutTeknologiTangerangSelatan, { tebal: true, ukuran: 24 })], {
       rata: AlignmentType.CENTER,
       spasi: { after: 240 },
     }),
 
-    paragraf([teks("NAMA MATA KULIAH\t: ", { tebal: true }), teks(r.mataKuliah.nama)]),
+    paragraf([teks(L.namaMataKuliah, { tebal: true }), teks(r.mataKuliah.nama)]),
     paragraf([
-      teks("KODE MK / SKS\t: ", { tebal: true }),
+      teks(L.kodeMkSks, { tebal: true }),
       teks(`${r.mataKuliah.kode} / ${sks} (${r.mataKuliah.sksTeori}T + ${r.mataKuliah.sksPraktik}P)`),
     ]),
-    paragraf([teks("SEMESTER\t: ", { tebal: true }), teks(String(r.mataKuliah.semester))]),
-    paragraf([teks("MK PRASYARAT\t: ", { tebal: true }), teks("-")]),
+    paragraf([teks(L.semester, { tebal: true }), teks(String(r.mataKuliah.semester))]),
+    paragraf([teks(L.mkPrasyarat, { tebal: true }), teks("-")]),
     paragraf([
-      teks("STATUS MATAKULIAH\t: ", { tebal: true }),
+      teks(L.statusMatakuliah, { tebal: true }),
       teks(r.mataKuliah.status === "PILIHAN" ? "Pilihan" : "Wajib"),
     ]),
 
-    judulBagian("A", "DESKRIPSI MATA KULIAH"),
-    ...(r.deskripsi ? baris(r.deskripsi) : [paragraf("(belum diisi)", { miring: true })]),
+    judulBagian("A", L.deskripsiMataKuliah),
+    ...(r.deskripsi ? baris(r.deskripsi) : [paragraf(L.belumDiisi, { miring: true })]),
 
-    judulBagian("B", "CAPAIAN PEMBELAJARAN"),
+    judulBagian("B", L.capaianPembelajaran),
     paragraf(
-      [teks("B.1  Capaian Pembelajaran Lulusan (CPL) Program Studi yang Terkait dengan Mata Kuliah", { tebal: true })],
+      [teks(L.b1CapaianPembelajaranLulusanCpl, { tebal: true })],
       { spasi: { after: 100 } },
     ),
   ];
 
   const kkni = r.mataKuliah.cpl.map((m) => m.cpl).find(() => true);
-  if (kkni) isi.push(paragraf([teks("Tingkat KKNI: 6")], { spasi: { after: 100 } }));
+  if (kkni) isi.push(paragraf([teks(L.tingkatKkni6)], { spasi: { after: 100 } }));
 
   for (const m of r.mataKuliah.cpl) {
     isi.push(
@@ -249,7 +268,7 @@ function bagianAwal(r: RpkpsLengkap): (Paragraph | Table)[] {
   }
 
   isi.push(
-    paragraf([teks("B.2  Capaian Pembelajaran Mata Kuliah (CPMK)", { tebal: true })], {
+    paragraf([teks(L.b2CapaianPembelajaranMataKuliah, { tebal: true })], {
       spasi: { before: 160, after: 100 },
     }),
   );
@@ -264,7 +283,7 @@ function bagianAwal(r: RpkpsLengkap): (Paragraph | Table)[] {
   }
 
   isi.push(
-    paragraf([teks("B.3  Sub Capaian Pembelajaran Mata Kuliah (Sub-CPMK)", { tebal: true })], {
+    paragraf([teks(L.b3SubCapaianPembelajaranMata, { tebal: true })], {
       spasi: { before: 160, after: 100 },
     }),
   );
@@ -282,35 +301,38 @@ function bagianAwal(r: RpkpsLengkap): (Paragraph | Table)[] {
   }
 
   isi.push(
-    judulBagian("C", "ANALISIS PEMBELAJARAN"),
-    paragraf("- Gambar Terlampir -", { miring: true }),
+    judulBagian("C", L.analisisPembelajaran),
+    paragraf(L.gambarTerlampir, { miring: true }),
   );
 
   // Bagian D diturunkan dari topik pertemuan efektif, bukan disimpan ganda.
   const topik = r.pertemuan
     .filter((p) => p.jenis === "EFEKTIF" && p.topik?.trim())
     .map((p) => p.topik!.trim());
-  isi.push(judulBagian("D", "TOPIK PEMBELAJARAN"));
+  isi.push(judulBagian("D", L.topikPembelajaran));
   isi.push(
     ...(topik.length > 0
       ? daftarBernomor(topik)
-      : [paragraf("(belum ada topik)", { miring: true })]),
+      : [paragraf(L.belumAdaTopik, { miring: true })]),
   );
 
   return isi;
 }
 
-function bagianEvaluasi(r: RpkpsLengkap): (Paragraph | Table)[] {
-  const isi: (Paragraph | Table)[] = [judulBagian("E", "EVALUASI PEMBELAJARAN")];
+function bagianEvaluasi(r: RpkpsLengkap, L: LabelDokumen): (Paragraph | Table)[] {
+  const isi: (Paragraph | Table)[] = [judulBagian("E", L.evaluasiPembelajaran)];
 
   const pertemuanEfektif = r.pertemuan.filter((p) => p.jenis === "EFEKTIF").length;
   const minimalHadir = Math.ceil((r.minimalKehadiranPersen / 100) * pertemuanEfektif);
 
   isi.push(
     ...daftarBernomor([
-      "Kehadiran tepat waktu dalam perkuliahan adalah wajib. Mahasiswa akan dianggap tidak hadir apabila datang melebihi waktu yang telah ditentukan.",
-      `Mengikuti ${pertemuanEfektif} kali pertemuan perkuliahan adalah wajib. Mahasiswa harus hadir minimal ${minimalHadir} dari ${pertemuanEfektif} pertemuan untuk dapat mengikuti ujian akhir.`,
-      "Nilai akhir ditentukan berdasarkan komponen berikut:",
+      L.aturanKehadiran,
+      isi_(L.aturanMinimalHadir, {
+        pertemuan: pertemuanEfektif,
+        minimal: minimalHadir,
+      }),
+      L.nilaiAkhirDitentukan,
     ]),
   );
 
@@ -332,7 +354,7 @@ function bagianEvaluasi(r: RpkpsLengkap): (Paragraph | Table)[] {
   const petaSub = petaKomponenSubCpmk(susunPetaAsesmen(keSumberPeta(r)));
 
   isi.push(
-    paragraf([teks("Tabel: Distribusi Penilaian Capaian Pembelajaran", { tebal: true })], {
+    paragraf([teks(L.tabelDistribusiPenilaianCapaianPem, { tebal: true })], {
       spasi: { before: 200, after: 100 },
     }),
   );
@@ -342,9 +364,9 @@ function bagianEvaluasi(r: RpkpsLengkap): (Paragraph | Table)[] {
     new TableRow({
       tableHeader: true,
       children: [
-        sel("CPL", { lebar: 8, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
-        sel("CPMK", { lebar: 10, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
-        sel("SUB-CPMK", { lebar: 36, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
+        sel(L.cpl, { lebar: 8, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
+        sel(L.cpmk, { lebar: 10, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
+        sel(L.subCpmk, { lebar: 36, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
         ...komponen.map((k) =>
           sel(`${k.nama} (${Number(k.bobot)}%)`, {
             lebar: lebarKomponen,
@@ -381,20 +403,20 @@ function bagianEvaluasi(r: RpkpsLengkap): (Paragraph | Table)[] {
   isi.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: barisTabel }));
 
   isi.push(
-    paragraf([teks("PENILAIAN AKHIR :", { tebal: true })], { spasi: { before: 200, after: 100 } }),
+    paragraf([teks(L.penilaianAkhir, { tebal: true })], { spasi: { before: 200, after: 100 } }),
     new Table({
       width: { size: 100, type: WidthType.PERCENTAGE },
       rows: [
         new TableRow({
           tableHeader: true,
           children: [
-            sel("RENTANG SKOR", { lebar: 25, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
-            sel("NILAI HURUF", { lebar: 20, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
-            sel("NILAI ANGKA", { lebar: 20, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
-            sel("KETERANGAN", { lebar: 35, tebal: true, latar: ABU }),
+            sel(L.rentangSkor, { lebar: 25, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
+            sel(L.nilaiHuruf, { lebar: 20, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
+            sel(L.nilaiAngka, { lebar: 20, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
+            sel(L.keterangan, { lebar: 35, tebal: true, latar: ABU }),
           ],
         }),
-        ...SKALA_NILAI.map((s) =>
+        ...skalaNilai(L).map((s) =>
           new TableRow({
             children: [
               sel(s.rentang, { lebar: 25, rata: AlignmentType.CENTER }),
@@ -407,13 +429,13 @@ function bagianEvaluasi(r: RpkpsLengkap): (Paragraph | Table)[] {
       ],
     }),
 
-    judulBagian("F", "AMBANG BATAS KELULUSAN"),
+    judulBagian("F", L.ambangBatasKelulusan),
     paragraf([
-      teks("Ambang Batas Kelulusan Mahasiswa\t: ", { tebal: true }),
+      teks(L.ambangBatasKelulusanMahasiswa, { tebal: true }),
       teks(String(Number(r.ambangKelulusanMhs))),
     ]),
     paragraf([
-      teks("Ambang Batas Kelulusan MK\t: ", { tebal: true }),
+      teks(L.ambangBatasKelulusanMk, { tebal: true }),
       teks(`${Number(r.ambangKetercapaianMk).toFixed(2)}%`),
     ]),
   );
@@ -421,26 +443,26 @@ function bagianEvaluasi(r: RpkpsLengkap): (Paragraph | Table)[] {
   return isi;
 }
 
-const SKALA_NILAI = [
-  { rentang: "85 – 100", huruf: "A", angka: "4", keterangan: "Sangat Baik" },
-  { rentang: "80 – 84,99", huruf: "A-", angka: "3,7", keterangan: "Baik" },
+const skalaNilai = (L: LabelDokumen) => [
+  { rentang: "85 – 100", huruf: "A", angka: "4", keterangan: L.keteranganNilai.sangatBaik },
+  { rentang: "80 – 84,99", huruf: "A-", angka: "3,7", keterangan: L.keteranganNilai.baik },
   { rentang: "75 – 79,99", huruf: "B+", angka: "3,3", keterangan: "" },
   { rentang: "70 – 74,99", huruf: "B", angka: "3,0", keterangan: "" },
-  { rentang: "65 – 69,99", huruf: "B-", angka: "2,7", keterangan: "Memuaskan" },
+  { rentang: "65 – 69,99", huruf: "B-", angka: "2,7", keterangan: L.keteranganNilai.memuaskan },
   { rentang: "60 – 64,99", huruf: "C+", angka: "2,3", keterangan: "" },
   { rentang: "55 – 59,99", huruf: "C", angka: "2,0", keterangan: "" },
-  { rentang: "45 – 54,99", huruf: "D", angka: "1,0", keterangan: "Kurang Memuaskan" },
-  { rentang: "0 – 44,99", huruf: "E", angka: "0", keterangan: "Sangat Tidak Memuaskan" },
+  { rentang: "45 – 54,99", huruf: "D", angka: "1,0", keterangan: L.keteranganNilai.kurangMemuaskan },
+  { rentang: "0 – 44,99", huruf: "E", angka: "0", keterangan: L.keteranganNilai.sangatTidakMemuaskan },
 ];
 
-function bagianReferensi(r: RpkpsLengkap): (Paragraph | Table)[] {
-  const isi: (Paragraph | Table)[] = [judulBagian("G", "REFERENSI DAN SUMBER PEMBELAJARAN")];
+function bagianReferensi(r: RpkpsLengkap, L: LabelDokumen): (Paragraph | Table)[] {
+  const isi: (Paragraph | Table)[] = [judulBagian("G", L.referensiDanSumberPembelajaran)];
 
   for (const jenis of ["UTAMA", "PENDUKUNG", "DARING", "TOOLS"] as const) {
     const daftar = r.pustaka.filter((p) => p.jenis === jenis);
     if (daftar.length === 0) continue;
     isi.push(
-      paragraf([teks(`${LABEL_JENIS_PUSTAKA[jenis]} :`, { tebal: true })], {
+      paragraf([teks(`${L.jenisPustaka[jenis]} :`, { tebal: true })], {
         spasi: { before: 140, after: 80 },
       }),
     );
@@ -455,31 +477,31 @@ function bagianReferensi(r: RpkpsLengkap): (Paragraph | Table)[] {
     }
   }
 
-  if (r.pustaka.length === 0) isi.push(paragraf("(belum ada pustaka)", { miring: true }));
+  if (r.pustaka.length === 0) isi.push(paragraf(L.belumAdaPustaka, { miring: true }));
   return isi;
 }
 
 /** Bagian H — tabel mingguan 7 kolom, halaman mendatar. */
-function tabelMingguan(r: RpkpsLengkap): (Paragraph | Table)[] {
+function tabelMingguan(r: RpkpsLengkap, L: LabelDokumen): (Paragraph | Table)[] {
   const kepalaTabel = new TableRow({
     tableHeader: true,
     children: [
-      sel("Minggu ke", { lebar: 5, tebal: true, latar: ABU, rata: AlignmentType.CENTER, barisGabung: 2 }),
-      sel("Sub-Capaian Pembelajaran Mata Kuliah (Sub-CPMK)", { lebar: 16, tebal: true, latar: ABU, rata: AlignmentType.CENTER, barisGabung: 2 }),
-      sel("Topik & Subtopik", { lebar: 16, tebal: true, latar: ABU, rata: AlignmentType.CENTER, barisGabung: 2 }),
-      sel("Metode dan Aktivitas Pembelajaran", { lebar: 22, tebal: true, latar: ABU, rata: AlignmentType.CENTER, barisGabung: 2 }),
-      sel("Alokasi Waktu", { lebar: 8, tebal: true, latar: ABU, rata: AlignmentType.CENTER, barisGabung: 2 }),
-      sel("Penilaian", { lebar: 26, tebal: true, latar: ABU, rata: AlignmentType.CENTER, kolomGabung: 3 }),
-      sel("Referensi", { lebar: 7, tebal: true, latar: ABU, rata: AlignmentType.CENTER, barisGabung: 2 }),
+      sel(L.mingguKe, { lebar: 5, tebal: true, latar: ABU, rata: AlignmentType.CENTER, barisGabung: 2 }),
+      sel(L.subCapaianPembelajaranMataKuliahSu, { lebar: 16, tebal: true, latar: ABU, rata: AlignmentType.CENTER, barisGabung: 2 }),
+      sel(L.topikSubtopik, { lebar: 16, tebal: true, latar: ABU, rata: AlignmentType.CENTER, barisGabung: 2 }),
+      sel(L.metodeDanAktivitasPembelajaran, { lebar: 22, tebal: true, latar: ABU, rata: AlignmentType.CENTER, barisGabung: 2 }),
+      sel(L.alokasiWaktu, { lebar: 8, tebal: true, latar: ABU, rata: AlignmentType.CENTER, barisGabung: 2 }),
+      sel(L.penilaian, { lebar: 26, tebal: true, latar: ABU, rata: AlignmentType.CENTER, kolomGabung: 3 }),
+      sel(L.referensi, { lebar: 7, tebal: true, latar: ABU, rata: AlignmentType.CENTER, barisGabung: 2 }),
     ],
   });
 
   const subKepala = new TableRow({
     tableHeader: true,
     children: [
-      sel("Jenis Penilaian dan Sistem Penilaian", { lebar: 12, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
-      sel("Indikator", { lebar: 10, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
-      sel("Bobot", { lebar: 4, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
+      sel(L.jenisPenilaianDanSistemPenilaian, { lebar: 12, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
+      sel(L.indikator, { lebar: 10, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
+      sel(L.bobot, { lebar: 4, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
     ],
   });
 
@@ -491,31 +513,31 @@ function tabelMingguan(r: RpkpsLengkap): (Paragraph | Table)[] {
     );
 
     const topik: Paragraph[] = [];
-    if (p.topik) topik.push(paragraf([teks("Topik: ", { tebal: true }), teks(p.topik)]));
+    if (p.topik) topik.push(paragraf([teks(L.topik, { tebal: true }), teks(p.topik)]));
     if (p.subtopik.length > 0) {
-      topik.push(paragraf([teks("Subtopik:", { tebal: true })], { spasi: { after: 20 } }));
+      topik.push(paragraf([teks(L.subtopik, { tebal: true })], { spasi: { after: 20 } }));
       topik.push(...daftarBernomor(p.subtopik, { rata: AlignmentType.LEFT }));
     }
 
     const metode: Paragraph[] = [];
     if (p.metodeNarasi) {
-      metode.push(paragraf([teks("Metode Pembelajaran:", { tebal: true })], { spasi: { after: 20 } }));
+      metode.push(paragraf([teks(L.metodePembelajaran, { tebal: true })], { spasi: { after: 20 } }));
       metode.push(...baris(p.metodeNarasi, { rata: AlignmentType.LEFT }));
     }
     if (p.aktivitasDosen || p.aktivitasMahasiswa) {
-      metode.push(paragraf([teks("Aktivitas:", { tebal: true })], { spasi: { before: 60, after: 20 } }));
+      metode.push(paragraf([teks(L.aktivitas, { tebal: true })], { spasi: { before: 60, after: 20 } }));
       if (p.aktivitasDosen) {
-        metode.push(paragraf([teks("Dosen: ", { tebal: true, miring: true }), teks(p.aktivitasDosen)]));
+        metode.push(paragraf([teks(L.dosen, { tebal: true, miring: true }), teks(p.aktivitasDosen)]));
       }
       if (p.aktivitasMahasiswa) {
         metode.push(
-          paragraf([teks("Mahasiswa: ", { tebal: true, miring: true }), teks(p.aktivitasMahasiswa)]),
+          paragraf([teks(L.mahasiswa, { tebal: true, miring: true }), teks(p.aktivitasMahasiswa)]),
         );
       }
     }
     if (p.tugasTerstruktur) {
       metode.push(
-        paragraf([teks("Tugas / Pekerjaan Terstruktur (PT):", { tebal: true })], {
+        paragraf([teks(L.tugasPekerjaanTerstrukturPt, { tebal: true })], {
           spasi: { before: 60, after: 20 },
         }),
       );
@@ -536,12 +558,12 @@ function tabelMingguan(r: RpkpsLengkap): (Paragraph | Table)[] {
 
     const penilaian: Paragraph[] = [];
     if (p.penilaianJenis) {
-      penilaian.push(paragraf([teks("Penilaian:", { tebal: true })], { spasi: { after: 20 } }));
+      penilaian.push(paragraf([teks(L.penilaian2, { tebal: true })], { spasi: { after: 20 } }));
       penilaian.push(paragraf(p.penilaianJenis));
     }
     if (p.penilaianSistem) {
       penilaian.push(
-        paragraf([teks("Sistem Penilaian:", { tebal: true })], { spasi: { before: 60, after: 20 } }),
+        paragraf([teks(L.sistemPenilaian, { tebal: true })], { spasi: { before: 60, after: 20 } }),
       );
       penilaian.push(paragraf(p.penilaianSistem));
     }
@@ -566,7 +588,7 @@ function tabelMingguan(r: RpkpsLengkap): (Paragraph | Table)[] {
   });
 
   return [
-    judulBagian("H", "RENCANA PEMBELAJARAN MINGGUAN"),
+    judulBagian("H", L.rencanaPembelajaranMingguan),
     new Table({
       width: { size: 100, type: WidthType.PERCENTAGE },
       rows: [kepalaTabel, subKepala, ...barisIsi],
@@ -575,10 +597,10 @@ function tabelMingguan(r: RpkpsLengkap): (Paragraph | Table)[] {
 }
 
 /** Bagian I — Detail Tugas / Proyek. */
-function bagianTugas(r: RpkpsLengkap): (Paragraph | Table)[] {
+function bagianTugas(r: RpkpsLengkap, L: LabelDokumen): (Paragraph | Table)[] {
   if (r.tugas.length === 0) return [];
 
-  const isi: (Paragraph | Table)[] = [judulBagian("I", "DETAIL TUGAS / PROYEK")];
+  const isi: (Paragraph | Table)[] = [judulBagian("I", L.detailTugasProyek)];
 
   for (const t of r.tugas) {
     const sub = t.subCpmk.map((x) => x.subCpmk.kode).join(", ");
@@ -588,26 +610,26 @@ function bagianTugas(r: RpkpsLengkap): (Paragraph | Table)[] {
         spasi: { before: 200, after: 100 },
       }),
       paragraf([
-        teks("Nomor Tugas / Proyek\t: ", { tebal: true }),
+        teks(L.nomorTugasProyek, { tebal: true }),
         teks(`${t.nomor},  Minggu : ${t.mingguMulai}-${t.mingguSelesai}`),
       ]),
-      paragraf([teks("Nama Mata Kuliah\t: ", { tebal: true }), teks(r.mataKuliah.nama)]),
-      paragraf([teks("Kode Mata Kuliah\t: ", { tebal: true }), teks(r.mataKuliah.kode)]),
+      paragraf([teks(L.namaMataKuliah2, { tebal: true }), teks(r.mataKuliah.nama)]),
+      paragraf([teks(L.kodeMataKuliah, { tebal: true }), teks(r.mataKuliah.kode)]),
       paragraf([
-        teks("Jenis Tugas / Proyek\t: ", { tebal: true }),
+        teks(L.jenisTugasProyek, { tebal: true }),
         teks(t.jenis === "KELOMPOK" ? "Group Project" : "Tugas Individu"),
       ]),
       paragraf([
-        teks("Bobot\t: ", { tebal: true }),
+        teks(L.bobot3, { tebal: true }),
         teks(
           `${Number(t.bobot)}%${t.komponenNilai ? ` (Komponen ${t.komponenNilai.nama})` : ""}`,
         ),
       ]),
-      paragraf([teks("Sub-CPMK Terkait\t: ", { tebal: true }), teks(sub || "-")]),
+      paragraf([teks(L.subCpmkTerkait, { tebal: true }), teks(sub || "-")]),
     );
 
     isi.push(
-      paragraf([teks("Deskripsi Tugas", { tebal: true })], {
+      paragraf([teks(L.deskripsiTugas, { tebal: true })], {
         spasi: { before: 140, after: 60 },
       }),
       ...baris(t.deskripsi),
@@ -615,7 +637,7 @@ function bagianTugas(r: RpkpsLengkap): (Paragraph | Table)[] {
 
     if (t.uraianTugas) {
       isi.push(
-        paragraf([teks("Uraian Tugas", { tebal: true })], {
+        paragraf([teks(L.uraianTugas, { tebal: true })], {
           spasi: { before: 140, after: 60 },
         }),
         ...baris(t.uraianTugas),
@@ -624,7 +646,7 @@ function bagianTugas(r: RpkpsLengkap): (Paragraph | Table)[] {
 
     if (t.formatLuaran) {
       isi.push(
-        paragraf([teks("Format dan Luaran", { tebal: true })], {
+        paragraf([teks(L.formatDanLuaran, { tebal: true })], {
           spasi: { before: 140, after: 60 },
         }),
         ...baris(t.formatLuaran),
@@ -633,7 +655,7 @@ function bagianTugas(r: RpkpsLengkap): (Paragraph | Table)[] {
 
     if (t.kriteria.length > 0) {
       isi.push(
-        paragraf([teks("Indikator, Kriteria, dan Bobot Penilaian", { tebal: true })], {
+        paragraf([teks(L.indikatorKriteriaDanBobotPenilaian, { tebal: true })], {
           spasi: { before: 160, after: 100 },
         }),
         new Table({
@@ -642,9 +664,9 @@ function bagianTugas(r: RpkpsLengkap): (Paragraph | Table)[] {
             new TableRow({
               tableHeader: true,
               children: [
-                sel("No.", { lebar: 8, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
-                sel("Indikator", { lebar: 77, tebal: true, latar: ABU }),
-                sel("Bobot (%)", { lebar: 15, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
+                sel(L.no, { lebar: 8, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
+                sel(L.indikator, { lebar: 77, tebal: true, latar: ABU }),
+                sel(L.bobot2, { lebar: 15, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
               ],
             }),
             ...t.kriteria.map((k) =>
@@ -667,7 +689,7 @@ function bagianTugas(r: RpkpsLengkap): (Paragraph | Table)[] {
             new TableRow({
               children: [
                 sel("", { lebar: 8, latar: ABU }),
-                sel("Total", { lebar: 77, tebal: true, latar: ABU, rata: AlignmentType.RIGHT }),
+                sel(L.total, { lebar: 77, tebal: true, latar: ABU, rata: AlignmentType.RIGHT }),
                 sel(
                   `${t.kriteria.reduce((a, k) => a + Number(k.bobot), 0)}%`,
                   { lebar: 15, tebal: true, latar: ABU, rata: AlignmentType.CENTER },
@@ -681,7 +703,7 @@ function bagianTugas(r: RpkpsLengkap): (Paragraph | Table)[] {
 
     if (t.linimasa.length > 0) {
       isi.push(
-        paragraf([teks("Linimasa Proyek / Tugas", { tebal: true })], {
+        paragraf([teks(L.linimasaProyekTugas, { tebal: true })], {
           spasi: { before: 160, after: 100 },
         }),
         new Table({
@@ -690,9 +712,9 @@ function bagianTugas(r: RpkpsLengkap): (Paragraph | Table)[] {
             new TableRow({
               tableHeader: true,
               children: [
-                sel("Minggu ke", { lebar: 12, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
-                sel("Tahapan", { lebar: 28, tebal: true, latar: ABU }),
-                sel("Deskripsi Aktivitas", { lebar: 60, tebal: true, latar: ABU }),
+                sel(L.mingguKe, { lebar: 12, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
+                sel(L.tahapan, { lebar: 28, tebal: true, latar: ABU }),
+                sel(L.deskripsiAktivitas, { lebar: 60, tebal: true, latar: ABU }),
               ],
             }),
             ...t.linimasa.map((l) =>
@@ -711,7 +733,7 @@ function bagianTugas(r: RpkpsLengkap): (Paragraph | Table)[] {
 
     if (t.ketentuanLain) {
       isi.push(
-        paragraf([teks("Ketentuan Lainnya", { tebal: true })], {
+        paragraf([teks(L.ketentuanLainnya, { tebal: true })], {
           spasi: { before: 160, after: 60 },
         }),
         ...baris(t.ketentuanLain),
@@ -722,22 +744,12 @@ function bagianTugas(r: RpkpsLengkap): (Paragraph | Table)[] {
   return isi;
 }
 
-const LABEL_BENTUK_SOAL: Record<string, string> = {
-  PILIHAN_GANDA: "Pilihan ganda",
-  ESAI: "Esai",
-  URAIAN_SINGKAT: "Uraian singkat",
-  STUDI_KASUS: "Studi kasus",
-  PRAKTIK: "Praktik",
-  PROYEK: "Proyek",
-  LISAN: "Lisan",
-};
-
 /** Lampiran — kisi-kisi UTS dan UAS. */
-function lampiranKisiKisi(r: RpkpsLengkap): (Paragraph | Table)[] {
+function lampiranKisiKisi(r: RpkpsLengkap, L: LabelDokumen): (Paragraph | Table)[] {
   if (r.kisiKisi.length === 0) return [];
 
   const isi: (Paragraph | Table)[] = [
-    paragraf([teks("LAMPIRAN — KISI-KISI UJIAN", { tebal: true, ukuran: UKURAN_JUDUL })], {
+    paragraf([teks(L.lampiranKisiKisiUjian, { tebal: true, ukuran: UKURAN_JUDUL })], {
       spasi: { before: 240, after: 120 },
     }),
   ];
@@ -748,8 +760,8 @@ function lampiranKisiKisi(r: RpkpsLengkap): (Paragraph | Table)[] {
       paragraf([teks(judul, { tebal: true })], { spasi: { before: 180, after: 60 } }),
       paragraf(
         [
-          teks(`Total skor ${Number(k.totalSkor)}`),
-          ...(k.durasiMenit ? [teks(` · durasi ${k.durasiMenit} menit`)] : []),
+          teks(isi_(L.totalSkorKisi, { skor: Number(k.totalSkor) })),
+          ...(k.durasiMenit ? [teks(isi_(L.durasiKisi, { menit: k.durasiMenit ?? 0 }))] : []),
           ...(k.catatan ? [teks(` · ${k.catatan}`)] : []),
         ],
         { spasi: { after: 100 } },
@@ -757,7 +769,7 @@ function lampiranKisiKisi(r: RpkpsLengkap): (Paragraph | Table)[] {
     );
 
     if (k.butir.length === 0) {
-      isi.push(paragraf("(belum ada butir)", { miring: true }));
+      isi.push(paragraf(L.belumAdaButir, { miring: true }));
       continue;
     }
 
@@ -768,13 +780,13 @@ function lampiranKisiKisi(r: RpkpsLengkap): (Paragraph | Table)[] {
           new TableRow({
             tableHeader: true,
             children: [
-              sel("No.", { lebar: 6, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
-              sel("Sub-CPMK", { lebar: 16, tebal: true, latar: ABU }),
-              sel("Indikator soal", { lebar: 38, tebal: true, latar: ABU }),
-              sel("Level", { lebar: 10, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
-              sel("Bentuk", { lebar: 16, tebal: true, latar: ABU }),
-              sel("Butir", { lebar: 7, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
-              sel("Skor", { lebar: 7, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
+              sel(L.no, { lebar: 6, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
+              sel(L.subCpmk2, { lebar: 16, tebal: true, latar: ABU }),
+              sel(L.indikatorSoal, { lebar: 38, tebal: true, latar: ABU }),
+              sel(L.level, { lebar: 10, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
+              sel(L.bentuk, { lebar: 16, tebal: true, latar: ABU }),
+              sel(L.butir, { lebar: 7, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
+              sel(L.skor, { lebar: 7, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
             ],
           }),
           ...k.butir.map((b) =>
@@ -784,7 +796,7 @@ function lampiranKisiKisi(r: RpkpsLengkap): (Paragraph | Table)[] {
                 sel(b.subCpmk.kode, { lebar: 16 }),
                 sel(b.indikator ?? b.subCpmk.rumusan, { lebar: 38 }),
                 sel(b.levelBloom, { lebar: 10, rata: AlignmentType.CENTER }),
-                sel(LABEL_BENTUK_SOAL[b.bentuk] ?? b.bentuk, { lebar: 16 }),
+                sel(L.bentukSoal[b.bentuk] ?? b.bentuk, { lebar: 16 }),
                 sel(String(b.jumlahButir), { lebar: 7, rata: AlignmentType.CENTER }),
                 sel(String(Number(b.skor)), { lebar: 7, rata: AlignmentType.CENTER }),
               ],
@@ -793,7 +805,7 @@ function lampiranKisiKisi(r: RpkpsLengkap): (Paragraph | Table)[] {
           new TableRow({
             children: [
               sel("", { lebar: 6, latar: ABU }),
-              sel("Total", { lebar: 80, tebal: true, latar: ABU, rata: AlignmentType.RIGHT, kolomGabung: 4 }),
+              sel(L.total, { lebar: 80, tebal: true, latar: ABU, rata: AlignmentType.RIGHT, kolomGabung: 4 }),
               sel(String(k.butir.reduce((s, b) => s + b.jumlahButir, 0)), {
                 lebar: 7, tebal: true, latar: ABU, rata: AlignmentType.CENTER,
               }),
@@ -810,19 +822,23 @@ function lampiranKisiKisi(r: RpkpsLengkap): (Paragraph | Table)[] {
   return isi;
 }
 
-function bagianRiwayat(r: RpkpsLengkap, riwayat: { versi: number; dibuatPada: Date; deskripsi: string }[]) {
+function bagianRiwayat(
+  r: RpkpsLengkap,
+  riwayat: { versi: number; dibuatPada: Date; deskripsi: string }[],
+  L: LabelDokumen,
+) {
   return [
-    judulBagian("J", "HISTORI REVISI"),
+    judulBagian("J", L.historiRevisi),
     new Table({
       width: { size: 100, type: WidthType.PERCENTAGE },
       rows: [
         new TableRow({
           tableHeader: true,
           children: [
-            sel("Kode MK", { lebar: 15, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
-            sel("No. Revisi", { lebar: 12, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
-            sel("Tanggal Berlaku", { lebar: 20, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
-            sel("Deskripsi Perubahan", { lebar: 53, tebal: true, latar: ABU }),
+            sel(L.kodeMk, { lebar: 15, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
+            sel(L.noRevisi, { lebar: 12, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
+            sel(L.tanggalBerlaku, { lebar: 20, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
+            sel(L.deskripsiPerubahan, { lebar: 53, tebal: true, latar: ABU }),
           ],
         }),
         ...riwayat.map((h) =>
@@ -852,7 +868,15 @@ export async function buatDokumenRpkps(
   riwayat: { versi: number; dibuatPada: Date; deskripsi: string }[],
   /** Sidik salinan beku; hanya ada pada dokumen yang sudah terbit. */
   sidik?: string | null,
+  /**
+   * Bahasa cetak. Bawaannya Indonesia — dan itu bukan sekadar bawaan teknis:
+   * naskah Indonesia adalah dokumen yang sah dan yang ditandatangani. Berkas
+   * Inggris adalah terjemahan resmi yang menyatakan hal itu di halaman
+   * pengesahannya (docs/11 §7).
+   */
+  bahasa: Bahasa = "id",
 ): Promise<Buffer> {
+  const L = labelDokumen(bahasa);
   const potret = { width: 11906, height: 16838 }; // A4 dalam twip
   const mendatar = { width: 16838, height: 11906 };
 
@@ -862,21 +886,21 @@ export async function buatDokumenRpkps(
     sections: [
       {
         properties: { page: { size: potret, margin: { top: 850, bottom: 850, left: 850, right: 850 } } },
-        headers: { default: kepala(r) },
-        footers: { default: kaki(r) },
+        headers: { default: kepala(r, L) },
+        footers: { default: kaki(r, L) },
         children: [
-          ...halamanPengesahan(r),
+          ...halamanPengesahan(r, L),
           paragraf("", { spasi: { after: 0 } }),
           ...(sidik
             ? [
                 paragraf(
                   [
-                    teks("Dokumen ini dicetak dari salinan resmi versi ", {
+                    teks(L.dokumenIniDicetakDariSalinanResmi, {
                       ukuran: 14,
                       warna: "6B7280",
                     }),
                     teks(String(r.versi), { ukuran: 14, tebal: true, warna: "6B7280" }),
-                    teks(`. Sidik dokumen: ${sidikRingkas(sidik)}`, {
+                    teks(isi_(L.sidikDokumen, { sidik: sidikRingkas(sidik) }), {
                       ukuran: 14,
                       warna: "6B7280",
                     }),
@@ -887,9 +911,9 @@ export async function buatDokumenRpkps(
             : []),
           // Halaman pengesahan berdiri sendiri; bagian A dimulai di halaman baru.
           pemisahHalaman(),
-          ...bagianAwal(r),
-          ...bagianEvaluasi(r),
-          ...bagianReferensi(r),
+          ...bagianAwal(r, L),
+          ...bagianEvaluasi(r, L),
+          ...bagianReferensi(r, L),
         ],
       },
       {
@@ -900,18 +924,18 @@ export async function buatDokumenRpkps(
             margin: { top: 700, bottom: 700, left: 700, right: 700 },
           },
         },
-        headers: { default: kepala(r) },
-        footers: { default: kaki(r) },
-        children: [...tabelMingguan(r)],
+        headers: { default: kepala(r, L) },
+        footers: { default: kaki(r, L) },
+        children: [...tabelMingguan(r, L)],
       },
       {
         properties: { page: { size: potret, margin: { top: 850, bottom: 850, left: 850, right: 850 } } },
-        headers: { default: kepala(r) },
-        footers: { default: kaki(r) },
+        headers: { default: kepala(r, L) },
+        footers: { default: kaki(r, L) },
         children: [
-          ...bagianTugas(r),
-          ...lampiranKisiKisi(r),
-          ...bagianRiwayat(r, riwayat),
+          ...bagianTugas(r, L),
+          ...lampiranKisiKisi(r, L),
+          ...bagianRiwayat(r, riwayat, L),
         ],
       },
     ],

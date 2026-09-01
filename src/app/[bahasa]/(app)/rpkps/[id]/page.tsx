@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { bahasaAktif, kamus } from "@/lib/bahasa/server";
 import { tanggal } from "@/lib/bahasa/format";
-import { isi } from "@/lib/bahasa/teks";
+import { isi, namaMk } from "@/lib/bahasa/teks";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { prisma } from "@/lib/prisma";
 import { punyaPeran, punyaPeranDiProdi, wajibAktif } from "@/lib/otorisasi";
@@ -26,6 +26,8 @@ import { jalurRpkpsPublik, urlSitus } from "@/lib/publik/tautan";
 import { TombolAjukan, TombolParaf, TombolPutusan } from "../tombol";
 import { statusParaf } from "@/domain/rpkps/paraf";
 import { bacaDataRiwayat, teksRiwayat } from "@/lib/bahasa/riwayat";
+import { kelengkapanRpkps } from "@/lib/rpkps/terjemahan";
+import type { Kamus } from "@/kamus";
 
 export const dynamic = "force-dynamic";
 
@@ -49,7 +51,13 @@ export default async function HalamanRpkpsDetail({
    * berubah tidak dihitung — lihat `statusParaf` (docs/14 §2.2).
    */
   const sidikSekarang = sidikRpkps(rpkps);
-  const hasil = validasiRpkps(keRpkpsInput({ ...rpkps, sidikSekarang }), kebijakan);
+  const hasil = validasiRpkps(
+    {
+      ...keRpkpsInput({ ...rpkps, sidikSekarang }),
+      terjemahanSebagian: kelengkapanRpkps(rpkps).sebagian,
+    },
+    kebijakan,
+  );
   const paraf = statusParaf({
     pengampu: rpkps.pengampu.map((p) => ({
       penggunaId: p.penggunaId,
@@ -140,7 +148,9 @@ export default async function HalamanRpkpsDetail({
    */
   const identitasAwal = {
     deskripsi: rpkps.deskripsi ?? "",
+    deskripsiEn: rpkps.deskripsiEn ?? "",
     kalimatPembukaCpmk: rpkps.kalimatPembukaCpmk ?? "",
+    kalimatPembukaCpmkEn: rpkps.kalimatPembukaCpmkEn ?? "",
     ambangKelulusanMhs: Number(rpkps.ambangKelulusanMhs),
     ambangKetercapaianMk: Number(rpkps.ambangKetercapaianMk),
     minimalKehadiranPersen: rpkps.minimalKehadiranPersen,
@@ -148,6 +158,7 @@ export default async function HalamanRpkpsDetail({
   const komponenNilaiAwal = rpkps.komponenNilai.map((komp) => ({
     id: komp.id,
     nama: komp.nama,
+    namaEn: komp.namaEn,
     bobot: Number(komp.bobot),
   }));
 
@@ -168,7 +179,7 @@ export default async function HalamanRpkpsDetail({
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="secondary">{rpkps.mataKuliah.kode}</Badge>
             <h1 className="text-2xl font-semibold tracking-tight">
-              {rpkps.mataKuliah.nama}
+              {namaMk(rpkps.mataKuliah, b)}
             </h1>
             <Badge variant={rpkps.status === "TERBIT" ? "default" : "outline"}>
               {k.enum.statusRpkps[rpkps.status]}
@@ -266,6 +277,8 @@ export default async function HalamanRpkpsDetail({
       ) : null}
 
       <PanelValidasi hasil={hasil} />
+
+      <PanelTerjemahan kelengkapan={kelengkapanRpkps(rpkps)} k={k} />
 
       <Card className={peta.lolos ? undefined : "border-l-2 border-l-warning bg-warning/8"}>
         <CardHeader>
@@ -528,5 +541,48 @@ function Metrik({ label, nilai }: { label: string; nilai: string }) {
       <p className="label-teknis text-muted-foreground/80">{label}</p>
       <p className="mt-1.5 font-mono text-sm font-semibold tabular-nums">{nilai}</p>
     </div>
+  );
+}
+
+/**
+ * Kelengkapan terjemahan. Angka, bukan tuntutan: terjemahan tidak pernah
+ * menghalangi pengajuan (docs/11 §5.6), jadi panel ini memakai nada netral —
+ * bukan peringatan.
+ */
+function PanelTerjemahan({
+  kelengkapan,
+  k,
+}: {
+  kelengkapan: ReturnType<typeof kelengkapanRpkps>;
+  k: Kamus;
+}) {
+  const { terisi, total, persen } = kelengkapan;
+  if (total === 0) return null;
+
+  const kalimat =
+    terisi === 0
+      ? k.dwibahasa.kelengkapanKosong
+      : terisi === total
+        ? k.dwibahasa.kelengkapanPenuh
+        : isi(k.dwibahasa.kelengkapan, { terisi, total });
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">{k.dwibahasa.kelengkapanJudul}</CardTitle>
+        <CardDescription>{k.dwibahasa.kelengkapanKeterangan}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <div className="flex items-baseline justify-between gap-3">
+          <span className="text-sm">{kalimat}</span>
+          <span className="font-mono text-sm tabular-nums text-muted-foreground">
+            {persen}%
+          </span>
+        </div>
+        <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+          <div className="h-full rounded-full bg-cahaya/60" style={{ width: `${persen}%` }} />
+        </div>
+      </CardContent>
+    </Card>
   );
 }

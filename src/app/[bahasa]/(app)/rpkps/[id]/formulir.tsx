@@ -48,37 +48,72 @@ export function FormulirIdentitas({
   id: string;
   awal: {
     deskripsi: string;
+    deskripsiEn: string;
     kalimatPembukaCpmk: string;
+    kalimatPembukaCpmkEn: string;
     ambangKelulusanMhs: number;
     ambangKetercapaianMk: number;
     minimalKehadiranPersen: number;
   };
 }) {
   const { menunggu, jalankan } = useAksi();
-  const { k } = useBahasa();
+  const { k, isi } = useBahasa();
 
   return (
     <form action={(fd) => jalankan(() => perbaruiIdentitas(id, fd))} className="space-y-4">
-      <div className="space-y-1.5">
-        <Label htmlFor="deskripsi">{k.rpkps.identitas.deskripsi}</Label>
-        <textarea
-          id="deskripsi"
-          name="deskripsi"
-          rows={5}
-          defaultValue={awal.deskripsi}
-          className="w-full rounded-lg border bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-          placeholder={k.rpkps.identitas.contohDeskripsi}
-        />
+      {/*
+        Borang ini memakai `defaultValue` + FormData, bukan state — jadi medan
+        Inggrisnya cukup ditaruh berdampingan, tanpa sakelar mode. Yang penting
+        sama: keduanya terkirim dalam SATU muatan simpan (docs/11 §5.3).
+      */}
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label htmlFor="deskripsi">{k.rpkps.identitas.deskripsi}</Label>
+          <textarea
+            id="deskripsi"
+            name="deskripsi"
+            rows={5}
+            defaultValue={awal.deskripsi}
+            className="w-full rounded-lg border bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+            placeholder={k.rpkps.identitas.contohDeskripsi}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="deskripsiEn">
+            {isi(k.dwibahasa.labelEn, { label: k.rpkps.identitas.deskripsi })}
+          </Label>
+          <textarea
+            id="deskripsiEn"
+            name="deskripsiEn"
+            rows={5}
+            defaultValue={awal.deskripsiEn}
+            className="w-full rounded-lg border bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+            placeholder={k.dwibahasa.belumDiterjemahkan}
+          />
+        </div>
       </div>
 
-      <div className="space-y-1.5">
-        <Label htmlFor="kalimatPembukaCpmk">{k.rpkps.identitas.kalimatPembuka}</Label>
-        <Input
-          id="kalimatPembukaCpmk"
-          name="kalimatPembukaCpmk"
-          defaultValue={awal.kalimatPembukaCpmk}
-          placeholder={k.rpkps.identitas.contohKalimatPembuka}
-        />
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label htmlFor="kalimatPembukaCpmk">{k.rpkps.identitas.kalimatPembuka}</Label>
+          <Input
+            id="kalimatPembukaCpmk"
+            name="kalimatPembukaCpmk"
+            defaultValue={awal.kalimatPembukaCpmk}
+            placeholder={k.rpkps.identitas.contohKalimatPembuka}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="kalimatPembukaCpmkEn">
+            {isi(k.dwibahasa.labelEn, { label: k.rpkps.identitas.kalimatPembuka })}
+          </Label>
+          <Input
+            id="kalimatPembukaCpmkEn"
+            name="kalimatPembukaCpmkEn"
+            defaultValue={awal.kalimatPembukaCpmkEn}
+            placeholder={k.dwibahasa.belumDiterjemahkan}
+          />
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
@@ -251,7 +286,7 @@ export function PengelolaPustaka({
  * "komponen lama dibuang, komponen baru ditambahkan". Tanpa itu, penyimpanan
  * melepaskan tautan seluruh baris mingguan dan lembar tugas.
  */
-type BarisKomponen = { id: string | null; nama: string; bobot: number };
+type BarisKomponen = { id: string | null; nama: string; namaEn: string | null; bobot: number };
 
 export function PengelolaKomponenNilai({
   rpkpsId,
@@ -263,7 +298,7 @@ export function PengelolaKomponenNilai({
   const { menunggu, jalankan } = useAksi();
   const { k, isi } = useBahasa();
   const [baris, setBaris] = useState<BarisKomponen[]>(
-    awal.length > 0 ? awal : [{ id: null, nama: "", bobot: 0 }],
+    awal.length > 0 ? awal : [{ id: null, nama: "", namaEn: null, bobot: 0 }],
   );
 
   const total = baris.reduce((s, b) => s + (Number(b.bobot) || 0), 0);
@@ -278,6 +313,17 @@ export function PengelolaKomponenNilai({
             placeholder={k.rpkps.komponen.contohNama}
             onChange={(e) =>
               setBaris((d) => d.map((x, j) => (j === i ? { ...x, nama: e.target.value } : x)))
+            }
+          />
+          {/* Terjemahan tampilan. Ia TIDAK ikut memasangkan baris — pencocokan
+              tetap lewat id lalu nama Indonesia (docs/11 §5.2). */}
+          <Input
+            value={b.namaEn ?? ""}
+            placeholder={k.dwibahasa.belumDiterjemahkan}
+            onChange={(e) =>
+              setBaris((d) =>
+                d.map((x, j) => (j === i ? { ...x, namaEn: e.target.value || null } : x)),
+              )
             }
           />
           <Input
@@ -305,7 +351,7 @@ export function PengelolaKomponenNilai({
         <Button
           variant="outline"
           size="sm"
-          onClick={() => setBaris((d) => [...d, { id: null, nama: "", bobot: 0 }])}
+          onClick={() => setBaris((d) => [...d, { id: null, nama: "", namaEn: null, bobot: 0 }])}
         >
           <Plus />
           {k.rpkps.komponen.tambah}

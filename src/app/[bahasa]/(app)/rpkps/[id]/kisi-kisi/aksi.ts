@@ -32,6 +32,7 @@ const SkemaKisiKisi = z.object({
   totalSkor: z.number().min(1).max(1000),
   durasiMenit: z.number().int().min(0).max(600).nullable(),
   catatan: z.string().trim().nullable(),
+  catatanEn: z.string().trim().nullable(),
   butir: z
     .array(
       z.object({
@@ -44,6 +45,7 @@ const SkemaKisiKisi = z.object({
         jumlahButir: z.number().int().min(1).max(200),
         skor: z.number().min(0).max(1000),
         indikator: z.string().trim().nullable(),
+        indikatorEn: z.string().trim().nullable(),
       }),
     )
     .max(100),
@@ -79,7 +81,12 @@ export async function simpanKisiKisi(
 
   const kisiKisi = await prisma.kisiKisi.upsert({
     where: { rpkpsId_jenis: { rpkpsId, jenis } },
-    update: { totalSkor: d.totalSkor, durasiMenit: d.durasiMenit, catatan: d.catatan },
+    update: {
+      totalSkor: d.totalSkor,
+      durasiMenit: d.durasiMenit,
+      catatan: d.catatan,
+      catatanEn: d.catatanEn,
+    },
     create: {
       rpkpsId,
       jenis,
@@ -102,6 +109,7 @@ export async function simpanKisiKisi(
         jumlahButir: b.jumlahButir,
         skor: b.skor,
         indikator: b.indikator,
+        indikatorEn: b.indikatorEn,
       })),
     }),
   ]);

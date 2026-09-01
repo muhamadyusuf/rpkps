@@ -1,4 +1,5 @@
 import { proyeksiIsi, type SumberProyeksi } from "./proyeksi";
+import { proyeksiIsiEn, type SumberProyeksiEn } from "./proyeksi-en";
 
 /**
  * Bentuk RPKPS yang boleh dilihat siapa pun, tanpa login.
@@ -63,4 +64,17 @@ export function labelTahunAkademik(kode: string): string {
   const [tahun, semester] = kode.split("-");
   if (!semester) return kode;
   return `${tahun} ${semester.charAt(0).toUpperCase()}${semester.slice(1).toLowerCase()}`;
+}
+
+/**
+ * Bentuk publik dari salinan beku berbahasa Inggris.
+ *
+ * Sengaja memakai tipe `DokumenPublik` yang sama: kedua proyeksi menghasilkan
+ * bentuk yang identik, dan komponen halaman publik tidak perlu tahu ia sedang
+ * merender versi yang mana. Yang berbeda hanya isinya — dan keterangan di
+ * kepala halaman, yang dipasang halaman itu sendiri.
+ */
+export function dokumenPublikEn(r: SumberProyeksiEn): DokumenPublik {
+  const { kisiKisi: _kisiKisi, ...sisa } = proyeksiIsiEn(r);
+  return sisa;
 }

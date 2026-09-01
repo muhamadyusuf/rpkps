@@ -34,6 +34,12 @@ export type ButirKatalog = {
   prodiNama: string;
   kode: string;
   nama: string;
+  /**
+   * Nama berbahasa Inggris, bila kurikulum menyediakannya. Kartu katalog
+   * membaca data LANGSUNG, bukan salinan beku — jadi di sini tidak berlaku
+   * larangan menyentuh proyeksi sidik, dan `pilihTeks` cukup.
+   */
+  namaEn: string | null;
   semester: number;
   sksTeori: number;
   sksPraktik: number;
@@ -52,6 +58,10 @@ export type RpkpsPublik = {
   kurikulum: { nama: string; tahun: number };
   tahunAkademik: string;
   dokumen: DokumenPublik;
+  /** Salinan beku berbahasa Inggris, atau null bila tidak diterbitkan. */
+  dokumenEn: DokumenPublik | null;
+  /** Sidik ruang kedua. Tidak pernah dibandingkan dengan `sidik`. */
+  sidikEn: string | null;
   riwayat: (Omit<BarisRiwayatBeku, "dibuatPada"> & { dibuatPada: Date })[];
   /** Tahun akademik lain yang RPKPS-nya juga sudah terbit, terbaru dulu. */
   versiLain: string[];
@@ -250,6 +260,7 @@ export async function daftarRpkpsPublik(
         select: {
           kode: true,
           nama: true,
+          namaEn: true,
           semester: true,
           sksTeori: true,
           sksPraktik: true,
@@ -280,6 +291,7 @@ export async function daftarRpkpsPublik(
       prodiNama: r.mataKuliah.kurikulum.prodi.nama,
       kode: r.mataKuliah.kode,
       nama: r.mataKuliah.nama,
+      namaEn: r.mataKuliah.namaEn,
       semester: r.mataKuliah.semester,
       sksTeori: r.mataKuliah.sksTeori,
       sksPraktik: r.mataKuliah.sksPraktik,
@@ -380,7 +392,7 @@ export const muatRpkpsPublik = cache(async function muatRpkpsPublik(
 
   const snapshot = await prisma.rpkpsSnapshot.findUnique({
     where: { rpkpsId_versi: { rpkpsId: rpkps.id, versi: rpkps.versi } },
-    select: { isi: true, sidik: true, dibuatPada: true },
+    select: { isi: true, sidik: true, isiEn: true, sidikEn: true, dibuatPada: true },
   });
   // Terbit tanpa salinan beku berarti data tidak konsisten. Menampilkan data
   // langsung sebagai gantinya akan menerbitkan isi yang belum pernah disahkan.
@@ -394,10 +406,22 @@ export const muatRpkpsPublik = cache(async function muatRpkpsPublik(
     select: { tahunAkademik: { select: { kode: true } } },
   });
 
+  /**
+   * Versi Inggris dibaca dari salinan bekunya sendiri, bukan dirakit ulang dari
+   * data langsung: halaman publik hanya boleh menampilkan apa yang pernah
+   * disahkan. `null` berarti dokumen ini tidak diterbitkan berbahasa Inggris —
+   * halamannya menampilkan versi Indonesia beserta keterangan (docs/11 §6.3).
+   */
+  const dokumenEn = snapshot.isiEn
+    ? (snapshot.isiEn as unknown as DokumenPublik)
+    : null;
+
   return {
     id: rpkps.id,
     versi: rpkps.versi,
     sidik: snapshot.sidik,
+    sidikEn: snapshot.sidikEn,
+    dokumenEn,
     disahkanPada: snapshot.dibuatPada,
     diubahPada: rpkps.diubahPada,
     prodi: rpkps.mataKuliah.kurikulum.prodi,

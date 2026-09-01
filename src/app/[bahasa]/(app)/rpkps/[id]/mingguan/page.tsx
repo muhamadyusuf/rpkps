@@ -1,6 +1,6 @@
 import { Tautan } from "@/components/tautan";
-import { kamus } from "@/lib/bahasa/server";
-import { isi } from "@/lib/bahasa/teks";
+import { bahasaAktif, kamus } from "@/lib/bahasa/server";
+import { isi, pilihTeks, namaMk } from "@/lib/bahasa/teks";
 import type { Kamus } from "@/kamus";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Lock } from "lucide-react";
@@ -20,6 +20,7 @@ import { wenangAtasRpkps } from "@/lib/rpkps/wenang";
 import { muatKebijakan, muatRpkps } from "@/lib/rpkps/muat";
 import { formatMenit, susunRencanaSemester, bulatkan } from "@/domain/beban-belajar/kalkulator";
 import { AksiBaris, TombolSusunUlang, TombolTambahPertemuan } from "./tombol";
+import type { Bahasa } from "@/kamus";
 
 export const dynamic = "force-dynamic";
 
@@ -72,13 +73,14 @@ export default async function HalamanMingguan({
   const semesterPas = Math.abs(selisihPersen) <= kebijakan.toleransiSemesterPersen;
 
   const k = await kamus();
+  const b = await bahasaAktif();
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <div>
         <ButtonLink variant="ghost" size="sm" href={`/rpkps/${id}`}>
           <ArrowLeft />
-          {rpkps.mataKuliah.kode} — {rpkps.mataKuliah.nama}
+          {rpkps.mataKuliah.kode} — {namaMk(rpkps.mataKuliah, b)}
         </ButtonLink>
       </div>
 
@@ -212,11 +214,7 @@ export default async function HalamanMingguan({
                         </div>
                       </TableCell>
                       <TableCell className="text-sm">
-                        {p.topik ?? (
-                          <span className="text-muted-foreground">
-                            {k.rpkps.mingguan.belumDiisi}
-                          </span>
-                        )}
+                        <TopikSel topik={p.topik} topikEn={p.topikEn} bahasa={b} k={k} />
                         {p.subtopik.length > 0 ? (
                           <p className="mt-0.5 text-xs text-muted-foreground">
                             {isi(k.rpkps.mingguan.jumlahSubtopik, {
@@ -323,5 +321,36 @@ function Metrik({
         {nilai}
       </p>
     </div>
+  );
+}
+
+/**
+ * Topik pada tabel mingguan, menurut bahasa pembacanya.
+ *
+ * Yang belum diterjemahkan tampil dalam bahasa Indonesia dengan penanda halus
+ * — bukan peringatan merah. Belum diterjemahkan adalah keadaan normal, bukan
+ * galat (docs/11 §5.4).
+ */
+function TopikSel({
+  topik,
+  topikEn,
+  bahasa,
+  k,
+}: {
+  topik: string | null;
+  topikEn: string | null;
+  bahasa: Bahasa;
+  k: Kamus;
+}) {
+  if (!topik) {
+    return <span className="text-muted-foreground">{k.rpkps.mingguan.belumDiisi}</span>;
+  }
+  const { teks, asli } = pilihTeks(topik, topikEn, bahasa);
+  return (
+    <span className={asli && bahasa !== "id" ? "border-b border-dotted border-muted-foreground/40" : undefined}
+      title={asli && bahasa !== "id" ? k.dwibahasa.menampilkanAsli : undefined}
+    >
+      {teks}
+    </span>
   );
 }

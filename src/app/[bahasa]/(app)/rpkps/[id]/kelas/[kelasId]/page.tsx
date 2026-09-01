@@ -4,7 +4,7 @@ import { ArrowLeft, CheckCircle2, CircleAlert, Download, ShieldCheck, TriangleAl
 import { Badge } from "@/components/ui/badge";
 import { bahasaAktif, kamus } from "@/lib/bahasa/server";
 import { tanggal } from "@/lib/bahasa/format";
-import { isi } from "@/lib/bahasa/teks";
+import { isi, namaMk } from "@/lib/bahasa/teks";
 import type { Kamus } from "@/kamus";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -173,7 +173,7 @@ export default async function HalamanEvaluasi({
           </div>
           <p className="mt-1.5 text-sm text-muted-foreground">
             {isi(k.rpkps.evaluasiKelas.ringkasHeader, {
-              mk: rpkps.mataKuliah.nama,
+              mk: namaMk(rpkps.mataKuliah, b),
               ta: kelas.rpkps.tahunAkademik.kode.replace("-", " "),
               dosen: kelas.dosen?.nama ?? k.rpkps.evaluasiKelas.dosenKosong,
             })}

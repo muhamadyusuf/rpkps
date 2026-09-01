@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Tautan } from "@/components/tautan";
 import { notFound } from "next/navigation";
-import { ChevronRight, Download, ShieldCheck } from "lucide-react";
+import { ChevronRight, Languages, Download, ShieldCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { labelTahunAkademik, ringkasSks } from "@/domain/rpkps/publik";
@@ -26,6 +26,8 @@ import {
 import { DaftarIsi, type ButirDaftarIsi } from "./daftar-isi";
 import { TombolCetak } from "./tombol-cetak";
 import { teksRiwayat } from "@/lib/bahasa/riwayat";
+import { segalaBahasa } from "@/lib/bahasa/jalur";
+import { BAHASA } from "@/kamus";
 
 export const dynamic = "force-dynamic";
 
@@ -51,10 +53,13 @@ export async function generateMetadata({
   ]);
   if (!rpkps) return { title: k.dokumenPublik.metaTidakDitemukan };
 
-  const mk = rpkps.dokumen.mataKuliah;
+  const b = await bahasaAktif();
+  // Judul dan deskripsi mengikuti versi yang benar-benar ditampilkan halaman.
+  const dokumen = b === "id" ? rpkps.dokumen : (rpkps.dokumenEn ?? rpkps.dokumen);
+  const mk = dokumen.mataKuliah;
   const judul = `${mk.kode} ${mk.nama}`;
   const deskripsi =
-    rpkps.dokumen.deskripsi?.replace(/\s+/g, " ").slice(0, 180) ??
+    dokumen.deskripsi?.replace(/\s+/g, " ").slice(0, 180) ??
     isi(k.dokumenPublik.metaDeskripsiCadangan, {
       nama: mk.nama,
       sks: ringkasSks(mk),
@@ -66,7 +71,17 @@ export async function generateMetadata({
     title: judul,
     description: deskripsi,
     alternates: {
-      canonical: `${urlSitus()}${jalurRpkpsPublik(rpkps.prodi.kode, mk.kode)}`,
+      canonical: `${urlSitus()}/${b}${jalurRpkpsPublik(rpkps.prodi.kode, mk.kode)}`,
+      // hreflang per halaman: mesin pencari perlu tahu kedua alamat ini adalah
+      // dokumen yang sama dalam dua bahasa, bukan dua dokumen yang mirip.
+      // Ditulis meski versi Inggrisnya belum terbit — halamannya tetap ada dan
+      // tetap menampilkan isi yang sah (docs/11 §2.6).
+      languages: Object.fromEntries(
+        segalaBahasa(jalurRpkpsPublik(rpkps.prodi.kode, mk.kode)).map((jalur, i) => [
+          BAHASA[i],
+          `${urlSitus()}${jalur}`,
+        ]),
+      ),
     },
     openGraph: {
       title: isi(k.dokumenPublik.metaOg, { judul }),
@@ -93,7 +108,13 @@ export default async function HalamanDokumenPublik({
   ]);
   if (!rpkps) notFound();
 
-  const dok = rpkps.dokumen;
+  /**
+   * Pembaca Inggris mendapat salinan beku berbahasa Inggris bila dokumen ini
+   * pernah diterbitkan begitu. Bila tidak, ia mendapat salinan Indonesia —
+   * yang memang dokumen yang sah — beserta keterangannya di bawah judul.
+   */
+  const dok = b === "id" ? rpkps.dokumen : (rpkps.dokumenEn ?? rpkps.dokumen);
+  const tanpaVersiEn = b !== "id" && rpkps.dokumenEn === null;
   const mk = dok.mataKuliah;
   const ti = k.dokumenPublik.daftarIsi;
 
@@ -204,11 +225,14 @@ export default async function HalamanDokumenPublik({
 
       <PitaSidik
         sidik={rpkps.sidik}
+        sidikEn={b === "id" ? null : rpkps.sidikEn}
         versi={rpkps.versi}
         disahkanPada={rpkps.disahkanPada}
         k={k}
         b={b}
       />
+
+      <KeteranganVersi tanpaVersiEn={tanpaVersiEn} bahasa={b} k={k} />
 
       <div className="gap-10 xl:grid xl:grid-cols-[13rem_minmax(0,1fr)]">
         <aside className="hidden xl:block">
@@ -309,12 +333,15 @@ export default async function HalamanDokumenPublik({
  */
 function PitaSidik({
   sidik,
+  sidikEn,
   versi,
   disahkanPada,
   k,
   b,
 }: {
   sidik: string;
+  /** Sidik ruang KEDUA. Ditampilkan berdampingan, tidak menggantikan. */
+  sidikEn: string | null;
   versi: number;
   disahkanPada: Date;
   k: Kamus;
@@ -339,6 +366,49 @@ function PitaSidik({
       >
         {sidikRingkas(sidik)}
       </code>
+      {/*
+        Dua sidik, dua ruang. Yang Inggris TIDAK menggantikan yang Indonesia:
+        dokumen yang ditandatangani adalah yang Indonesia, dan sidiknya harus
+        tetap dapat dibandingkan dengan berkas DOCX yang dipegang orang.
+      */}
+      {sidikEn ? (
+        <code
+          title={`${k.dokumenPublik.versiInggris.sidikEn}: ${sidikEn}`}
+          className="rounded bg-muted px-2 py-1 font-mono text-[11px] text-muted-foreground"
+        >
+          EN {sidikRingkas(sidikEn)}
+        </code>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Keterangan versi bahasa, hanya untuk pembaca Inggris.
+ *
+ * Dua kalimat, dan keduanya perlu: bahwa versi Inggris belum diterbitkan (atau
+ * belum lengkap), DAN bahwa versi Indonesia adalah yang sah. Yang kedua yang
+ * paling penting — halaman ini dokumen resmi, dan pembaca berhak tahu versi
+ * mana yang berlaku bila keduanya berbeda (docs/11 §6.3).
+ */
+function KeteranganVersi({
+  tanpaVersiEn,
+  bahasa,
+  k,
+}: {
+  tanpaVersiEn: boolean;
+  bahasa: Bahasa;
+  k: Kamus;
+}) {
+  if (bahasa === "id") return null;
+  const v = k.dokumenPublik.versiInggris;
+  return (
+    <div className="flex items-start gap-2.5 rounded-xl border border-dashed bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+      <Languages className="mt-0.5 size-4 shrink-0" />
+      <p>
+        {tanpaVersiEn ? v.belumTerbit : v.sebagian}{" "}
+        <span className="font-medium text-foreground">{v.indonesiaYangSah}</span>
+      </p>
     </div>
   );
 }

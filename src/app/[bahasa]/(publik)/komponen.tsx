@@ -5,8 +5,9 @@ import { labelTahunAkademik, ringkasSks } from "@/domain/rpkps/publik";
 import type { ButirKatalog } from "@/lib/publik/muat";
 import { jalurRpkpsPublik } from "@/lib/publik/tautan";
 import { cn } from "@/lib/utils";
-import { kamus } from "@/lib/bahasa/server";
+import { bahasaAktif, kamus } from "@/lib/bahasa/server";
 import { isi } from "@/lib/bahasa/teks";
+import { pilihTeks } from "@/lib/bahasa/teks";
 
 /** Kartu angka: label teknis di atas, angka monospace besar di bawah. */
 export function KartuAngka({
@@ -39,6 +40,7 @@ export function KartuAngka({
  */
 export async function KartuMataKuliah({ butir }: { butir: ButirKatalog }) {
   const k = await kamus();
+  const b = await bahasaAktif();
 
   return (
     <Tautan
@@ -59,7 +61,7 @@ export async function KartuMataKuliah({ butir }: { butir: ButirKatalog }) {
       </div>
 
       <h3 className="mt-1.5 font-heading text-base leading-snug font-semibold text-balance">
-        {butir.nama}
+        {pilihTeks(butir.nama, butir.namaEn, b).teks}
       </h3>
 
       <dl className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 pt-3 text-xs text-muted-foreground">

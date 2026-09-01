@@ -123,6 +123,17 @@ export function EditorKisiKisi({
             onChange={(e) => ubah("catatan", e.target.value || null)}
           />
         </div>
+        <div className="space-y-1.5">
+          <Label htmlFor={`catatanEn-${jenis}`}>
+            {isi(k.dwibahasa.labelEn, { label: k.rpkps.kisiEditor.catatan })}
+          </Label>
+          <Input
+            id={`catatanEn-${jenis}`}
+            value={d.catatanEn ?? ""}
+            placeholder={k.dwibahasa.belumDiterjemahkan}
+            onChange={(e) => ubah("catatanEn", e.target.value || null)}
+          />
+        </div>
       </div>
 
       <div className="space-y-2">
@@ -209,6 +220,12 @@ export function EditorKisiKisi({
               value={b.indikator ?? ""}
               onChange={(e) => ubahButir(i, { indikator: e.target.value || null })}
             />
+            <Input
+              className="ml-7 h-8 text-sm"
+              placeholder={k.dwibahasa.belumDiterjemahkan}
+              value={b.indikatorEn ?? ""}
+              onChange={(e) => ubahButir(i, { indikatorEn: e.target.value || null })}
+            />
           </div>
         ))}
 
@@ -225,6 +242,7 @@ export function EditorKisiKisi({
                 jumlahButir: 1,
                 skor: 0,
                 indikator: null,
+                indikatorEn: null,
               },
             ])
           }

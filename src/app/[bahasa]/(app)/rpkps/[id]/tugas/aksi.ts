@@ -21,23 +21,31 @@ async function pastikanWenang(rpkpsId: string) {
   };
 }
 
+/** Medan `*En` wajib ikut — alasannya sama dengan `SkemaPertemuan` (§5.3). */
 const SkemaTugas = z.object({
   nama: z.string().trim().min(3, "@aksi.periksa.namaTugasMinimal"),
+  namaEn: z.string().trim().nullable(),
   jenis: z.enum(["INDIVIDU", "KELOMPOK"]),
   mingguMulai: z.number().int().min(1).max(24),
   mingguSelesai: z.number().int().min(1).max(24),
   bobot: z.number().min(0).max(100),
   komponenNilaiId: z.string().nullable(),
   deskripsi: z.string().trim().min(1, "@aksi.periksa.deskripsiTugasWajib"),
+  deskripsiEn: z.string().trim().nullable(),
   uraianTugas: z.string().trim().nullable(),
+  uraianTugasEn: z.string().trim().nullable(),
   formatLuaran: z.string().trim().nullable(),
+  formatLuaranEn: z.string().trim().nullable(),
   ketentuanLain: z.string().trim().nullable(),
+  ketentuanLainEn: z.string().trim().nullable(),
   subCpmkId: z.array(z.string()).max(30),
   kriteria: z
     .array(
       z.object({
         indikator: z.string().trim().min(1),
+        indikatorEn: z.string().trim().nullable(),
         rincian: z.array(z.string().trim().min(1)).max(15),
+        rincianEn: z.array(z.string().trim()).max(15),
         bobot: z.number().min(0).max(100),
       }),
     )
@@ -47,7 +55,9 @@ const SkemaTugas = z.object({
       z.object({
         minggu: z.number().int().min(1).max(24),
         tahapan: z.string().trim().min(1),
+        tahapanEn: z.string().trim().nullable(),
         aktivitas: z.string().trim().min(1),
+        aktivitasEn: z.string().trim().nullable(),
       }),
     )
     .max(24),
@@ -137,15 +147,20 @@ export async function simpanTugas(
       where: { id: tugasId, diubahPada: kesegaran.cap },
       data: {
         nama: d.nama,
+        namaEn: d.namaEn,
         jenis: d.jenis,
         mingguMulai: d.mingguMulai,
         mingguSelesai: d.mingguSelesai,
         bobot: d.bobot,
         komponenNilaiId: d.komponenNilaiId,
         deskripsi: d.deskripsi,
+        deskripsiEn: d.deskripsiEn,
         uraianTugas: d.uraianTugas,
+        uraianTugasEn: d.uraianTugasEn,
         formatLuaran: d.formatLuaran,
+        formatLuaranEn: d.formatLuaranEn,
         ketentuanLain: d.ketentuanLain,
+        ketentuanLainEn: d.ketentuanLainEn,
       },
     });
     if (hasil.count === 0) return false;
@@ -160,7 +175,9 @@ export async function simpanTugas(
         tugasId,
         nomor: i + 1,
         indikator: k.indikator,
+        indikatorEn: k.indikatorEn,
         rincian: k.rincian,
+        rincianEn: k.rincianEn,
         bobot: k.bobot,
       })),
     });
@@ -170,7 +187,9 @@ export async function simpanTugas(
         tugasId,
         minggu: l.minggu,
         tahapan: l.tahapan,
+        tahapanEn: l.tahapanEn,
         aktivitas: l.aktivitas,
+        aktivitasEn: l.aktivitasEn,
       })),
     });
     return true;

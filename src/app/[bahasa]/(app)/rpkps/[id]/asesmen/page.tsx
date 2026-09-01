@@ -2,8 +2,8 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, CheckCircle2, CircleAlert, TriangleAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
-import { kamus } from "@/lib/bahasa/server";
-import { isi } from "@/lib/bahasa/teks";
+import { bahasaAktif, kamus } from "@/lib/bahasa/server";
+import { isi, namaMk } from "@/lib/bahasa/teks";
 import type { Kamus } from "@/kamus";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -56,13 +56,14 @@ export default async function HalamanPetaAsesmen({
   }
 
   const k = await kamus();
+  const b = await bahasaAktif();
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <div>
         <ButtonLink variant="ghost" size="sm" href={`/rpkps/${id}`}>
           <ArrowLeft />
-          {rpkps.mataKuliah.kode} — {rpkps.mataKuliah.nama}
+          {rpkps.mataKuliah.kode} — {namaMk(rpkps.mataKuliah, b)}
         </ButtonLink>
       </div>
 

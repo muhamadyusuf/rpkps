@@ -18,6 +18,7 @@ datasource db {
 model Institusi {
   id          String   @id @default(cuid())
   nama        String
+  namaEn      String?  @map("nama_en")
   namaSingkat String   @map("nama_singkat")
   kodePt      String?  @map("kode_pt")
   alamat      String?
@@ -36,6 +37,7 @@ model Fakultas {
   id          String   @id @default(cuid())
   institusiId String   @map("institusi_id")
   nama        String
+  namaEn      String?  @map("nama_en")
   kode        String   @unique
   dibuatPada  DateTime @default(now()) @map("dibuat_pada")
   diubahPada  DateTime @updatedAt @map("diubah_pada")
@@ -60,6 +62,7 @@ model Prodi {
   id         String       @id @default(cuid())
   fakultasId String       @map("fakultas_id")
   nama       String
+  namaEn     String?      @map("nama_en")
   kode       String       @unique
   jenjang    JenjangProdi @default(S1)
   gelar      String?
@@ -84,13 +87,13 @@ enum SemesterTipe {
 }
 
 model TahunAkademik {
-  id           String       @id @default(cuid())
-  kode         String       @unique // contoh: "2025/2026-GENAP"
-  tahunMulai   Int          @map("tahun_mulai")
-  tahunSelesai Int          @map("tahun_selesai")
-  semester     SemesterTipe
-  tanggalMulai DateTime?    @map("tanggal_mulai")
-  tanggalAkhir DateTime?    @map("tanggal_akhir")
+  id                 String       @id @default(cuid())
+  kode               String       @unique // contoh: "2025/2026-GENAP"
+  tahunMulai         Int          @map("tahun_mulai")
+  tahunSelesai       Int          @map("tahun_selesai")
+  semester           SemesterTipe
+  tanggalMulai       DateTime?    @map("tanggal_mulai")
+  tanggalAkhir       DateTime?    @map("tanggal_akhir")
   /// Tiga tenggat, satu untuk tiap petak tanggung jawab di rantai pengesahan
   /// (docs/14 §3). Tanggal, bukan aturan: tidak ada yang dikunci saat
   /// terlampaui — yang berubah hanya urgensi pada antrian kerja dan daftar.
@@ -98,18 +101,18 @@ model TahunAkademik {
   /// Satu dokumen hanya terikat SATU tenggat pada satu waktu, dan pemiliknya
   /// berpindah mengikuti status: penyusunan → dosen, review → Kaprodi,
   /// pengesahan → Penjaminan Mutu.
-  tenggatPenyusunan DateTime? @map("tenggat_penyusunan")
-  tenggatReview     DateTime? @map("tenggat_review")
-  tenggatPengesahan DateTime? @map("tenggat_pengesahan")
+  tenggatPenyusunan  DateTime?    @map("tenggat_penyusunan")
+  tenggatReview      DateTime?    @map("tenggat_review")
+  tenggatPengesahan  DateTime?    @map("tenggat_pengesahan")
   /// Hari yang dijamin bagi pemutus, dihitung sejak dokumen sampai padanya.
   /// LANTAI, bukan langit-langit: dokumen yang masuk jauh-jauh hari tetap
   /// terikat tanggal semester, sedangkan yang masuk mepet tidak menghukum
   /// pemutusnya atas keterlambatan orang lain (docs/14 §3.2).
-  jaminanHariPutusan Int      @default(7) @map("jaminan_hari_putusan")
-  aktif        Boolean      @default(false)
-  dibuatPada   DateTime     @default(now()) @map("dibuat_pada")
-  diubahPada   DateTime     @updatedAt @map("diubah_pada")
-  rpkps        Rpkps[]
+  jaminanHariPutusan Int          @default(7) @map("jaminan_hari_putusan")
+  aktif              Boolean      @default(false)
+  dibuatPada         DateTime     @default(now()) @map("dibuat_pada")
+  diubahPada         DateTime     @updatedAt @map("diubah_pada")
+  rpkps              Rpkps[]
 
   usulanBerlaku  UsulanRevisi[]    @relation("UsulanBerlaku")
   revisiBerlaku  RevisiKurikulum[] @relation("RevisiBerlaku")
@@ -168,18 +171,18 @@ model Pengguna {
   penugasan          PenugasanPeran[]
   logAudit           LogAudit[]
   pengampuRpkps      RpkpsPengampu[]
-  usulanDiajukan     UsulanRevisi[]    @relation("UsulanDiajukan")
-  usulanDiputuskan   UsulanRevisi[]    @relation("UsulanDiputuskan")
+  usulanDiajukan     UsulanRevisi[]     @relation("UsulanDiajukan")
+  usulanDiputuskan   UsulanRevisi[]     @relation("UsulanDiputuskan")
   catatanUsulan      CatatanUsulan[]
   revisiKurikulum    RevisiKurikulum[]
-  kelasDiampu        Kelas[]           @relation("KelasDosen")
-  evaluasiDitutup    EvaluasiMk[]      @relation("EvaluasiDitutup")
-  temuanDitanggung   TemuanEvaluasi[]  @relation("TemuanPenanggungJawab")
-  temuanDiverifikasi TemuanEvaluasi[]  @relation("TemuanDiverifikasi")
+  kelasDiampu        Kelas[]            @relation("KelasDosen")
+  evaluasiDitutup    EvaluasiMk[]       @relation("EvaluasiDitutup")
+  temuanDitanggung   TemuanEvaluasi[]   @relation("TemuanPenanggungJawab")
+  temuanDiverifikasi TemuanEvaluasi[]   @relation("TemuanDiverifikasi")
   kredensialAi       KredensialAi[]
   notifikasi         Notifikasi[]
-  koordinatorMk      KoordinatorMk[]   @relation("KoordinatorMkDosen")
-  koordinatorMkSet   KoordinatorMk[]   @relation("KoordinatorMkPenetap")
+  koordinatorMk      KoordinatorMk[]    @relation("KoordinatorMkDosen")
+  koordinatorMkSet   KoordinatorMk[]    @relation("KoordinatorMkPenetap")
   tandaTanganRpkps   TandaTanganRpkps[]
 
   @@index([status])
@@ -457,11 +460,12 @@ model Kurikulum {
 }
 
 model ProfilLulusan {
-  id          String @id @default(cuid())
-  kurikulumId String @map("kurikulum_id")
+  id          String  @id @default(cuid())
+  kurikulumId String  @map("kurikulum_id")
   kode        String // "PL1"
   deskripsi   String
-  urutan      Int    @default(0)
+  deskripsiEn String? @map("deskripsi_en")
+  urutan      Int     @default(0)
 
   kurikulum Kurikulum          @relation(fields: [kurikulumId], references: [id], onDelete: Cascade)
   cpl       CplProfilLulusan[]
@@ -513,7 +517,9 @@ model BahanKajian {
   kurikulumId String  @map("kurikulum_id")
   kode        String
   nama        String
+  namaEn      String? @map("nama_en")
   deskripsi   String?
+  deskripsiEn String? @map("deskripsi_en")
 
   kurikulum Kurikulum @relation(fields: [kurikulumId], references: [id], onDelete: Cascade)
 
@@ -534,6 +540,7 @@ model MataKuliah {
   nama        String
   namaEn      String?          @map("nama_en")
   deskripsi   String?
+  deskripsiEn String?          @map("deskripsi_en")
   semester    Int
   status      StatusMataKuliah @default(WAJIB)
 
@@ -547,11 +554,11 @@ model MataKuliah {
   dibuatPada DateTime @default(now()) @map("dibuat_pada")
   diubahPada DateTime @updatedAt @map("diubah_pada")
 
-  kurikulum            Kurikulum      @relation(fields: [kurikulumId], references: [id], onDelete: Cascade)
+  kurikulum            Kurikulum       @relation(fields: [kurikulumId], references: [id], onDelete: Cascade)
   cpl                  MatriksCplMk[]
   cpmk                 Cpmk[]
-  prasyarat            MkPrasyarat[]  @relation("MkUtama")
-  menjadiPrasyaratBagi MkPrasyarat[]  @relation("MkPrasyarat")
+  prasyarat            MkPrasyarat[]   @relation("MkUtama")
+  menjadiPrasyaratBagi MkPrasyarat[]   @relation("MkPrasyarat")
   rpkps                Rpkps[]
   usulan               UsulanRevisi[]
   koordinator          KoordinatorMk[]
@@ -595,7 +602,6 @@ model KoordinatorMk {
   @@index([penggunaId, tahunAkademikId])
   @@map("koordinator_mk")
 }
-
 
 enum JenisPrasyarat {
   PRASYARAT
@@ -744,22 +750,25 @@ model Rpkps {
   versi           Int         @default(1)
 
   /// Bagian A pada template ITTS.
-  deskripsi          String?
+  deskripsi            String?
+  deskripsiEn          String? @map("deskripsi_en")
   /// Kalimat pembuka sebelum daftar CPMK, mis. "Setelah menyelesaikan mata
   /// kuliah ini, mahasiswa akan mampu…". Milik prodi, bukan milik CPMK.
-  kalimatPembukaCpmk String? @map("kalimat_pembuka_cpmk")
+  kalimatPembukaCpmk   String? @map("kalimat_pembuka_cpmk")
+  kalimatPembukaCpmkEn String? @map("kalimat_pembuka_cpmk_en")
 
   /// Bagian F pada template ITTS.
   ambangKelulusanMhs     Decimal @default(55) @map("ambang_kelulusan_mhs") @db.Decimal(5, 2)
   ambangKetercapaianMk   Decimal @default(85) @map("ambang_ketercapaian_mk") @db.Decimal(5, 2)
   minimalKehadiranPersen Int     @default(80) @map("minimal_kehadiran_persen")
   catatanEvaluasi        String? @map("catatan_evaluasi")
+  catatanEvaluasiEn      String? @map("catatan_evaluasi_en")
 
   dibuatPada DateTime @default(now()) @map("dibuat_pada")
   diubahPada DateTime @updatedAt @map("diubah_pada")
 
-  mataKuliah    MataKuliah      @relation(fields: [mataKuliahId], references: [id], onDelete: Cascade)
-  tahunAkademik TahunAkademik   @relation(fields: [tahunAkademikId], references: [id], onDelete: Restrict)
+  mataKuliah    MataKuliah         @relation(fields: [mataKuliahId], references: [id], onDelete: Cascade)
+  tahunAkademik TahunAkademik      @relation(fields: [tahunAkademikId], references: [id], onDelete: Restrict)
   pengampu      RpkpsPengampu[]
   pustaka       Pustaka[]
   pertemuan     Pertemuan[]
@@ -822,7 +831,7 @@ model TandaTanganRpkps {
   versi   Int
   peran   PeranTtd
 
-  penggunaId String @map("pengguna_id")
+  penggunaId String  @map("pengguna_id")
   /// Nama dan identitas SAAT menandatangani, dibekukan. Alasannya sama dengan
   /// nama pengampu pada `rpkps_snapshot`: memperbarui nama yang sudah tercetak
   /// menggeser dokumen yang sudah resmi.
@@ -888,19 +897,27 @@ model Pertemuan {
   minggu  Int
   jenis   JenisPertemuan @default(EFEKTIF)
 
-  topik    String?
-  subtopik String[]
+  topik      String?
+  topikEn    String?  @map("topik_en")
+  subtopik   String[]
+  subtopikEn String[] @map("subtopik_en")
 
   /// Narasi bebas pada kolom "Metode dan Aktivitas Pembelajaran".
-  metodeNarasi       String? @map("metode_narasi")
-  aktivitasDosen     String? @map("aktivitas_dosen")
-  aktivitasMahasiswa String? @map("aktivitas_mahasiswa")
-  tugasTerstruktur   String? @map("tugas_terstruktur")
+  metodeNarasi         String? @map("metode_narasi")
+  metodeNarasiEn       String? @map("metode_narasi_en")
+  aktivitasDosen       String? @map("aktivitas_dosen")
+  aktivitasDosenEn     String? @map("aktivitas_dosen_en")
+  aktivitasMahasiswa   String? @map("aktivitas_mahasiswa")
+  aktivitasMahasiswaEn String? @map("aktivitas_mahasiswa_en")
+  tugasTerstruktur     String? @map("tugas_terstruktur")
+  tugasTerstrukturEn   String? @map("tugas_terstruktur_en")
 
   /// Kolom "Penilaian" bercabang tiga pada template ITTS.
-  penilaianJenis  String? @map("penilaian_jenis")
-  penilaianSistem String? @map("penilaian_sistem")
-  bobot           Decimal @default(0) @db.Decimal(5, 2)
+  penilaianJenis    String? @map("penilaian_jenis")
+  penilaianJenisEn  String? @map("penilaian_jenis_en")
+  penilaianSistem   String? @map("penilaian_sistem")
+  penilaianSistemEn String? @map("penilaian_sistem_en")
+  bobot             Decimal @default(0) @db.Decimal(5, 2)
 
   komponenNilaiId String?   @map("komponen_nilai_id")
   sumber          SumberIsi @default(KURIKULUM)
@@ -951,8 +968,12 @@ model AktivitasBelajar {
   id          String           @id @default(cuid())
   pertemuanId String           @map("pertemuan_id")
   nama        String
+  namaEn      String?          @map("nama_en")
   kategori    KategoriWaktu
   mode        ModePembelajaran @default(LURING)
+  /// Tidak punya kembaran `metode_en`: kolom ini sendiri tidak ditulis
+  /// penyunting mana pun dan tidak dibaca satu tampilan pun. Mencerminkannya
+  /// berarti menambah kolom yang tak akan pernah bisa diisi siapa pun.
   metode      String?
   menit       Int
   urutan      Int              @default(0)
@@ -964,10 +985,11 @@ model AktivitasBelajar {
 }
 
 model Indikator {
-  id          String @id @default(cuid())
-  pertemuanId String @map("pertemuan_id")
+  id          String  @id @default(cuid())
+  pertemuanId String  @map("pertemuan_id")
   teks        String
-  urutan      Int    @default(0)
+  teksEn      String? @map("teks_en")
+  urutan      Int     @default(0)
 
   pertemuan Pertemuan @relation(fields: [pertemuanId], references: [id], onDelete: Cascade)
 
@@ -979,6 +1001,7 @@ model PertemuanPustaka {
   pertemuanId String  @map("pertemuan_id")
   pustakaId   String  @map("pustaka_id")
   catatan     String?
+  catatanEn   String? @map("catatan_en")
 
   pertemuan Pertemuan @relation(fields: [pertemuanId], references: [id], onDelete: Cascade)
   pustaka   Pustaka   @relation(fields: [pustakaId], references: [id], onDelete: Cascade)
@@ -992,6 +1015,10 @@ model KomponenNilai {
   id      String    @id @default(cuid())
   rpkpsId String    @map("rpkps_id")
   nama    String
+  /// Terjemahan tampilan. SENGAJA di luar @@unique di bawah: menjadikannya
+  /// bagian kunci berarti mengubah terjemahan melepas seluruh tautan asesmen
+  /// (docs/11 §5.2).
+  namaEn  String?   @map("nama_en")
   bobot   Decimal   @db.Decimal(5, 2)
   urutan  Int       @default(0)
   sumber  SumberIsi @default(KURIKULUM)
@@ -1043,6 +1070,7 @@ model Tugas {
   nomor   Int
 
   nama            String
+  namaEn          String?    @map("nama_en")
   jenis           JenisTugas @default(INDIVIDU)
   /// Rentang minggu pelaksanaan, mis. 9–16.
   mingguMulai     Int        @map("minggu_mulai")
@@ -1052,11 +1080,15 @@ model Tugas {
   komponenNilaiId String?    @map("komponen_nilai_id")
   bobot           Decimal    @default(0) @db.Decimal(5, 2)
 
-  deskripsi     String
-  uraianTugas   String?   @map("uraian_tugas")
-  formatLuaran  String?   @map("format_luaran")
-  ketentuanLain String?   @map("ketentuan_lain")
-  sumber        SumberIsi @default(KURIKULUM)
+  deskripsi       String
+  deskripsiEn     String?   @map("deskripsi_en")
+  uraianTugas     String?   @map("uraian_tugas")
+  uraianTugasEn   String?   @map("uraian_tugas_en")
+  formatLuaran    String?   @map("format_luaran")
+  formatLuaranEn  String?   @map("format_luaran_en")
+  ketentuanLain   String?   @map("ketentuan_lain")
+  ketentuanLainEn String?   @map("ketentuan_lain_en")
+  sumber          SumberIsi @default(KURIKULUM)
 
   dibuatPada DateTime @default(now()) @map("dibuat_pada")
   diubahPada DateTime @updatedAt @map("diubah_pada")
@@ -1085,13 +1117,15 @@ model TugasSubCpmk {
 
 /// Baris tabel "Indikator, Kriteria, dan Bobot Penilaian". Totalnya wajib 100%.
 model KriteriaTugas {
-  id        String   @id @default(cuid())
-  tugasId   String   @map("tugas_id")
-  nomor     Int
-  indikator String
+  id          String   @id @default(cuid())
+  tugasId     String   @map("tugas_id")
+  nomor       Int
+  indikator   String
+  indikatorEn String?  @map("indikator_en")
   /// Butir-butir penjelas di bawah indikator, dicetak sebagai daftar.
-  rincian   String[]
-  bobot     Decimal  @db.Decimal(5, 2)
+  rincian     String[]
+  rincianEn   String[] @map("rincian_en")
+  bobot       Decimal  @db.Decimal(5, 2)
 
   tugas Tugas @relation(fields: [tugasId], references: [id], onDelete: Cascade)
 
@@ -1101,11 +1135,13 @@ model KriteriaTugas {
 
 /// Baris tabel "Linimasa Proyek/Tugas".
 model LinimasaTugas {
-  id        String @id @default(cuid())
-  tugasId   String @map("tugas_id")
-  minggu    Int
-  tahapan   String
-  aktivitas String
+  id          String  @id @default(cuid())
+  tugasId     String  @map("tugas_id")
+  minggu      Int
+  tahapan     String
+  tahapanEn   String? @map("tahapan_en")
+  aktivitas   String
+  aktivitasEn String? @map("aktivitas_en")
 
   tugas Tugas @relation(fields: [tugasId], references: [id], onDelete: Cascade)
 
@@ -1128,6 +1164,14 @@ model RpkpsSnapshot {
   /// SHA-256 atas serialisasi kanonik `isi`. Dicetak pada dokumen sebagai
   /// sidik yang dapat diverifikasi ulang.
   sidik      String
+  /// Salinan beku berbahasa Inggris, dari `proyeksiIsiEn()`. Null berarti
+  /// dokumen ini tidak diterbitkan berbahasa Inggris — halaman `/en/katalog`
+  /// menampilkan versi Indonesia beserta keterangannya (docs/11 §6.3).
+  isiEn      Json?    @map("isi_en")
+  /// Sidik ruang KEDUA, atas `isiEn`. Sengaja terpisah dari `sidik`:
+  /// menambahkan medan Inggris ke ruang sidik pertama akan menggeser sidik
+  /// SELURUH dokumen yang sudah ditandatangani (docs/11 §6.1).
+  sidikEn    String?  @map("sidik_en")
   olehId     String?  @map("oleh_id")
   dibuatPada DateTime @default(now()) @map("dibuat_pada")
 
@@ -1170,6 +1214,7 @@ model KisiKisi {
   totalSkor   Decimal    @default(100) @map("total_skor") @db.Decimal(6, 2)
   durasiMenit Int?       @map("durasi_menit")
   catatan     String?
+  catatanEn   String?    @map("catatan_en")
   sumber      SumberIsi  @default(KURIKULUM)
 
   dibuatPada DateTime @default(now()) @map("dibuat_pada")
@@ -1194,6 +1239,7 @@ model ButirKisiKisi {
   /// Skor total baris ini terhadap totalSkor kisi-kisi.
   skor        Decimal    @db.Decimal(6, 2)
   indikator   String?
+  indikatorEn String?    @map("indikator_en")
 
   kisiKisi KisiKisi     @relation(fields: [kisiKisiId], references: [id], onDelete: Cascade)
   subCpmk  SubCpmk      @relation(fields: [subCpmkId], references: [id], onDelete: Restrict)

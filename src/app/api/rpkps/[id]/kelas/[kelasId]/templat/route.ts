@@ -6,6 +6,7 @@ import { muatKelas } from "@/lib/evaluasi/muat";
 import { keSumberPeta } from "@/domain/evaluasi/pemetaan";
 import { susunPetaAsesmen } from "@/domain/evaluasi/peta-asesmen";
 import { buatTemplatNilai } from "@/lib/evaluasi/excel-nilai";
+import { bahasaBerkas } from "@/lib/dokumen/bahasa-berkas";
 
 export const runtime = "nodejs";
 
@@ -18,7 +19,7 @@ export const runtime = "nodejs";
  * terisi, jadi unduhan berikutnya adalah lanjutan, bukan mulai dari kosong.
  */
 export async function GET(
-  _permintaan: Request,
+  permintaan: Request,
   { params }: { params: Promise<{ id: string; kelasId: string }> },
 ) {
   const sesi = await sesiSaatIni();
@@ -75,8 +76,7 @@ export async function GET(
         skorMaks: Number(b.skor),
       })),
     })),
-  });
-
+  }, bahasaBerkas(permintaan));
   const namaBerkas =
     `Nilai ${rpkps.mataKuliah.kode} kelas ${kelas.kode} - ${rpkps.tahunAkademik.kode}.xlsx`.replace(
       /[/\\?%*:|"<>]/g,

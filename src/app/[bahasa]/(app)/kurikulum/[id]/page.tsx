@@ -1,7 +1,7 @@
 import { Tautan } from "@/components/tautan";
 import { bahasaAktif, kamus } from "@/lib/bahasa/server";
 import { tanggal } from "@/lib/bahasa/format";
-import { isi } from "@/lib/bahasa/teks";
+import { isi, pilihTeks } from "@/lib/bahasa/teks";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Lock, UserRoundCog } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -341,6 +341,7 @@ export default async function HalamanDetailKurikulum({
                 id: c.id,
                 kode: c.kode,
                 deskripsi: c.deskripsi,
+                deskripsiEn: c.deskripsiEn,
                 ranah: c.ranah,
                 tingkatKkni: c.tingkatKkni,
                 jumlahMk: c._count.mataKuliah,
@@ -375,7 +376,9 @@ export default async function HalamanDetailKurikulum({
                   })}
                 </span>
               </div>
-              <p className="mt-1 text-sm">{c.deskripsi}</p>
+              <p className="mt-1 text-sm">
+                {pilihTeks(c.deskripsi, c.deskripsiEn, b).teks}
+              </p>
             </div>
           ))}
           {!bolehSunting && kurikulum.cpl.length === 0 ? (
@@ -423,7 +426,7 @@ export default async function HalamanDetailKurikulum({
               baris={kurikulum.mataKuliah.map((mk) => ({
                 id: mk.id,
                 kode: mk.kode,
-                nama: mk.nama,
+                nama: pilihTeks(mk.nama, mk.namaEn, b).teks,
                 semester: mk.semester,
                 sksTeori: mk.sksTeori,
                 sksPraktik: mk.sksPraktik,
@@ -443,6 +446,8 @@ export default async function HalamanDetailKurikulum({
                 id: mk.id,
                 kode: mk.kode,
                 nama: mk.nama,
+                namaEn: mk.namaEn,
+                deskripsiEn: mk.deskripsiEn,
                 deskripsi: mk.deskripsi,
                 semester: mk.semester,
                 status: mk.status,
@@ -478,7 +483,9 @@ export default async function HalamanDetailKurikulum({
                           {mk.kode}
                         </Tautan>
                       </TableCell>
-                      <TableCell className="text-sm">{mk.nama}</TableCell>
+                      <TableCell className="text-sm">
+                        {pilihTeks(mk.nama, mk.namaEn, b).teks}
+                      </TableCell>
                       <TableCell className="text-center text-sm tabular-nums">
                         {mk.semester}
                       </TableCell>

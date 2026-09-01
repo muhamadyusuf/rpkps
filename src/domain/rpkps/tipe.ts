@@ -83,6 +83,12 @@ export interface RpkpsInput {
    * harus lengkap lebih dulu.
    */
   pengampuBelumParaf: string[];
+  /**
+   * Terjemahan Inggris sudah dimulai tetapi belum selesai. Dihitung di luar
+   * validator karena butuh medan `*En` yang bukan bagian proyeksi ini.
+   * Menghasilkan PERINGATAN, tidak pernah pemblokir (docs/11 §5.6).
+   */
+  terjemahanSebagian?: boolean;
 }
 
 /**

@@ -7,8 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AreaTeks, Pilihan } from "@/components/ui/pilihan";
+import { Pilihan } from "@/components/ui/pilihan";
+import { AreaTeksDwibahasa } from "@/components/dwibahasa";
 import { TombolIkon } from "@/components/tombol-ikon";
+import { pilihTeks } from "@/lib/bahasa/teks";
 import { cn } from "@/lib/utils";
 import { useAksiKurikulum } from "../aksi-klien";
 import { geserCpl, hapusCpl, perbaruiCpl, tambahCpl, type MasukanCpl } from "../aksi-cpl";
@@ -26,6 +28,7 @@ export type CplTampil = {
   id: string;
   kode: string;
   deskripsi: string;
+  deskripsiEn: string | null;
   ranah: string;
   tingkatKkni: number | null;
   jumlahMk: number;
@@ -43,7 +46,7 @@ export function PengelolaCpl({
   daftar: CplTampil[];
 }) {
   const { menunggu, jalankan } = useAksiKurikulum();
-  const { k, isi } = useBahasa();
+  const { k, isi, bahasa } = useBahasa();
   const [menyunting, setMenyunting] = useState<string | null>(null);
 
   return (
@@ -125,7 +128,9 @@ export function PengelolaCpl({
               </div>
             </div>
 
-            <p className="mt-1.5 text-sm">{c.deskripsi}</p>
+            <p className="mt-1.5 text-sm">
+              {pilihTeks(c.deskripsi, c.deskripsiEn, bahasa).teks}
+            </p>
           </div>
         ),
       )}
@@ -168,10 +173,14 @@ function FormulirCpl({
       )}
       action={(fd) => {
         const kkni = String(fd.get("tingkatKkni") ?? "");
+        const deskripsiEn = String(fd.get("deskripsiEn") ?? "").trim();
         onSimpan(
           {
             kode: String(fd.get("kode") ?? ""),
             deskripsi: String(fd.get("deskripsi") ?? ""),
+            // Rumusan Inggris ikut tiap kali disimpan; kosong berarti belum
+            // diterjemahkan, bukan dihapus (docs/11 §5.3).
+            deskripsiEn: deskripsiEn === "" ? null : deskripsiEn,
             ranah: String(fd.get("ranah") ?? "KETERAMPILAN_KHUSUS"),
             // Kosong berarti tidak dicantumkan, bukan nol — banyak buku
             // kurikulum tidak menuliskan KKNI per CPL.
@@ -223,15 +232,14 @@ function FormulirCpl({
         </div>
       </div>
 
-      <div className="space-y-1.5">
-        <Label htmlFor={`${idForm}-deskripsi`}>{k.kurikulum.sunting.rumusanCpl}</Label>
-        <AreaTeks
-          id={`${idForm}-deskripsi`}
-          nama="deskripsi"
-          nilai={awal?.deskripsi ?? ""}
-          placeholder={k.kurikulum.sunting.contohRumusanCpl}
-        />
-      </div>
+      <AreaTeksDwibahasa
+        id={idForm}
+        nama="deskripsi"
+        label={k.kurikulum.sunting.rumusanCpl}
+        nilai={awal?.deskripsi ?? ""}
+        nilaiEn={awal?.deskripsiEn ?? ""}
+        petunjuk={k.kurikulum.sunting.contohRumusanCpl}
+      />
 
       <div className="flex gap-2">
         <Button type="submit" variant={baru ? "outline" : "default"} disabled={menunggu}>

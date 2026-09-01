@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
 import { ArrowLeft, Lock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { kamus } from "@/lib/bahasa/server";
-import { isi } from "@/lib/bahasa/teks";
+import { bahasaAktif, kamus } from "@/lib/bahasa/server";
+import { isi, namaMk } from "@/lib/bahasa/teks";
 import { ButtonLink } from "@/components/ui/button";
 import { wajibAktif } from "@/lib/otorisasi";
 import { wenangAtasRpkps } from "@/lib/rpkps/wenang";
@@ -43,6 +43,7 @@ export default async function HalamanEditorTugas({
   );
 
   const k = await kamus();
+  const b = await bahasaAktif();
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -61,7 +62,7 @@ export default async function HalamanEditorTugas({
           <h1 className="text-2xl font-semibold tracking-tight">{tugas.nama}</h1>
         </div>
         <p className="mt-1.5 text-sm text-muted-foreground">
-          {rpkps.mataKuliah.kode} — {rpkps.mataKuliah.nama}
+          {rpkps.mataKuliah.kode} — {namaMk(rpkps.mataKuliah, b)}
         </p>
       </header>
 
@@ -78,25 +79,34 @@ export default async function HalamanEditorTugas({
           }))}
           awal={{
             nama: tugas.nama,
+            namaEn: tugas.namaEn,
             jenis: tugas.jenis,
             mingguMulai: tugas.mingguMulai,
             mingguSelesai: tugas.mingguSelesai,
             bobot: Number(tugas.bobot),
             komponenNilaiId: tugas.komponenNilaiId,
             deskripsi: tugas.deskripsi,
+            deskripsiEn: tugas.deskripsiEn,
             uraianTugas: tugas.uraianTugas,
+            uraianTugasEn: tugas.uraianTugasEn,
             formatLuaran: tugas.formatLuaran,
+            formatLuaranEn: tugas.formatLuaranEn,
             ketentuanLain: tugas.ketentuanLain,
+            ketentuanLainEn: tugas.ketentuanLainEn,
             subCpmkId: tugas.subCpmk.map((s) => s.subCpmkId),
             kriteria: tugas.kriteria.map((k) => ({
               indikator: k.indikator,
+              indikatorEn: k.indikatorEn,
               rincian: k.rincian,
+              rincianEn: k.rincianEn,
               bobot: Number(k.bobot),
             })),
             linimasa: tugas.linimasa.map((l) => ({
               minggu: l.minggu,
               tahapan: l.tahapan,
+              tahapanEn: l.tahapanEn,
               aktivitas: l.aktivitas,
+              aktivitasEn: l.aktivitasEn,
             })),
           }}
         />

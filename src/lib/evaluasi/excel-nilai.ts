@@ -1,4 +1,7 @@
 import ExcelJS from "exceljs";
+import type { Bahasa } from "@/kamus";
+import { isi } from "@/lib/bahasa/teks";
+import { labelDokumen, type LabelDokumen } from "@/lib/dokumen/label";
 import type { BarisButirMentah, BarisMentah } from "@/domain/evaluasi/nilai";
 import type { Asesmen } from "@/domain/evaluasi/peta-asesmen";
 
@@ -60,7 +63,11 @@ export function lembarButir(jenis: "UTS" | "UAS"): string {
   return `Butir ${jenis}`;
 }
 
-export async function buatTemplatNilai(opsi: OpsiTemplatNilai): Promise<Buffer> {
+export async function buatTemplatNilai(
+  opsi: OpsiTemplatNilai,
+  bahasa: Bahasa = "id",
+): Promise<Buffer> {
+  const L = labelDokumen(bahasa);
   const wb = new ExcelJS.Workbook();
   wb.creator = "RPKPS ITTS";
   wb.created = new Date();
@@ -68,11 +75,11 @@ export async function buatTemplatNilai(opsi: OpsiTemplatNilai): Promise<Buffer> 
   // ── Lembar petunjuk ─────────────────────────────────────────────────
   const petunjuk = wb.addWorksheet(LEMBAR_PETUNJUK);
   petunjuk.columns = [
-    { header: "Kode", key: "kode", width: 12 },
-    { header: "Asesmen", key: "nama", width: 40 },
-    { header: "Masuk komponen", key: "komponen", width: 22 },
-    { header: "Bobot (%)", key: "bobot", width: 12 },
-    { header: "Sub-CPMK yang ditagih", key: "sub", width: 40 },
+    { header: L.excel.kode, key: "kode", width: 12 },
+    { header: L.excel.asesmen, key: "nama", width: 40 },
+    { header: L.excel.masukKomponen, key: "komponen", width: 22 },
+    { header: L.excel.bobotPersen, key: "bobot", width: 12 },
+    { header: L.excel.subDitagih, key: "sub", width: 40 },
   ];
   petunjuk.getRow(1).font = { bold: true };
 
@@ -92,10 +99,13 @@ export async function buatTemplatNilai(opsi: OpsiTemplatNilai): Promise<Buffer> 
   }
   petunjuk.addRow({});
   petunjuk.addRow({
-    nama: "Isi skor 0–100 pada lembar Nilai. Sel yang dikosongkan berarti belum dinilai.",
+    nama: L.excel.isiSkor,
   });
   petunjuk.addRow({
-    nama: "Jangan mengubah judul kolom — kode itulah yang menyambungkan nilai ke rencana.",
+    nama: L.excel.janganUbahJudul,
+  });
+  petunjuk.addRow({
+    nama: L.excel.pengenalTetapIndonesia,
   });
 
   // ── Lembar nilai ────────────────────────────────────────────────────
@@ -115,7 +125,11 @@ export async function buatTemplatNilai(opsi: OpsiTemplatNilai): Promise<Buffer> 
     // baris kedua akan terbaca sebagai data oleh siapa pun yang membaca
     // berkas ini tanpa aturan khusus.
     judul.getCell(KOLOM_ASESMEN_PERTAMA + i).note =
-      `${a.nama} · ${a.bobot}% · ${a.komponen ?? "tanpa komponen"}`;
+      isi(L.excel.catatanAsesmen, {
+        nama: a.nama,
+        bobot: a.bobot,
+        komponen: a.komponen ?? L.excel.tanpaKomponen,
+      });
   }
   ws.views = [{ state: "frozen", xSplit: 3, ySplit: 1 }];
 
@@ -137,7 +151,7 @@ export async function buatTemplatNilai(opsi: OpsiTemplatNilai): Promise<Buffer> 
 
   for (const u of opsi.ujian ?? []) {
     if (u.butir.length === 0) continue;
-    lembarSkorButir(wb, u, opsi.peserta);
+    lembarSkorButir(wb, u, opsi.peserta, L);
   }
 
   return Buffer.from(await wb.xlsx.writeBuffer());
@@ -154,6 +168,7 @@ function lembarSkorButir(
   wb: ExcelJS.Workbook,
   u: ButirTemplat,
   peserta: readonly PesertaTemplat[],
+  L: LabelDokumen,
 ) {
   const ws = wb.addWorksheet(lembarButir(u.jenis));
   ws.columns = [
@@ -166,7 +181,10 @@ function lembarSkorButir(
   judul.font = { bold: true };
   judul.alignment = { horizontal: "center" };
   for (const [i, b] of u.butir.entries()) {
-    judul.getCell(3 + i).note = `${b.subCpmkKode} · skor maksimum ${b.skorMaks}`;
+    judul.getCell(3 + i).note = isi(L.excel.catatanButir, {
+      kode: b.subCpmkKode,
+      skor: b.skorMaks,
+    });
   }
   ws.views = [{ state: "frozen", xSplit: 2, ySplit: 1 }];
 

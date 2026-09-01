@@ -32,10 +32,11 @@ import { kamusAksi } from "@/lib/bahasa/server";
 import type { Kamus } from "@/kamus";
 import { MIN_CATATAN_REVISI } from "@/domain/rpkps/tipe";
 import { isi as sisip } from "@/lib/bahasa/teks";
-import { pesanZod } from "@/lib/bahasa/zod";
+import { pesanZod, telusuriKamus } from "@/lib/bahasa/zod";
 import { teksTemuan } from "@/lib/bahasa/temuan";
 import { riwayat } from "@/domain/rpkps/riwayat";
 import { barisRiwayat } from "@/lib/rpkps/riwayat";
+import { kelengkapanRpkps } from "@/lib/rpkps/terjemahan";
 
 export type Hasil = { ok: boolean; pesan: string; id?: string };
 
@@ -203,7 +204,9 @@ export async function buatRpkps(
 
 const SkemaIdentitas = z.object({
   deskripsi: z.string().trim().max(4000).nullable(),
+  deskripsiEn: z.string().trim().max(4000).nullable(),
   kalimatPembukaCpmk: z.string().trim().max(1000).nullable(),
+  kalimatPembukaCpmkEn: z.string().trim().max(1000).nullable(),
   ambangKelulusanMhs: z.number().min(0).max(100),
   ambangKetercapaianMk: z.number().min(0).max(100),
   minimalKehadiranPersen: z.number().int().min(0).max(100),
@@ -222,7 +225,9 @@ export async function perbaruiIdentitas(id: string, data: FormData): Promise<Has
 
   const parsed = SkemaIdentitas.safeParse({
     deskripsi: kosongJadiNull(data.get("deskripsi")),
+    deskripsiEn: kosongJadiNull(data.get("deskripsiEn")),
     kalimatPembukaCpmk: kosongJadiNull(data.get("kalimatPembukaCpmk")),
+    kalimatPembukaCpmkEn: kosongJadiNull(data.get("kalimatPembukaCpmkEn")),
     ambangKelulusanMhs: Number(data.get("ambangKelulusanMhs")),
     ambangKetercapaianMk: Number(data.get("ambangKetercapaianMk")),
     minimalKehadiranPersen: Number(data.get("minimalKehadiranPersen")),
@@ -246,25 +251,46 @@ export async function perbaruiIdentitas(id: string, data: FormData): Promise<Has
   return { ok: true, pesan: kam.aksi.umum.tersimpan };
 }
 
+/**
+ * Medan berbahasa Inggris WAJIB ikut dalam muatan simpan.
+ *
+ * Penyimpanan ini mengganti seluruh isi baris. Kalau `*En` tidak ikut, dosen
+ * yang menyunting tab Indonesia akan menghapus terjemahan rekannya tanpa satu
+ * pesan pun — kegagalan senyap dengan bentuk persis sama seperti hilangnya id
+ * `komponen_nilai` (docs/11 §5.3). Karena itu tidak ada "simpan hanya bahasa
+ * Inggris": penyunting selalu mengirim kedua bahasa dalam satu muatan, di
+ * bawah satu cap versi, dalam satu transaksi.
+ */
 const SkemaPertemuan = z.object({
   topik: z.string().trim().max(500).nullable(),
+  topikEn: z.string().trim().max(500).nullable(),
   subtopik: z.array(z.string().trim().min(1)).max(30),
+  subtopikEn: z.array(z.string().trim()).max(30),
   metodeNarasi: z.string().trim().max(4000).nullable(),
+  metodeNarasiEn: z.string().trim().max(4000).nullable(),
   aktivitasDosen: z.string().trim().max(2000).nullable(),
+  aktivitasDosenEn: z.string().trim().max(2000).nullable(),
   aktivitasMahasiswa: z.string().trim().max(2000).nullable(),
+  aktivitasMahasiswaEn: z.string().trim().max(2000).nullable(),
   tugasTerstruktur: z.string().trim().max(2000).nullable(),
+  tugasTerstrukturEn: z.string().trim().max(2000).nullable(),
   penilaianJenis: z.string().trim().max(500).nullable(),
+  penilaianJenisEn: z.string().trim().max(500).nullable(),
   penilaianSistem: z.string().trim().max(1000).nullable(),
+  penilaianSistemEn: z.string().trim().max(1000).nullable(),
   bobot: z.number().min(0).max(100),
   /// Komponen nilai yang menampung bobot pertemuan ini. Dipakai untuk
   /// menyusun tabel distribusi penilaian (bagian E template ITTS).
   komponenNilaiId: z.string().nullable(),
   subCpmkId: z.array(z.string()).max(10),
-  indikator: z.array(z.string().trim().min(1)).max(20),
+  indikator: z
+    .array(z.object({ teks: z.string().trim().min(1), teksEn: z.string().trim().nullable() }))
+    .max(20),
   aktivitas: z
     .array(
       z.object({
         nama: z.string().trim().min(1),
+        namaEn: z.string().trim().nullable(),
         kategori: z.enum(["TM", "PT", "BM"]),
         menit: z.number().int().min(0).max(2000),
       }),
@@ -330,13 +356,21 @@ export async function simpanPertemuan(
       where: { id: pertemuanId, diubahPada: kesegaran.cap },
       data: {
         topik: d.topik,
+        topikEn: d.topikEn,
         subtopik: d.subtopik,
+        subtopikEn: d.subtopikEn,
         metodeNarasi: d.metodeNarasi,
+        metodeNarasiEn: d.metodeNarasiEn,
         aktivitasDosen: d.aktivitasDosen,
+        aktivitasDosenEn: d.aktivitasDosenEn,
         aktivitasMahasiswa: d.aktivitasMahasiswa,
+        aktivitasMahasiswaEn: d.aktivitasMahasiswaEn,
         tugasTerstruktur: d.tugasTerstruktur,
+        tugasTerstrukturEn: d.tugasTerstrukturEn,
         penilaianJenis: d.penilaianJenis,
+        penilaianJenisEn: d.penilaianJenisEn,
         penilaianSistem: d.penilaianSistem,
+        penilaianSistemEn: d.penilaianSistemEn,
         bobot: d.bobot,
         komponenNilaiId: d.komponenNilaiId,
       },
@@ -348,6 +382,7 @@ export async function simpanPertemuan(
       data: d.aktivitas.map((a, i) => ({
         pertemuanId,
         nama: a.nama,
+        namaEn: a.namaEn,
         kategori: a.kategori,
         menit: a.menit,
         urutan: i,
@@ -355,7 +390,12 @@ export async function simpanPertemuan(
     });
     await tx.indikator.deleteMany({ where: { pertemuanId } });
     await tx.indikator.createMany({
-      data: d.indikator.map((teks, i) => ({ pertemuanId, teks, urutan: i })),
+      data: d.indikator.map((x, i) => ({
+        pertemuanId,
+        teks: x.teks,
+        teksEn: x.teksEn,
+        urutan: i,
+      })),
     });
     await tx.pertemuanSubCpmk.deleteMany({ where: { pertemuanId } });
     await tx.pertemuanSubCpmk.createMany({
@@ -445,7 +485,7 @@ export async function hapusPustaka(pustakaId: string): Promise<Hasil> {
  */
 export async function simpanKomponenNilai(
   rpkpsId: string,
-  komponen: { id: string | null; nama: string; bobot: number }[],
+  komponen: { id: string | null; nama: string; namaEn: string | null; bobot: number }[],
 ): Promise<Hasil> {
   const kam = await kamusAksi();
   const { boleh, bolehSunting, status } = await pastikanWenang(rpkpsId);
@@ -453,7 +493,14 @@ export async function simpanKomponenNilai(
   if (!bolehSunting) return { ok: false, pesan: pesanTerkunci(status, kam) };
 
   const hasil = await tulisKomponenNilai(prisma, rpkpsId, komponen);
-  if (!hasil.ok) return { ok: false, pesan: hasil.galat };
+  if (!hasil.ok) {
+    // `galat` adalah kunci kamus, bukan kalimat — domain tidak berbahasa.
+    return {
+      ok: false,
+      pesan:
+        telusuriKamus(kam, hasil.galat.replace(/^@/, "")) ?? kam.aksi.umum.dataTidakValid,
+    };
+  }
 
   segarkan(`/rpkps/${rpkpsId}`);
   segarkan(`/rpkps/${rpkpsId}/mingguan`);
@@ -613,7 +660,13 @@ export async function ajukanRpkps(id: string): Promise<Hasil> {
   }
 
   const { kebijakan } = await muatKebijakan();
-  const hasil = validasiRpkps(keRpkpsInput({ ...rpkps, sidikSekarang: sidik }), kebijakan);
+  const hasil = validasiRpkps(
+    {
+      ...keRpkpsInput({ ...rpkps, sidikSekarang: sidik }),
+      terjemahanSebagian: kelengkapanRpkps(rpkps).sebagian,
+    },
+    kebijakan,
+  );
   if (!hasil.lolos) {
     const paraf = hasil.pemblokir.find((t) => t.kode === "B-PARAF-BELUM-LENGKAP");
     return {

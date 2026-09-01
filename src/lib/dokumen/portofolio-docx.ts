@@ -11,6 +11,8 @@ import { ABU, baris, judulBagian, paragraf, RATA_ISI, sel, teks, UKURAN_JUDUL } 
 import { sidikRingkas } from "@/domain/rpkps/sidik";
 import type { CapaianButir, NilaiMahasiswa } from "@/domain/evaluasi/capaian";
 import type { Asesmen } from "@/domain/evaluasi/peta-asesmen";
+import type { Bahasa } from "@/kamus";
+import { labelDokumen, type LabelDokumen } from "./label";
 
 /**
  * Portofolio mata kuliah — bundel bukti yang lazim diminta asesor per MK per
@@ -53,9 +55,13 @@ export interface SumberPortofolio {
   ditutupOleh: string | null;
 }
 
-export async function buatPortofolioMk(s: SumberPortofolio): Promise<Buffer> {
+export async function buatPortofolioMk(
+  s: SumberPortofolio,
+  bahasa: Bahasa = "id",
+): Promise<Buffer> {
+  const L = labelDokumen(bahasa);
   const isi: (Paragraph | Table)[] = [
-    paragraf("PORTOFOLIO MATA KULIAH", {
+    paragraf(L.portofolio.portofolioMataKuliah, {
       tebal: true,
       ukuran: UKURAN_JUDUL,
       rata: AlignmentType.CENTER,
@@ -63,12 +69,12 @@ export async function buatPortofolioMk(s: SumberPortofolio): Promise<Buffer> {
     }),
     paragraf(s.prodi, { rata: AlignmentType.CENTER, spasi: { after: 240 } }),
 
-    ...bagianIdentitas(s),
-    ...bagianRingkasan(s),
-    ...bagianCapaian(s),
-    ...bagianRefleksi(s),
-    ...bagianTindakLanjut(s),
-    ...bagianPengesahan(s),
+    ...bagianIdentitas(s, L),
+    ...bagianRingkasan(s, L),
+    ...bagianCapaian(s, L),
+    ...bagianRefleksi(s, L),
+    ...bagianTindakLanjut(s, L),
+    ...bagianPengesahan(s, L),
   ];
 
   const dokumen = new Document({
@@ -78,27 +84,27 @@ export async function buatPortofolioMk(s: SumberPortofolio): Promise<Buffer> {
   return Buffer.from(await Packer.toBuffer(dokumen));
 }
 
-function bagianIdentitas(s: SumberPortofolio): (Paragraph | Table)[] {
+function bagianIdentitas(s: SumberPortofolio, L: LabelDokumen): (Paragraph | Table)[] {
   const sks = s.mk.sksTeori + s.mk.sksPraktik;
   return [
-    judulBagian("A", "IDENTITAS"),
+    judulBagian("A", L.portofolio.identitas),
     tabelDua([
-      ["Mata Kuliah", `${s.mk.kode} — ${s.mk.nama}`],
-      ["Bobot", `${sks} sks (${s.mk.sksTeori}T + ${s.mk.sksPraktik}P)`],
-      ["Tahun Akademik", s.tahunAkademik.replace("-", " ")],
-      ["Kelas", s.kelas],
-      ["Dosen Pengampu", s.dosen ?? "—"],
-      ["Jumlah Peserta", String(s.jumlahPeserta)],
+      [L.portofolio.mataKuliah, `${s.mk.kode} — ${s.mk.nama}`],
+      [L.portofolio.bobot, `${sks} sks (${s.mk.sksTeori}T + ${s.mk.sksPraktik}P)`],
+      [L.portofolio.tahunAkademik, s.tahunAkademik.replace("-", " ")],
+      [L.portofolio.kelas, s.kelas],
+      [L.portofolio.dosenPengampu, s.dosen ?? "—"],
+      [L.portofolio.jumlahPeserta, String(s.jumlahPeserta)],
     ]),
   ];
 }
 
-function bagianRingkasan(s: SumberPortofolio): (Paragraph | Table)[] {
-  const cpmk = s.butir.filter((b) => b.tingkat === "CPMK");
+function bagianRingkasan(s: SumberPortofolio, L: LabelDokumen): (Paragraph | Table)[] {
+  const cpmk = s.butir.filter((b) => b.tingkat === L.portofolio.cpmk);
   const cpl = s.butir.filter((b) => b.tingkat === "CPL");
 
   return [
-    judulBagian("B", "RINGKASAN KETERCAPAIAN"),
+    judulBagian("B", L.portofolio.ringkasanKetercapaian),
     paragraf(
       `Mahasiswa dinyatakan lulus sebuah CPMK bila nilainya mencapai ${s.ambangKelulusanMhs}. ` +
         `CPMK dinyatakan tercapai bila sekurang-kurangnya ${s.ambangKetercapaianMk}% mahasiswa lulus. ` +
@@ -107,21 +113,21 @@ function bagianRingkasan(s: SumberPortofolio): (Paragraph | Table)[] {
       { rata: RATA_ISI },
     ),
     tabelDua([
-      ["Kelengkapan nilai", `${s.kelengkapan}%`],
-      ["Rerata nilai akhir", s.rerataNilaiAkhir === null ? "—" : String(s.rerataNilaiAkhir)],
-      ["CPMK tercapai", `${cpmk.filter((b) => b.tercapai).length} dari ${cpmk.length}`],
-      ["CPL tercapai", `${cpl.filter((b) => b.tercapai).length} dari ${cpl.length}`],
+      [L.portofolio.kelengkapanNilai, `${s.kelengkapan}%`],
+      [L.portofolio.rerataNilaiAkhir, s.rerataNilaiAkhir === null ? "—" : String(s.rerataNilaiAkhir)],
+      [L.portofolio.cpmkTercapai, `${cpmk.filter((b) => b.tercapai).length} dari ${cpmk.length}`],
+      [L.portofolio.cplTercapai, `${cpl.filter((b) => b.tercapai).length} dari ${cpl.length}`],
     ]),
   ];
 }
 
-function bagianCapaian(s: SumberPortofolio): (Paragraph | Table)[] {
-  const isi: (Paragraph | Table)[] = [judulBagian("C", "CAPAIAN PER BUTIR")];
+function bagianCapaian(s: SumberPortofolio, L: LabelDokumen): (Paragraph | Table)[] {
+  const isi: (Paragraph | Table)[] = [judulBagian("C", L.portofolio.capaianPerButir)];
 
   for (const [tingkat, judul] of [
     ["CPL", "Capaian Pembelajaran Lulusan"],
-    ["CPMK", "Capaian Pembelajaran Mata Kuliah"],
-    ["SUB_CPMK", "Sub-CPMK"],
+    [L.portofolio.cpmk, "Capaian Pembelajaran Mata Kuliah"],
+    ["SUB_CPMK", L.portofolio.subCpmk],
   ] as const) {
     const butir = s.butir.filter((b) => b.tingkat === tingkat);
     if (butir.length === 0) continue;
@@ -134,11 +140,11 @@ function bagianCapaian(s: SumberPortofolio): (Paragraph | Table)[] {
           new TableRow({
             tableHeader: true,
             children: [
-              sel("Kode", { lebar: 22, tebal: true, latar: ABU }),
-              sel("Rerata", { lebar: 15, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
-              sel("Mahasiswa Lulus", { lebar: 22, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
-              sel("Pita", { lebar: 20, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
-              sel("Status", { lebar: 21, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
+              sel(L.portofolio.kode, { lebar: 22, tebal: true, latar: ABU }),
+              sel(L.portofolio.rerata, { lebar: 15, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
+              sel(L.portofolio.mahasiswaLulus, { lebar: 22, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
+              sel(L.portofolio.pita, { lebar: 20, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
+              sel(L.portofolio.status, { lebar: 21, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
             ],
           }),
           ...butir.map(
@@ -163,7 +169,7 @@ function bagianCapaian(s: SumberPortofolio): (Paragraph | Table)[] {
 
   // Peta asesmen ikut dicetak: tanpa bobot yang berlaku, angka di atas tidak
   // dapat diperiksa ulang oleh siapa pun.
-  isi.push(paragraf([teks("Asesmen yang menyusun capaian", { tebal: true })], { spasi: { before: 200, after: 80 } }));
+  isi.push(paragraf([teks(L.portofolio.asesmenYangMenyusunCapaian, { tebal: true })], { spasi: { before: 200, after: 80 } }));
   isi.push(
     new Table({
       width: { size: 100, type: WidthType.PERCENTAGE },
@@ -171,11 +177,11 @@ function bagianCapaian(s: SumberPortofolio): (Paragraph | Table)[] {
         new TableRow({
           tableHeader: true,
           children: [
-            sel("Kode", { lebar: 12, tebal: true, latar: ABU }),
-            sel("Asesmen", { lebar: 34, tebal: true, latar: ABU }),
-            sel("Komponen", { lebar: 22, tebal: true, latar: ABU }),
-            sel("Bobot", { lebar: 12, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
-            sel("Sub-CPMK", { lebar: 20, tebal: true, latar: ABU }),
+            sel(L.portofolio.kode, { lebar: 12, tebal: true, latar: ABU }),
+            sel(L.portofolio.asesmen, { lebar: 34, tebal: true, latar: ABU }),
+            sel(L.portofolio.komponen, { lebar: 22, tebal: true, latar: ABU }),
+            sel(L.portofolio.bobot, { lebar: 12, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
+            sel(L.portofolio.subCpmk, { lebar: 20, tebal: true, latar: ABU }),
           ],
         }),
         ...s.asesmen.map(
@@ -197,22 +203,22 @@ function bagianCapaian(s: SumberPortofolio): (Paragraph | Table)[] {
   return isi;
 }
 
-function bagianRefleksi(s: SumberPortofolio): (Paragraph | Table)[] {
+function bagianRefleksi(s: SumberPortofolio, L: LabelDokumen): (Paragraph | Table)[] {
   return [
-    judulBagian("D", "CATATAN PROSES PEMBELAJARAN"),
+    judulBagian("D", L.portofolio.catatanProsesPembelajaran),
     ...(s.catatanProses?.trim()
       ? baris(s.catatanProses)
-      : [paragraf("Belum diisi.", { miring: true })]),
+      : [paragraf(L.portofolio.belumDiisi, { miring: true })]),
   ];
 }
 
-function bagianTindakLanjut(s: SumberPortofolio): (Paragraph | Table)[] {
-  const isi: (Paragraph | Table)[] = [judulBagian("E", "TEMUAN DAN RENCANA TINDAK LANJUT")];
+function bagianTindakLanjut(s: SumberPortofolio, L: LabelDokumen): (Paragraph | Table)[] {
+  const isi: (Paragraph | Table)[] = [judulBagian("E", L.portofolio.temuanDanRtl)];
 
   if (s.temuan.length === 0) {
     isi.push(
       paragraf(
-        "Tidak ada CPMK yang berada di bawah ambang ketercapaian, sehingga tidak ada tindak lanjut yang diwajibkan pada semester ini.",
+        L.portofolio.tanpaTindakLanjut,
         { rata: RATA_ISI },
       ),
     );
@@ -226,11 +232,11 @@ function bagianTindakLanjut(s: SumberPortofolio): (Paragraph | Table)[] {
         new TableRow({
           tableHeader: true,
           children: [
-            sel("Butir", { lebar: 12, tebal: true, latar: ABU }),
-            sel("Capaian", { lebar: 10, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
-            sel("Akar Masalah", { lebar: 30, tebal: true, latar: ABU }),
-            sel("Tindakan", { lebar: 30, tebal: true, latar: ABU }),
-            sel("Penanggung Jawab / Berlaku", { lebar: 18, tebal: true, latar: ABU }),
+            sel(L.portofolio.butir, { lebar: 12, tebal: true, latar: ABU }),
+            sel(L.portofolio.capaian, { lebar: 10, tebal: true, latar: ABU, rata: AlignmentType.CENTER }),
+            sel(L.portofolio.akarMasalah, { lebar: 30, tebal: true, latar: ABU }),
+            sel(L.portofolio.tindakan, { lebar: 30, tebal: true, latar: ABU }),
+            sel(L.portofolio.penanggungJawabBerlaku, { lebar: 18, tebal: true, latar: ABU }),
           ],
         }),
         ...s.temuan.map(
@@ -263,7 +269,7 @@ function bagianTindakLanjut(s: SumberPortofolio): (Paragraph | Table)[] {
 
   const diverifikasi = s.temuan.filter((t) => t.statusVerifikasi !== "BELUM");
   if (diverifikasi.length > 0) {
-    isi.push(paragraf([teks("Verifikasi tindak lanjut", { tebal: true })], { spasi: { before: 200, after: 80 } }));
+    isi.push(paragraf([teks(L.portofolio.verifikasiTindakLanjut, { tebal: true })], { spasi: { before: 200, after: 80 } }));
     for (const t of diverifikasi) {
       isi.push(
         paragraf(
@@ -278,19 +284,19 @@ function bagianTindakLanjut(s: SumberPortofolio): (Paragraph | Table)[] {
   return isi;
 }
 
-function bagianPengesahan(s: SumberPortofolio): (Paragraph | Table)[] {
+function bagianPengesahan(s: SumberPortofolio, L: LabelDokumen): (Paragraph | Table)[] {
   if (!s.sidik) {
     return [
-      judulBagian("F", "STATUS DOKUMEN"),
+      judulBagian("F", L.portofolio.statusDokumen),
       paragraf(
-        "Evaluasi belum ditutup. Angka pada dokumen ini masih dapat berubah dan belum menjadi catatan resmi.",
+        L.portofolio.evaluasiBelumDitutup,
         { miring: true, rata: RATA_ISI },
       ),
     ];
   }
 
   return [
-    judulBagian("F", "PENGESAHAN"),
+    judulBagian("F", L.portofolio.pengesahan),
     paragraf(
       `Evaluasi ditutup pada ${s.ditutupPada?.toLocaleDateString("id-ID", {
         day: "numeric",
@@ -300,11 +306,11 @@ function bagianPengesahan(s: SumberPortofolio): (Paragraph | Table)[] {
       { rata: RATA_ISI },
     ),
     paragraf([
-      teks("Sidik dokumen: "),
+      teks(L.portofolio.sidikDokumen),
       teks(sidikRingkas(s.sidik), { tebal: true }),
     ]),
     paragraf(
-      "Sidik dihitung dengan SHA-256 atas seluruh isi evaluasi. Nilai mahasiswa boleh berubah setelah remedial; salinan beku yang menghasilkan sidik ini tidak.",
+      L.portofolio.sidikDihitungSha256,
       { miring: true, rata: RATA_ISI },
     ),
   ];

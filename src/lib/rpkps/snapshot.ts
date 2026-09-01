@@ -1,8 +1,11 @@
 import "server-only";
+import { Prisma } from "@/generated/prisma";
 import { prisma } from "@/lib/prisma";
 import { cairkanSnapshot, type IsiSnapshot } from "@/domain/rpkps/sidik";
 import { bacaDataRiwayat } from "@/lib/bahasa/riwayat";
 import { sidikDokumen, type SumberProyeksi } from "@/domain/rpkps/proyeksi";
+import { proyeksiIsiEn, sidikDokumenEn, type SumberProyeksiEn } from "@/domain/rpkps/proyeksi-en";
+import { kelengkapanRpkps } from "@/lib/rpkps/terjemahan";
 import type { RpkpsLengkap } from "@/lib/rpkps/muat";
 
 /**
@@ -12,6 +15,11 @@ import type { RpkpsLengkap } from "@/lib/rpkps/muat";
 
 export function sidikRpkps(r: RpkpsLengkap): string {
   return sidikDokumen(r as unknown as SumberProyeksi);
+}
+
+/** Sidik ruang KEDUA. Tidak pernah dibandingkan dengan `sidikRpkps`. */
+export function sidikRpkpsEn(r: RpkpsLengkap): string {
+  return sidikDokumenEn(r as unknown as SumberProyeksiEn);
 }
 
 export async function bekukanRpkps(
@@ -40,10 +48,40 @@ export async function bekukanRpkps(
 
   const sidik = sidikRpkps(rpkps);
 
+  /**
+   * Versi Inggris dibekukan hanya bila ADA yang diterjemahkan.
+   *
+   * Nol terjemahan berarti tidak ada dokumen berbahasa Inggris — dan menulis
+   * `isiEn` yang seluruh isinya cadangan bahasa Indonesia akan membuat halaman
+   * `/en/katalog` menyatakan "versi Inggris terbit" atas dokumen yang satu
+   * katanya pun tidak berbahasa Inggris.
+   *
+   * Sebaliknya, terjemahan yang belum lengkap TETAP dibekukan: `proyeksiIsiEn`
+   * mencadangkan per medan, jadi hasilnya dokumen sebagian besar Inggris dengan
+   * beberapa baris Indonesia — dan halaman publiknya menerangkan itu sekali di
+   * kepala dokumen. Menahan seluruh dokumen sampai medan terakhir selesai
+   * adalah cara tercepat membuat terjemahan tidak pernah terbit.
+   */
+  const adaTerjemahan = kelengkapanRpkps(rpkps).terisi > 0;
+  // `Prisma.DbNull` dan bukan `null`: pada kolom Json, `null` biasa berarti
+  // "JSON null tersimpan", bukan "kolom kosong".
+  const isiEn = adaTerjemahan
+    ? (proyeksiIsiEn(rpkps as unknown as SumberProyeksiEn) as never)
+    : Prisma.DbNull;
+  const sidikEn = adaTerjemahan ? sidikRpkpsEn(rpkps) : null;
+
   await prisma.rpkpsSnapshot.upsert({
     where: { rpkpsId_versi: { rpkpsId: rpkps.id, versi: rpkps.versi } },
-    update: { isi: isi as never, sidik, olehId },
-    create: { rpkpsId: rpkps.id, versi: rpkps.versi, isi: isi as never, sidik, olehId },
+    update: { isi: isi as never, sidik, isiEn, sidikEn, olehId },
+    create: {
+      rpkpsId: rpkps.id,
+      versi: rpkps.versi,
+      isi: isi as never,
+      sidik,
+      isiEn,
+      sidikEn,
+      olehId,
+    },
   });
 
   return { sidik, versi: rpkps.versi };

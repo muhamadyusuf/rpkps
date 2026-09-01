@@ -19,36 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { simpanTugas, type IsiTugas } from "../aksi";
-
-function Area({
-  id,
-  label,
-  nilai,
-  ubah,
-  baris = 4,
-  petunjuk,
-}: {
-  id: string;
-  label: string;
-  nilai: string;
-  ubah: (v: string) => void;
-  baris?: number;
-  petunjuk?: string;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <Label htmlFor={id}>{label}</Label>
-      <textarea
-        id={id}
-        rows={baris}
-        value={nilai}
-        placeholder={petunjuk}
-        onChange={(e) => ubah(e.target.value)}
-        className="w-full rounded-lg border bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-      />
-    </div>
-  );
-}
+import { Medan, SakelarBahasa, type ModeBahasa } from "@/components/dwibahasa";
 
 export function EditorTugas({
   tugasId,
@@ -68,6 +39,7 @@ export function EditorTugas({
 }) {
   const { k, isi } = useBahasa();
   const [d, setD] = useState<IsiTugas>(awal);
+  const [mode, setMode] = useState<ModeBahasa>("id");
   const [menunggu, mulai] = useTransition();
   const router = useRouter();
 
@@ -83,20 +55,22 @@ export function EditorTugas({
 
   return (
     <div className="space-y-6">
+      <SakelarBahasa mode={mode} ubah={setMode} />
       <Card>
         <CardHeader>
           <CardTitle className="text-base">{k.rpkps.tugasEditor.identitas}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="nama">{k.rpkps.tugasEditor.namaTugas}</Label>
-            <Input
-              id="nama"
-              value={d.nama}
-              onChange={(e) => ubah("nama", e.target.value)}
-              placeholder={k.rpkps.tugasEditor.contohNama}
-            />
-          </div>
+          <Medan
+            mode={mode}
+            id="nama"
+            label={k.rpkps.tugasEditor.namaTugas}
+            nilai={d.nama}
+            nilaiEn={d.namaEn ?? ""}
+            ubah={(v) => ubah("nama", v)}
+            ubahEn={(v) => ubah("namaEn", v || null)}
+            petunjuk={k.rpkps.tugasEditor.contohNama}
+          />
 
           <div className="grid gap-4 sm:grid-cols-4">
             <div className="space-y-1.5">
@@ -217,34 +191,48 @@ export function EditorTugas({
           <CardTitle className="text-base">{k.rpkps.tugasEditor.uraian}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Area
+          <Medan
+            mode={mode}
             id="deskripsi"
             label={k.rpkps.tugasEditor.deskripsiTugas}
+            baris={4}
             nilai={d.deskripsi}
+            nilaiEn={d.deskripsiEn ?? ""}
             ubah={(v) => ubah("deskripsi", v)}
+            ubahEn={(v) => ubah("deskripsiEn", v || null)}
             petunjuk={k.rpkps.tugasEditor.contohDeskripsi}
           />
-          <Area
+          <Medan
+            mode={mode}
             id="uraianTugas"
             label={k.rpkps.tugasEditor.uraianTeknis}
             baris={5}
             nilai={d.uraianTugas ?? ""}
+            nilaiEn={d.uraianTugasEn ?? ""}
             ubah={(v) => ubah("uraianTugas", v || null)}
+            ubahEn={(v) => ubah("uraianTugasEn", v || null)}
             petunjuk={k.rpkps.tugasEditor.contohUraian}
           />
-          <Area
+          <Medan
+            mode={mode}
             id="formatLuaran"
             label={k.rpkps.tugasEditor.formatLuaran}
+            baris={4}
             nilai={d.formatLuaran ?? ""}
+            nilaiEn={d.formatLuaranEn ?? ""}
             ubah={(v) => ubah("formatLuaran", v || null)}
+            ubahEn={(v) => ubah("formatLuaranEn", v || null)}
             petunjuk={k.rpkps.tugasEditor.contohFormat}
           />
-          <Area
+          <Medan
+            mode={mode}
             id="ketentuanLain"
             label={k.rpkps.tugasEditor.ketentuanLain}
             baris={3}
             nilai={d.ketentuanLain ?? ""}
+            nilaiEn={d.ketentuanLainEn ?? ""}
             ubah={(v) => ubah("ketentuanLain", v || null)}
+            ubahEn={(v) => ubah("ketentuanLainEn", v || null)}
             petunjuk={k.rpkps.tugasEditor.contohKetentuan}
           />
         </CardContent>
@@ -298,6 +286,23 @@ export function EditorTugas({
                   <Trash2 />
                 </TombolIkon>
               </div>
+
+              {mode !== "id" ? (
+                <div className="ml-7">
+                  <Input
+                    value={kr.indikatorEn ?? ""}
+                    placeholder={k.dwibahasa.belumDiterjemahkan}
+                    onChange={(e) =>
+                      ubah(
+                        "kriteria",
+                        d.kriteria.map((x, j) =>
+                          j === i ? { ...x, indikatorEn: e.target.value || null } : x,
+                        ),
+                      )
+                    }
+                  />
+                </div>
+              ) : null}
 
               <div className="ml-7 space-y-1.5">
                 {kr.rincian.map((r, ri) => (
@@ -365,7 +370,7 @@ export function EditorTugas({
               variant="outline"
               size="sm"
               onClick={() =>
-                ubah("kriteria", [...d.kriteria, { indikator: "", rincian: [], bobot: 0 }])
+                ubah("kriteria", [...d.kriteria, { indikator: "", indikatorEn: null, rincian: [], rincianEn: [], bobot: 0 }])
               }
             >
               <Plus />
@@ -431,6 +436,35 @@ export function EditorTugas({
                   )
                 }
               />
+              {mode !== "id" ? (
+                <>
+                  <Input
+                    className="w-52"
+                    value={l.tahapanEn ?? ""}
+                    placeholder={k.dwibahasa.belumDiterjemahkan}
+                    onChange={(e) =>
+                      ubah(
+                        "linimasa",
+                        d.linimasa.map((x, j) =>
+                          j === i ? { ...x, tahapanEn: e.target.value || null } : x,
+                        ),
+                      )
+                    }
+                  />
+                  <Input
+                    value={l.aktivitasEn ?? ""}
+                    placeholder={k.dwibahasa.belumDiterjemahkan}
+                    onChange={(e) =>
+                      ubah(
+                        "linimasa",
+                        d.linimasa.map((x, j) =>
+                          j === i ? { ...x, aktivitasEn: e.target.value || null } : x,
+                        ),
+                      )
+                    }
+                  />
+                </>
+              ) : null}
               <TombolIkon
                 petunjuk={k.rpkps.tugasEditor.hapusTahapan}
                 onClick={() => ubah("linimasa", d.linimasa.filter((_, j) => j !== i))}
@@ -445,7 +479,13 @@ export function EditorTugas({
             onClick={() =>
               ubah("linimasa", [
                 ...d.linimasa,
-                { minggu: d.mingguMulai, tahapan: "", aktivitas: "" },
+                {
+                  minggu: d.mingguMulai,
+                  tahapan: "",
+                  tahapanEn: null,
+                  aktivitas: "",
+                  aktivitasEn: null,
+                },
               ])
             }
           >

@@ -15,9 +15,9 @@ const ada: KomponenAda[] = [
 
 /** Daftar yang sama persis dengan yang tersimpan, seperti dikirim formulir. */
 const utuh: KomponenMasuk[] = [
-  { id: "k1", nama: "Tugas", bobot: 30 },
-  { id: "k2", nama: "UTS", bobot: 30 },
-  { id: "k3", nama: "UAS", bobot: 40 },
+  { id: "k1", nama: "Tugas", namaEn: null, bobot: 30 },
+  { id: "k2", nama: "UTS", namaEn: null, bobot: 30 },
+  { id: "k3", nama: "UAS", namaEn: null, bobot: 40 },
 ];
 
 describe("rencana komponen nilai", () => {
@@ -41,9 +41,9 @@ describe("rencana komponen nilai", () => {
   });
 
   it("menambah komponen hanya menambah, tidak membuat ulang yang lama", () => {
-    const r = rencanakanKomponen([...utuh, { id: null, nama: "Kuis", bobot: 10 }], ada);
+    const r = rencanakanKomponen([...utuh, { id: null, nama: "Kuis", namaEn: null, bobot: 10 }], ada);
     assert.deepEqual(r.hapus, []);
-    assert.deepEqual(r.tambah, [{ nama: "Kuis", bobot: 10, urutan: 3 }]);
+    assert.deepEqual(r.tambah, [{ nama: "Kuis", namaEn: null, bobot: 10, urutan: 3 }]);
     assert.equal(r.perbarui.length, 3);
   });
 
@@ -81,8 +81,8 @@ describe("rencana komponen nilai", () => {
   it("pemanggil tanpa id — penerapan draf AI — tetap dipasangkan lewat nama", () => {
     const r = rencanakanKomponen(
       [
-        { id: null, nama: "Tugas", bobot: 40 },
-        { id: null, nama: "UAS", bobot: 60 },
+        { id: null, nama: "Tugas", namaEn: null, bobot: 40 },
+        { id: null, nama: "UAS", namaEn: null, bobot: 60 },
       ],
       ada,
     );
@@ -95,27 +95,27 @@ describe("rencana komponen nilai", () => {
   });
 
   it("baris kosong dibuang, bukan disimpan sebagai komponen tanpa nama", () => {
-    const r = rencanakanKomponen([...utuh, { id: null, nama: "   ", bobot: 0 }], ada);
+    const r = rencanakanKomponen([...utuh, { id: null, nama: "   ", namaEn: null, bobot: 0 }], ada);
     assert.deepEqual(r.tambah, []);
     assert.equal(r.galat, null);
   });
 
   it("nama berulang ditolak sebelum apa pun ditulis", () => {
     const r = rencanakanKomponen(
-      [...utuh, { id: null, nama: "UTS", bobot: 5 }],
+      [...utuh, { id: null, nama: "UTS", namaEn: null, bobot: 5 }],
       ada,
     );
-    assert.equal(r.galat, "Nama komponen nilai tidak boleh berulang.");
+    assert.equal(r.galat, "@aksi.rpkps.komponenNamaBerulang");
     assert.deepEqual(r.hapus, []);
     assert.deepEqual(r.perbarui, []);
   });
 
   it("id yang tidak dikenal diperlakukan sebagai baris baru, bukan galat", () => {
     const r = rencanakanKomponen(
-      [{ id: "hantu", nama: "Praktikum", bobot: 100 }],
+      [{ id: "hantu", nama: "Praktikum", namaEn: null, bobot: 100 }],
       ada,
     );
-    assert.deepEqual(r.tambah, [{ nama: "Praktikum", bobot: 100, urutan: 0 }]);
+    assert.deepEqual(r.tambah, [{ nama: "Praktikum", namaEn: null, bobot: 100, urutan: 0 }]);
     assert.deepEqual(r.hapus, ["k1", "k2", "k3"]);
   });
 
@@ -130,8 +130,8 @@ describe("penggantian nama", () => {
   it("menukar dua nama menandai keduanya, sehingga ditulis dua langkah", () => {
     const r = rencanakanKomponen(
       [
-        { id: "k2", nama: "UAS", bobot: 30 },
-        { id: "k3", nama: "UTS", bobot: 40 },
+        { id: "k2", nama: "UAS", namaEn: null, bobot: 30 },
+        { id: "k3", nama: "UTS", namaEn: null, bobot: 40 },
       ],
       ada,
     );

@@ -1,6 +1,6 @@
 import { Tautan } from "@/components/tautan";
-import { kamus } from "@/lib/bahasa/server";
-import { isi } from "@/lib/bahasa/teks";
+import { bahasaAktif, kamus } from "@/lib/bahasa/server";
+import { isi, namaMk } from "@/lib/bahasa/teks";
 import { FileText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -89,9 +89,12 @@ export default async function HalamanRpkps({
   const pencarian = kata
     ? {
         mataKuliah: {
+          // Nama Inggris ikut dicari: pembaca antarmuka Inggris mengetik nama
+          // yang dilihatnya di layar, bukan nama Indonesianya.
           OR: [
             { kode: { contains: kata, mode: "insensitive" as const } },
             { nama: { contains: kata, mode: "insensitive" as const } },
+            { namaEn: { contains: kata, mode: "insensitive" as const } },
           ],
         },
       }
@@ -108,6 +111,7 @@ export default async function HalamanRpkps({
       select: {
         kode: true,
         nama: true,
+        namaEn: true,
         semester: true,
         sksTeori: true,
         sksPraktik: true,
@@ -191,19 +195,21 @@ export default async function HalamanRpkps({
                   OR: [
                     { kode: { contains: kata, mode: "insensitive" as const } },
                     { nama: { contains: kata, mode: "insensitive" as const } },
+                    { namaEn: { contains: kata, mode: "insensitive" as const } },
                   ],
                 }
               : {}),
           },
           orderBy: [{ semester: "asc" }, { kode: "asc" }],
           take: UKURAN_HALAMAN,
-          select: { id: true, kode: true, nama: true, semester: true },
+          select: { id: true, kode: true, nama: true, namaEn: true, semester: true },
         })
       : [],
   ]);
 
   const sekarang = new Date();
   const k = await kamus();
+  const b = await bahasaAktif();
 
   /**
    * Tenggat sebuah baris. Dipakai kedua tampilan, jadi dihitung satu kali di
@@ -318,7 +324,7 @@ export default async function HalamanRpkps({
                   return {
                     id: r.id,
                     kode: r.mataKuliah.kode,
-                    nama: r.mataKuliah.nama,
+                    nama: namaMk(r.mataKuliah, b),
                     semester: r.mataKuliah.semester,
                     sksTeori: r.mataKuliah.sksTeori,
                     sksPraktik: r.mataKuliah.sksPraktik,
@@ -364,7 +370,7 @@ export default async function HalamanRpkps({
                             href={`/rpkps/${r.id}`}
                             className="font-medium underline-offset-4 hover:underline"
                           >
-                            {r.mataKuliah.kode} — {r.mataKuliah.nama}
+                            {r.mataKuliah.kode} — {namaMk(r.mataKuliah, b)}
                           </Tautan>
                           <p className="text-xs text-muted-foreground">
                             {isi(k.rpkps.sksRingkas, {
@@ -445,7 +451,7 @@ export default async function HalamanRpkps({
                       href={`/rpkps/${r.id}`}
                       className="text-sm font-medium underline-offset-4 hover:underline"
                     >
-                      {r.mataKuliah.kode} — {r.mataKuliah.nama}
+                      {r.mataKuliah.kode} — {namaMk(r.mataKuliah, b)}
                     </Tautan>
                     <p className="text-xs text-muted-foreground">
                       {isi(k.rpkps.arsipBaris, {
@@ -480,7 +486,7 @@ export default async function HalamanRpkps({
                 >
                   <div className="min-w-0">
                     <p className="text-sm font-medium">
-                      {mk.kode} — {mk.nama}
+                      {mk.kode} — {namaMk(mk, b)}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {isi(k.rpkps.semester, { nomor: mk.semester })}

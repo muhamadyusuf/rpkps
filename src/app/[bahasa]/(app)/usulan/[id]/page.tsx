@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { Tautan } from "@/components/tautan";
-import { kamus } from "@/lib/bahasa/server";
-import { isi } from "@/lib/bahasa/teks";
+import { bahasaAktif, kamus } from "@/lib/bahasa/server";
+import { isi, namaMk } from "@/lib/bahasa/teks";
 import type { Kamus } from "@/kamus";
 import { ArrowLeft, CircleCheckBig, Lock, Sparkles, TriangleAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -84,6 +84,7 @@ export default async function HalamanUsulan({
   }
 
   const k = await kamus();
+  const b = await bahasaAktif();
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -117,7 +118,7 @@ export default async function HalamanUsulan({
         <h1 className="text-2xl font-semibold tracking-tight">{usulan.judul}</h1>
         <p className="text-sm text-muted-foreground">
           {isi(k.usulan.detail.ringkasan, {
-            mk: usulan.mataKuliah.nama,
+            mk: namaMk(usulan.mataKuliah, b),
             kurikulum: usulan.kurikulum.nama,
             tahun: usulan.kurikulum.tahun,
             oleh: usulan.diajukanOleh.nama,

@@ -1,5 +1,7 @@
 import "server-only";
 import ExcelJS from "exceljs";
+import type { Bahasa } from "@/kamus";
+import { labelDokumen } from "@/lib/dokumen/label";
 import type {
   BarisCpl,
   BarisCpmk,
@@ -147,55 +149,24 @@ function siapkanLembar(
 }
 
 /** Template kosong berisi baris contoh (bergaya abu-abu, tinggal ditimpa). */
-export async function buatTemplateKurikulum(): Promise<Buffer> {
+export async function buatTemplateKurikulum(bahasa: Bahasa = "id"): Promise<Buffer> {
+  const L = labelDokumen(bahasa);
   const wb = new ExcelJS.Workbook();
   wb.creator = "RPKPS ITTS";
   wb.created = new Date();
 
   const petunjuk = wb.addWorksheet(LEMBAR.petunjuk);
   petunjuk.getColumn(1).width = 110;
-  const baris: [string, boolean][] = [
-    ["Template Impor Kurikulum — RPKPS ITTS", true],
-    ["", false],
-    ["Isi lima lembar berikut sesuai buku kurikulum program studi.", false],
-    ["Baris contoh berwarna abu-abu boleh langsung ditimpa atau dihapus.", false],
-    ["", false],
-    ["1. Profil Lulusan — peran yang dijanjikan prodi kepada lulusannya.", true],
-    ["   Kode PL harus unik, mis. PL1. Lembar ini boleh dikosongkan, tetapi", false],
-    ["   tanpa itu CPL tidak dapat ditelusuri kembali ke janji program studi.", false],
-    ["   Setiap profil WAJIB ditopang minimal satu CPL — profil yang tidak", false],
-    ["   ditopang CPL mana pun akan ditolak.", false],
-    ["", false],
-    ["2. CPL — Capaian Pembelajaran Lulusan program studi.", true],
-    ["   Kode CPL harus unik, mis. CPL06.", false],
-    ["   Kolom Kode PL diisi profil lulusan yang ditopang CPL ini, dipisah koma.", false],
-    ["", false],
-    ["3. Mata Kuliah — daftar mata kuliah beserta beban sks.", true],
-    ["   sks dipecah TEORI dan PRAKTIK. Totalnya sama, tetapi beban terjadwal", false],
-    ["   berbeda jauh: 3 sks teori butuh 150 menit tatap muka, sedangkan", false],
-    ["   2 teori + 1 praktik butuh 200 menit karena praktikum memakai slot lab.", false],
-    ["   Kolom Kode CPL diisi kode CPL yang dibebankan, dipisah koma.", false],
-    ["", false],
-    ["4. CPMK — Capaian Pembelajaran Mata Kuliah.", true],
-    ["   Setiap CPMK harus menjabarkan minimal satu CPL yang dibebankan pada", false],
-    ["   mata kuliahnya. CPL yang dibebankan tetapi tidak dijabarkan CPMK mana pun", false],
-    ["   akan ditolak — CPL seperti itu tidak akan pernah dinilai.", false],
-    ["", false],
-    ["5. Sub-CPMK — tahapan belajar, umumnya satu per pertemuan.", true],
-    ["   Isi Kode MK DAN Kode CPMK induknya. Kode CPMK hanya unik di dalam satu", false],
-    ["   mata kuliah, jadi \"CPMK01\" saja tidak menunjukkan induk yang mana bila", false],
-    ["   dipakai beberapa mata kuliah sekaligus.", false],
-    ["   Level Bloom Sub-CPMK tidak boleh melampaui CPMK induknya.", false],
-    ["", false],
-    ["Level Bloom yang dikenali:", true],
-    ["   Kognitif   C1 Mengingat · C2 Memahami · C3 Menerapkan", false],
-    ["              C4 Menganalisis · C5 Mengevaluasi · C6 Mencipta", false],
-    ["   Afektif    A1–A5      Psikomotor  P1–P5", false],
-    ["   Kolom ini boleh dikosongkan; sistem akan menebaknya dari kata kerja.", false],
-    ["", false],
-    ["Hindari kata yang tidak dapat diamati seperti \"memahami\" atau \"mengetahui\"", true],
-    ["pada rumusan Sub-CPMK — keduanya tidak dapat dijadikan dasar penilaian.", false],
-  ];
+  /**
+   * Baris pertama tiap butir dicetak tebal — dikenali dari awalannya yang
+   * bukan spasi. Dulu ketebalan itu ditulis satu per satu berdampingan dengan
+   * kalimatnya; sejak kalimatnya pindah ke tabel label, menyimpan pasangan
+   * `[teks, tebal]` berarti tabel label harus tahu soal gaya cetak.
+   */
+  const baris: [string, boolean][] = L.excel.templatKurikulum.map((t) => [
+    t,
+    t.length > 0 && !t.startsWith(" "),
+  ]);
   for (const [teksBaris, tebal] of baris) {
     const r = petunjuk.addRow([teksBaris]);
     if (tebal) r.font = { bold: true };

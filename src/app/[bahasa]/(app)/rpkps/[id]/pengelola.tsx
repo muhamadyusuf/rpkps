@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useBahasa } from "@/components/penyedia-bahasa";
+import { namaMk } from "@/lib/bahasa/teks";
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -301,6 +302,7 @@ export type SasaranSalin = {
   id: string;
   kode: string;
   nama: string;
+  namaEn: string | null;
   semester: number;
   /** Tahun akademik yang sudah punya RPKPS untuk MK ini. */
   taTerpakai: string[];
@@ -710,7 +712,7 @@ function DialogSalin({
   sasaran: SasaranSalin[];
   tahun: { id: string; kode: string }[];
 }) {
-  const { k, isi } = useBahasa();
+  const { k, isi, bahasa } = useBahasa();
   const { menunggu, jalankan } = useAksiKelola();
   const [buka, setBuka] = useState(false);
   const [mkId, setMkId] = useState("");
@@ -765,7 +767,7 @@ function DialogSalin({
               <SelectContent>
                 {sasaran.map((s) => (
                   <SelectItem key={s.id} value={s.id}>
-                    {s.kode} — {s.nama} (smt {s.semester})
+                    {s.kode} — {namaMk(s, bahasa)} (smt {s.semester})
                   </SelectItem>
                 ))}
               </SelectContent>

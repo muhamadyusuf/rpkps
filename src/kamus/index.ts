@@ -20,6 +20,16 @@ export const BAHASA = ["id", "en"] as const;
 
 export type Bahasa = (typeof BAHASA)[number];
 
+/**
+ * Bahasa asal isi RPKPS: versi otoritatif yang ditandatangani.
+ *
+ * Terpisah dari `BAHASA_BAWAAN` — yang itu soal antarmuka mana yang muncul
+ * bila pengguna belum memilih. Yang ini soal teks mana yang berlaku bila
+ * terjemahannya belum ada, dan jawabannya tidak boleh ikut berubah kalau suatu
+ * saat bahasa bawaan antarmuka diganti.
+ */
+export const BAHASA_ASAL = "id" as const satisfies Bahasa;
+
 export const BAHASA_BAWAAN: Bahasa = "id";
 
 /** Nama cookie preferensi bahasa. Dibaca proxy — tidak boleh berubah diam-diam. */

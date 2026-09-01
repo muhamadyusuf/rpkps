@@ -19,20 +19,36 @@ export type KomponenMasuk = {
   /** Id baris yang sedang disunting; null untuk baris yang baru ditambahkan. */
   id: string | null;
   nama: string;
+  /**
+   * Terjemahan tampilan. SENGAJA di luar pencocokan: baris dipasangkan lewat
+   * `id` lalu `nama`, tidak pernah lewat `namaEn`. Menjadikannya bagian kunci
+   * berarti menyunting terjemahan melepas seluruh tautan asesmen — persis
+   * bencana yang berkas ini ada untuk mencegahnya (docs/11 §5.2).
+   */
+  namaEn: string | null;
   bobot: number;
 };
 
 export type KomponenAda = { id: string; nama: string };
 
-export type BarisPerbarui = { id: string; nama: string; bobot: number; urutan: number };
-export type BarisTambah = { nama: string; bobot: number; urutan: number };
+export type BarisPerbarui = {
+  id: string;
+  nama: string;
+  namaEn: string | null;
+  bobot: number;
+  urutan: number;
+};
+export type BarisTambah = { nama: string; namaEn: string | null; bobot: number; urutan: number };
 
 export type RencanaKomponen = {
   perbarui: BarisPerbarui[];
   tambah: BarisTambah[];
   /** Id komponen yang hilang dari daftar — satu-satunya yang boleh dihapus. */
   hapus: string[];
-  /** Diisi bila daftar masukan tidak sah; rencana lain diabaikan. */
+  /**
+   * Kunci kamus (`@…`) bila daftar masukan tidak sah; rencana lain diabaikan.
+   * Kunci, bukan kalimat — domain tidak berbahasa (docs/11 §4.1).
+   */
   galat: string | null;
 };
 
@@ -48,12 +64,17 @@ export function rencanakanKomponen(
   const kosong: RencanaKomponen = { perbarui: [], tambah: [], hapus: [], galat: null };
 
   const bersih = masuk
-    .map((k) => ({ id: k.id, nama: k.nama.trim(), bobot: Number(k.bobot) }))
+    .map((k) => ({
+      id: k.id,
+      nama: k.nama.trim(),
+      namaEn: k.namaEn?.trim() || null,
+      bobot: Number(k.bobot),
+    }))
     .filter((k) => k.nama.length > 0 && Number.isFinite(k.bobot));
 
   const nama = bersih.map((k) => k.nama);
   if (new Set(nama).size !== nama.length) {
-    return { ...kosong, galat: "Nama komponen nilai tidak boleh berulang." };
+    return { ...kosong, galat: "@aksi.rpkps.komponenNamaBerulang" };
   }
 
   const idAda = new Set(ada.map((k) => k.id));
@@ -75,11 +96,11 @@ export function rencanakanKomponen(
     }
 
     if (id === null) {
-      tambah.push({ nama: k.nama, bobot: k.bobot, urutan });
+      tambah.push({ nama: k.nama, namaEn: k.namaEn, bobot: k.bobot, urutan });
       return;
     }
     terpakai.add(id);
-    perbarui.push({ id, nama: k.nama, bobot: k.bobot, urutan });
+    perbarui.push({ id, nama: k.nama, namaEn: k.namaEn, bobot: k.bobot, urutan });
   });
 
   return {

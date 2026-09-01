@@ -11,8 +11,8 @@ import {
 } from "@/components/ui/table";
 import { WARNA_NADA } from "@/components/bagan";
 import { Bagian, Kosong, Panel } from "./bagian";
-import { kamus } from "@/lib/bahasa/server";
-import { isi } from "@/lib/bahasa/teks";
+import { bahasaAktif, kamus } from "@/lib/bahasa/server";
+import { isi, namaMk } from "@/lib/bahasa/teks";
 import type { StatusRpkps } from "@/generated/prisma";
 import type { DataDosen } from "@/lib/dasbor/muat";
 
@@ -26,6 +26,7 @@ import type { DataDosen } from "@/lib/dasbor/muat";
  */
 export async function PanelDosen({ data }: { data: DataDosen }) {
   const k = await kamus();
+  const b = await bahasaAktif();
 
   return (
     <Bagian
@@ -58,7 +59,7 @@ export async function PanelDosen({ data }: { data: DataDosen }) {
                         href={`/rpkps/${r.id}`}
                         className="font-medium underline-offset-4 hover:underline"
                       >
-                        {r.kode} — {r.nama}
+                        {r.kode} — {namaMk(r, b)}
                       </Tautan>
                       <p className="text-xs text-muted-foreground">
                         {r.tahunAkademik.replace("-", " ")}

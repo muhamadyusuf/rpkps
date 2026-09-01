@@ -129,6 +129,23 @@ export const id = {
     DIREVISI: "dikembalikan untuk revisi",
     DITOLAK: "ditolak",
   },
+  /** Penyunting dwibahasa: sakelar mode dan penanda belum-diterjemahkan. */
+  dwibahasa: {
+    mode: "Bahasa",
+    modeId: "Indonesia",
+    modeEn: "English",
+    modeDamping: "Berdampingan",
+    petunjukDamping: "Teks Indonesia di kiri sebagai acuan, isian Inggris di kanan.",
+    labelEn: "{label} (English)",
+    belumDiterjemahkan: "Belum diterjemahkan",
+    kelengkapanJudul: "Kelengkapan terjemahan",
+    kelengkapan: "{terisi} dari {total} medan diterjemahkan",
+    kelengkapanKosong: "Belum ada medan yang diterjemahkan",
+    kelengkapanPenuh: "Seluruh medan sudah diterjemahkan",
+    kelengkapanKeterangan:
+      "Terjemahan bersifat opsional dan tidak pernah menghalangi pengajuan.",
+    menampilkanAsli: "Menampilkan teks Indonesia — bagian ini belum diterjemahkan.",
+  },
   validasi: {
     siap: "Siap diajukan",
     perluDiperbaiki: "{n} temuan harus diperbaiki",
@@ -725,6 +742,13 @@ export const id = {
   },
 
   dokumenPublik: {
+    versiInggris: {
+      belumTerbit: "Versi bahasa Inggris dokumen ini belum diterbitkan.",
+      sebagian: "Bagian yang belum diterjemahkan tampil dalam bahasa Indonesia.",
+      indonesiaYangSah:
+        "Versi bahasa Indonesia adalah dokumen yang sah dan yang ditandatangani.",
+      sidikEn: "Sidik versi Inggris",
+    },
     metaTidakDitemukan: "Dokumen tidak ditemukan",
     metaDeskripsiCadangan: "RPKPS {nama} ({sks}), program studi {prodi}, {ta}.",
     metaOg: "{judul} · RPKPS ITTS",
@@ -1083,6 +1107,7 @@ export const id = {
       contohKodeCpl: "CPL06",
       contohKodeMk: "TI214",
       contohNamaMk: "Rekayasa Perangkat Lunak",
+      contohNamaMkEn: "Software Engineering",
       contohKodeCpmk: "CPMK081",
       contohKodeSub: "CPMK081-1",
       contohKko: "menganalisis",
@@ -2151,6 +2176,8 @@ export const id = {
       rujukanHilang: "Draf merujuk data yang tidak ada pada RPKPS ini.",
       transaksiKurikulum: "Penyimpanan melewati batas waktu transaksi dan dibatalkan seluruhnya — tidak ada data separuh jalan. Coba lagi; bila berulang, periksa koneksi basis data.",
       transaksiDraf: "Penulisan melewati batas waktu transaksi dan dibatalkan seluruhnya — tidak ada isi separuh jalan.",
+      transaksiNilai: "Penyimpanan nilai melewati batas waktu transaksi dan dibatalkan seluruhnya — tidak ada nilai yang tersimpan separuh jalan. Coba lagi; bila berulang, periksa koneksi basis data.",
+      gagalNilai: "Gagal menyimpan nilai",
       gagalKurikulum: "Gagal menyimpan kurikulum",
       gagalDraf: "Gagal menerapkan draf",
       galat: "Galat",
@@ -2240,6 +2267,7 @@ export const id = {
       sudahAda: "RPKPS untuk mata kuliah dan tahun akademik ini sudah ada.",
       sudahDiajukan: "RPKPS ini sudah diajukan.",
       takDapatDihapus: "RPKPS ini tidak dapat dihapus — arsipkan saja.",
+      komponenNamaBerulang: "Nama komponen nilai tidak boleh berulang.",
       takSedangArsip: "RPKPS ini tidak sedang diarsipkan.",
       hanyaDiajukanDisetujui: "Hanya RPKPS berstatus diajukan yang dapat disetujui.",
       hanyaDisetujuiDisahkan: "Hanya RPKPS yang sudah disetujui Ketua Program Studi yang dapat disahkan.",
@@ -2350,6 +2378,8 @@ export const id = {
       dihapus: "Kelas {kode} dihapus.",
       adaNilai: "Kelas {kode} sudah memuat {jumlah} nilai dan tidak dapat dihapus.",
       tanpaAsesmen: "Belum ada asesmen berbobot pada RPKPS ini — templat nilainya kosong.",
+      nilaiTersimpan: "{jumlah} baris tersimpan untuk kelas {kode}.",
+      nilaiTersimpanButir: "{jumlah} baris tersimpan untuk kelas {kode}, termasuk {butir} skor per butir.",
     },
     evaluasi: {
       belumDitutup: "Evaluasi belum ditutup.",

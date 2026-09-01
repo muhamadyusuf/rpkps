@@ -357,7 +357,7 @@ export async function terapkanDrafRpkps(
         select: { id: true, nama: true },
       });
       const rencanaKomponen = rencanakanKomponen(
-        draf.komponenNilai.map((n) => ({ id: null, nama: n.nama, bobot: n.bobot })),
+        draf.komponenNilai.map((n) => ({ id: null, nama: n.nama, namaEn: null, bobot: n.bobot })),
         adaKomponen,
       );
       if (rencanaKomponen.hapus.length > 0) {

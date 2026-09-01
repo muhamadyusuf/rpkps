@@ -1,6 +1,6 @@
 import { Tautan } from "@/components/tautan";
-import { kamus } from "@/lib/bahasa/server";
-import { isi } from "@/lib/bahasa/teks";
+import { bahasaAktif, kamus } from "@/lib/bahasa/server";
+import { isi, pilihTeks } from "@/lib/bahasa/teks";
 import { notFound } from "next/navigation";
 import { ArrowLeft, GitPullRequestArrow, Lock, Sparkles, UserRoundCog } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -49,11 +49,15 @@ export default async function HalamanMataKuliah({
             prodi: { select: { kode: true } },
             cpl: {
               orderBy: { urutan: "asc" },
-              select: { id: true, kode: true, deskripsi: true },
+              select: { id: true, kode: true, deskripsi: true, deskripsiEn: true },
             },
           },
         },
-        cpl: { include: { cpl: { select: { id: true, kode: true, deskripsi: true } } } },
+        cpl: {
+          include: {
+            cpl: { select: { id: true, kode: true, deskripsi: true, deskripsiEn: true } },
+          },
+        },
         cpmk: {
           orderBy: { urutan: "asc" },
           include: {
@@ -143,6 +147,7 @@ export default async function HalamanMataKuliah({
   }
 
   const k = await kamus();
+  const b = await bahasaAktif();
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -156,7 +161,9 @@ export default async function HalamanMataKuliah({
       <header>
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="secondary">{mk.kode}</Badge>
-          <h1 className="text-2xl font-semibold tracking-tight">{mk.nama}</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {pilihTeks(mk.nama, mk.namaEn, b).teks}
+          </h1>
         </div>
         <p className="mt-1.5 text-sm text-muted-foreground">
           {isi(k.kurikulum.mk.ringkasan, {
@@ -276,12 +283,14 @@ export default async function HalamanMataKuliah({
             id: m.cpl.id,
             kode: m.cpl.kode,
             deskripsi: m.cpl.deskripsi,
+            deskripsiEn: m.cpl.deskripsiEn,
           }))}
           cplKurikulum={mk.kurikulum.cpl}
           daftar={mk.cpmk.map((c) => ({
             id: c.id,
             kode: c.kode,
             rumusan: c.rumusan,
+            rumusanEn: c.rumusanEn,
             levelBloom: c.levelBloom,
             sumber: c.sumber,
             pensiun: c.pensiunSejakTaId !== null,
@@ -290,6 +299,7 @@ export default async function HalamanMataKuliah({
               id: s.id,
               kode: s.kode,
               rumusan: s.rumusan,
+              rumusanEn: s.rumusanEn,
               levelBloom: s.levelBloom,
               kko: s.kko,
               mingguDisarankan: s.mingguDisarankan,
@@ -308,7 +318,9 @@ export default async function HalamanMataKuliah({
           {mk.cpl.map((m) => (
             <div key={m.cplId} className="border-b pb-3 last:border-0 last:pb-0">
               <Badge variant="outline">{m.cpl.kode}</Badge>
-              <p className="mt-1 text-sm">{m.cpl.deskripsi}</p>
+              <p className="mt-1 text-sm">
+                {pilihTeks(m.cpl.deskripsi, m.cpl.deskripsiEn, b).teks}
+              </p>
             </div>
           ))}
           {mk.cpl.length === 0 ? (
@@ -346,7 +358,7 @@ export default async function HalamanMataKuliah({
                 ) : null}
               </div>
               <CardDescription className="mt-2 text-foreground">
-                {c.rumusan}
+                {pilihTeks(c.rumusan, c.rumusanEn, b).teks}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -377,7 +389,9 @@ export default async function HalamanMataKuliah({
                           />
                         ) : null}
                       </div>
-                      <p className="min-w-0 flex-1 pt-0.5">{s.rumusan}</p>
+                      <p className="min-w-0 flex-1 pt-0.5">
+                        {pilihTeks(s.rumusan, s.rumusanEn, b).teks}
+                      </p>
                     </li>
                   ))}
                 </ol>

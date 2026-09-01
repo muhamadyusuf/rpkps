@@ -8,8 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AreaTeks, Pilihan } from "@/components/ui/pilihan";
+import { Pilihan } from "@/components/ui/pilihan";
+import { AreaTeksDwibahasa } from "@/components/dwibahasa";
 import { TombolIkon } from "@/components/tombol-ikon";
+import { pilihTeks } from "@/lib/bahasa/teks";
 import { cn } from "@/lib/utils";
 import { useAksiKurikulum } from "../../../aksi-klien";
 import { setelCplMataKuliah } from "../../../aksi-mk";
@@ -49,6 +51,7 @@ export type SubCpmkTampil = {
   id: string;
   kode: string;
   rumusan: string;
+  rumusanEn: string | null;
   levelBloom: string | null;
   kko: string | null;
   mingguDisarankan: number[];
@@ -60,6 +63,7 @@ export type CpmkTampil = {
   id: string;
   kode: string;
   rumusan: string;
+  rumusanEn: string | null;
   levelBloom: string | null;
   sumber: string;
   pensiun: boolean;
@@ -67,7 +71,12 @@ export type CpmkTampil = {
   subCpmk: SubCpmkTampil[];
 };
 
-export type CplPilihan = { id: string; kode: string; deskripsi: string };
+export type CplPilihan = {
+  id: string;
+  kode: string;
+  deskripsi: string;
+  deskripsiEn: string | null;
+};
 
 export function PengelolaCapaian({
   mataKuliahId,
@@ -83,7 +92,7 @@ export function PengelolaCapaian({
   cplKurikulum: CplPilihan[];
 }) {
   const { menunggu, jalankan } = useAksiKurikulum();
-  const { k, isi } = useBahasa();
+  const { k, isi, bahasa } = useBahasa();
   const [menyunting, setMenyunting] = useState<string | null>(null);
   const [menambah, setMenambah] = useState(false);
 
@@ -190,7 +199,9 @@ export function PengelolaCapaian({
                   </div>
                 </div>
 
-                <p className="mt-2 text-sm">{c.rumusan}</p>
+                <p className="mt-2 text-sm">
+                  {pilihTeks(c.rumusan, c.rumusanEn, bahasa).teks}
+                </p>
 
                 <div className="mt-3 border-t pt-3">
                   <p className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
@@ -255,7 +266,7 @@ function DaftarSubCpmk({
   menunggu: boolean;
   jalankan: ReturnType<typeof useAksiKurikulum>["jalankan"];
 }) {
-  const { k, isi } = useBahasa();
+  const { k, isi, bahasa } = useBahasa();
   const [menyunting, setMenyunting] = useState<string | null>(null);
   const [menambah, setMenambah] = useState(false);
 
@@ -294,7 +305,7 @@ function DaftarSubCpmk({
             </div>
 
             <div className="min-w-0 flex-1">
-              <p className="pt-0.5">{s.rumusan}</p>
+              <p className="pt-0.5">{pilihTeks(s.rumusan, s.rumusanEn, bahasa).teks}</p>
               {s.kko || s.mingguDisarankan.length > 0 ? (
                 <p className="mt-1 text-xs text-muted-foreground">
                   {s.kko ? isi(k.kurikulum.sunting.kkoRingkas, { kko: s.kko }) : null}
@@ -392,7 +403,7 @@ function PemetaanCpl({
   menunggu: boolean;
   onSimpan: (cplId: string[]) => void;
 }) {
-  const { k } = useBahasa();
+  const { k, bahasa } = useBahasa();
   const [dipilih, setDipilih] = useState<string[]>(terpilih);
 
   const berubah =
@@ -408,7 +419,7 @@ function PemetaanCpl({
               key={c.id}
               type="button"
               aria-pressed={aktif}
-              title={c.deskripsi}
+              title={pilihTeks(c.deskripsi, c.deskripsiEn, bahasa).teks}
               disabled={menunggu}
               onClick={() =>
                 setDipilih((s) =>
@@ -474,10 +485,13 @@ function FormulirCpmk({
       className="space-y-3"
       action={(fd) => {
         const level = String(fd.get("levelBloom") ?? "");
+        const rumusanEn = String(fd.get("rumusanEn") ?? "").trim();
         onSimpan(
           {
             kode: String(fd.get("kode") ?? ""),
             rumusan: String(fd.get("rumusan") ?? ""),
+            // Kedua bahasa selalu berangkat bersama (docs/11 §5.3).
+            rumusanEn: rumusanEn === "" ? null : rumusanEn,
             levelBloom: level === "" ? null : level,
           } as MasukanCpmk,
           () => {
@@ -517,15 +531,14 @@ function FormulirCpmk({
         </div>
       </div>
 
-      <div className="space-y-1.5">
-        <Label htmlFor={`${idForm}-rumusan`}>{k.kurikulum.sunting.rumusanCpmk}</Label>
-        <AreaTeks
-          id={`${idForm}-rumusan`}
-          nama="rumusan"
-          nilai={awal?.rumusan ?? ""}
-          placeholder={k.kurikulum.sunting.contohRumusanCpmk}
-        />
-      </div>
+      <AreaTeksDwibahasa
+        id={idForm}
+        nama="rumusan"
+        label={k.kurikulum.sunting.rumusanCpmk}
+        nilai={awal?.rumusan ?? ""}
+        nilaiEn={awal?.rumusanEn ?? ""}
+        petunjuk={k.kurikulum.sunting.contohRumusanCpmk}
+      />
 
       <div className="flex gap-2">
         <Button type="submit" disabled={menunggu}>
@@ -566,10 +579,12 @@ function FormulirSubCpmk({
       action={(fd) => {
         const level = String(fd.get("levelBloom") ?? "");
         const kko = String(fd.get("kko") ?? "").trim();
+        const rumusanEn = String(fd.get("rumusanEn") ?? "").trim();
         onSimpan(
           {
             kode: String(fd.get("kode") ?? ""),
             rumusan: String(fd.get("rumusan") ?? ""),
+            rumusanEn: rumusanEn === "" ? null : rumusanEn,
             levelBloom: level === "" ? null : level,
             kko: kko === "" ? null : kko,
             // "3, 5, 6" → [3, 5, 6]. Yang bukan angka dibuang di sini; sisanya
@@ -636,15 +651,14 @@ function FormulirSubCpmk({
         </div>
       </div>
 
-      <div className="space-y-1.5">
-        <Label htmlFor={`${idForm}-rumusan`}>{k.kurikulum.sunting.rumusanSub}</Label>
-        <AreaTeks
-          id={`${idForm}-rumusan`}
-          nama="rumusan"
-          nilai={awal?.rumusan ?? ""}
-          placeholder={k.kurikulum.sunting.contohRumusanSub}
-        />
-      </div>
+      <AreaTeksDwibahasa
+        id={idForm}
+        nama="rumusan"
+        label={k.kurikulum.sunting.rumusanSub}
+        nilai={awal?.rumusan ?? ""}
+        nilaiEn={awal?.rumusanEn ?? ""}
+        petunjuk={k.kurikulum.sunting.contohRumusanSub}
+      />
 
       <div className="flex gap-2">
         <Button type="submit" size="sm" disabled={menunggu}>

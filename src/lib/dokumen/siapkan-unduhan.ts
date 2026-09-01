@@ -1,4 +1,5 @@
 import "server-only";
+import type { Bahasa } from "@/kamus";
 import { prisma } from "@/lib/prisma";
 import { muatRpkps, type RpkpsLengkap } from "@/lib/rpkps/muat";
 import { ambilSnapshot, cairkanSnapshot, type IsiSnapshot } from "@/lib/rpkps/snapshot";
@@ -22,9 +23,17 @@ export type BerkasRpkps = {
 
 export async function siapkanUnduhanRpkps(
   id: string,
-  /** Menolak mencetak apa pun yang belum disahkan. Dipakai rute publik. */
-  opsi: { hanyaTerbit?: boolean } = {},
+  opsi: {
+    /** Menolak mencetak apa pun yang belum disahkan. Dipakai rute publik. */
+    hanyaTerbit?: boolean;
+    /**
+     * Bahasa berkas. Bawaannya Indonesia — naskah yang sah dan yang
+     * ditandatangani (docs/11 §7).
+     */
+    bahasa?: Bahasa;
+  } = {},
 ): Promise<BerkasRpkps | null> {
+  const bahasa = opsi.bahasa ?? "id";
   const rpkps = await muatRpkps(id);
   if (!rpkps) return null;
   if (opsi.hanyaTerbit && rpkps.status !== "TERBIT") return null;
@@ -37,6 +46,7 @@ export async function siapkanUnduhanRpkps(
   if (opsi.hanyaTerbit && !snapshot) return null;
 
   let sumber = rpkps;
+  let sumberEn: RpkpsLengkap | null = null;
   let riwayat: { versi: number; dibuatPada: Date; deskripsi: string }[];
   let sidik: string | null = null;
 
@@ -44,7 +54,19 @@ export async function siapkanUnduhanRpkps(
     const beku = cairkanSnapshot<RpkpsLengkap>(snapshot.isi as unknown as IsiSnapshot);
     sumber = beku.rpkps;
     riwayat = beku.riwayat;
-    sidik = snapshot.sidik;
+    /**
+     * Berkas Inggris mencetak sidik ruang KEDUA, bukan sidik dokumen
+     * Indonesia. Mencetak sidik Indonesia pada berkas berbahasa Inggris akan
+     * membuat orang membandingkan dua isi yang berbeda dan menyimpulkan
+     * dokumennya sudah bergeser.
+     */
+    sidik = bahasa === "en" ? (snapshot.sidikEn ?? snapshot.sidik) : snapshot.sidik;
+
+    if (bahasa === "en" && snapshot.isiEn) {
+      // Salinan beku Inggris memuat proyeksi, bukan bentuk RpkpsLengkap —
+      // cukup untuk seluruh bagian yang dicetak.
+      sumberEn = snapshot.isiEn as unknown as RpkpsLengkap;
+    }
   } else {
     riwayat = await prisma.rpkpsRiwayat.findMany({
       where: { rpkpsId: id },
@@ -53,7 +75,7 @@ export async function siapkanUnduhanRpkps(
     });
   }
 
-  const buffer = await buatDokumenRpkps(sumber, riwayat, sidik);
+  const buffer = await buatDokumenRpkps(sumberEn ?? sumber, riwayat, sidik, bahasa);
   const namaBerkas =
     `RPKPS ${rpkps.mataKuliah.kode} ${rpkps.mataKuliah.nama} - ${rpkps.tahunAkademik.kode}${sidik ? " (terbit)" : " (draf)"}.docx`.replace(
       /[/\\?%*:|"<>]/g,

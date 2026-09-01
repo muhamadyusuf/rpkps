@@ -6,9 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { prisma } from "@/lib/prisma";
 import { cakupanProdi, punyaPeran, wajibAktif } from "@/lib/otorisasi";
 import { VARIAN_STATUS } from "./label";
-import { kamus } from "@/lib/bahasa/server";
-import { isi } from "@/lib/bahasa/teks";
-import type { Kamus } from "@/kamus";
+import { bahasaAktif, kamus } from "@/lib/bahasa/server";
+import { isi, namaMk } from "@/lib/bahasa/teks";
+import type { Bahasa, Kamus } from "@/kamus";
 import type { StatusUsulan } from "@/generated/prisma";
 import { KotakCari } from "@/components/kotak-cari";
 import { Paginasi } from "@/components/paginasi";
@@ -39,13 +39,14 @@ export default async function HalamanUsulan({
             { judul: { contains: kata, mode: "insensitive" as const } },
             { mataKuliah: { kode: { contains: kata, mode: "insensitive" as const } } },
             { mataKuliah: { nama: { contains: kata, mode: "insensitive" as const } } },
+            { mataKuliah: { namaEn: { contains: kata, mode: "insensitive" as const } } },
           ],
         }
       : {}),
   };
 
   const isiBaris = {
-    mataKuliah: { select: { kode: true, nama: true } },
+    mataKuliah: { select: { kode: true, nama: true, namaEn: true } },
     kurikulum: { select: { nama: true, tahun: true } },
     diajukanOleh: { select: { nama: true } },
     revisi: { select: { revisiKe: true } },
@@ -83,6 +84,7 @@ export default async function HalamanUsulan({
 
   const pemutus = punyaPeran(sesi, "ADMIN", "KAPRODI");
   const k = await kamus();
+  const b = await bahasaAktif();
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -132,7 +134,7 @@ export default async function HalamanUsulan({
             {isi(k.usulan.menungguJudul, { jumlah: menunggu.length })}
           </h2>
           {menunggu.map((u) => (
-            <KartuUsulan key={u.id} usulan={u} k={k} />
+            <KartuUsulan key={u.id} usulan={u} k={k} b={b} />
           ))}
         </section>
       ) : null}
@@ -143,7 +145,7 @@ export default async function HalamanUsulan({
             {k.usulan.riwayatJudul}
           </h2>
           {riwayat.map((u) => (
-            <KartuUsulan key={u.id} usulan={u} k={k} />
+            <KartuUsulan key={u.id} usulan={u} k={k} b={b} />
           ))}
           <Paginasi
             halaman={halaman}
@@ -163,14 +165,22 @@ type BarisUsulan = {
   judul: string;
   status: StatusUsulan;
   jalurRalat: boolean;
-  mataKuliah: { kode: string; nama: string };
+  mataKuliah: { kode: string; nama: string; namaEn: string | null };
   kurikulum: { nama: string; tahun: number };
   diajukanOleh: { nama: string };
   revisi: { revisiKe: number } | null;
   _count: { butir: number; catatan: number };
 };
 
-function KartuUsulan({ usulan: u, k }: { usulan: BarisUsulan; k: Kamus }) {
+function KartuUsulan({
+  usulan: u,
+  k,
+  b,
+}: {
+  usulan: BarisUsulan;
+  k: Kamus;
+  b: Bahasa;
+}) {
   return (
     <Tautan href={`/usulan/${u.id}`} className="block">
       <Card className="transition-colors hover:border-ring/50">
@@ -191,7 +201,7 @@ function KartuUsulan({ usulan: u, k }: { usulan: BarisUsulan; k: Kamus }) {
           </div>
           <CardTitle className="mt-2 text-base">{u.judul}</CardTitle>
           <CardDescription>
-            {u.mataKuliah.nama} · {u.kurikulum.nama} ({u.kurikulum.tahun})
+            {namaMk(u.mataKuliah, b)} · {u.kurikulum.nama} ({u.kurikulum.tahun})
           </CardDescription>
         </CardHeader>
         <CardContent className="text-xs text-muted-foreground">

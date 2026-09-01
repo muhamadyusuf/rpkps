@@ -56,6 +56,12 @@ const SkemaCpmk = z.object({
     .string()
     .trim()
     .min(15, "@aksi.periksa.rumusanCpmkPendek"),
+  /**
+   * Rumusan berbahasa Inggris. Opsional, tanpa panjang minimum, dan tidak
+   * pernah menjadi acuan validator: yang disahkan adalah rumusan Indonesia
+   * (docs/11 §5.4).
+   */
+  rumusanEn: z.string().trim().max(2000).nullable(),
   levelBloom: skemaLevel,
 });
 
@@ -70,6 +76,7 @@ const SkemaSubCpmk = z.object({
     .string()
     .trim()
     .min(15, "@aksi.periksa.rumusanSubPendek"),
+  rumusanEn: z.string().trim().max(2000).nullable(),
   levelBloom: skemaLevel,
   /** Kata kerja operasional. Yang diperiksa validator sebagai keterukuran. */
   kko: z.string().trim().max(60).nullable(),

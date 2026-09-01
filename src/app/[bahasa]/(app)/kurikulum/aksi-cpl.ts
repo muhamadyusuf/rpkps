@@ -50,6 +50,11 @@ const SkemaCpl = z.object({
     .string()
     .trim()
     .min(15, "@aksi.periksa.rumusanCplPendek"),
+  /**
+   * Rumusan berbahasa Inggris. Opsional dan tanpa panjang minimum: yang
+   * dijaga validator adalah rumusan Indonesia — versi yang ditandatangani.
+   */
+  deskripsiEn: z.string().trim().max(2000).nullable(),
   ranah: z.enum(RANAH as [RanahCpl, ...RanahCpl[]]),
   // KKNI 6 sarjana, 7 profesi, 8 magister, 9 doktor. Boleh kosong: banyak buku
   // kurikulum tidak mencantumkannya per CPL.
@@ -79,7 +84,7 @@ export async function tambahCpl(
   if (!parsed.success) {
     return { ok: false, pesan: pesanZod(parsed.error, kam, kam.aksi.umum.dataTidakValid) };
   }
-  const { kode, deskripsi, ranah, tingkatKkni } = parsed.data;
+  const { kode, deskripsi, deskripsiEn, ranah, tingkatKkni } = parsed.data;
 
   const bentrok = await prisma.cpl.findFirst({
     where: { kurikulumId, kode },
@@ -100,6 +105,7 @@ export async function tambahCpl(
       kurikulumId,
       kode,
       deskripsi,
+      deskripsiEn,
       ranah,
       tingkatKkni,
       urutan: urutanBerikutnya(terakhir),
@@ -123,7 +129,7 @@ export async function perbaruiCpl(id: string, masukan: MasukanCpl): Promise<Hasi
   if (!parsed.success) {
     return { ok: false, pesan: pesanZod(parsed.error, kam, kam.aksi.umum.dataTidakValid) };
   }
-  const { kode, deskripsi, ranah, tingkatKkni } = parsed.data;
+  const { kode, deskripsi, deskripsiEn, ranah, tingkatKkni } = parsed.data;
 
   const bentrok = await prisma.cpl.findFirst({
     where: { kurikulumId, kode, id: { not: id } },
@@ -135,7 +141,7 @@ export async function perbaruiCpl(id: string, masukan: MasukanCpl): Promise<Hasi
 
   await prisma.cpl.update({
     where: { id },
-    data: { kode, deskripsi, ranah, tingkatKkni },
+    data: { kode, deskripsi, deskripsiEn, ranah, tingkatKkni },
   });
 
   await catatSunting(wenang.sesi, kurikulumId, `menyunting ${kode}`);

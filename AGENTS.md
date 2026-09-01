@@ -188,6 +188,39 @@ Konsep lengkap ada di `docs/` — **baca sebelum menambah fitur**:
   `segarkan` (`src/lib/bahasa/segarkan.ts`) menyegarkan kedua bahasa, dan
   `revalidatePath` langsung ditolak ESLint.
 - **Kamus `en.ts` bertipe `typeof id`.** Itulah yang menjamin kelengkapan
+- **Isi RPKPS berbahasa Inggris punya ruang sidiknya sendiri.**
+  `proyeksiIsi()` dan `sidikDokumen()` TIDAK BOLEH mengenal satu pun medan
+  `*En`; versi Inggris hidup di `src/domain/rpkps/proyeksi-en.ts` dan membeku
+  ke `rpkps_snapshot.isi_en`/`sidik_en`. Menambahkan medan Inggris ke ruang
+  pertama menggeser sidik SELURUH dokumen yang sudah ditandatangani.
+  Penjaganya `src/domain/rpkps/proyeksi.test.ts`, yang mengunci sidik sebuah
+  dokumen contoh sebagai nilai harfiah — bila ia gagal, JANGAN perbarui
+  angkanya; cari apa yang menyentuh proyeksi (docs/11 §6.1–6.2).
+- **Penyimpanan yang menulis ulang baris wajib membawa medan `*En`.**
+  `simpanPertemuan`, `simpanTugas`, `simpanKisiKisi`, dan `tulisKomponenNilai`
+  mengganti SELURUH isi baris; kolom `*En` yang tertinggal dari muatan simpan
+  akan terhapus setiap kali dosen menyunting tab Indonesia — tanpa galat,
+  tanpa jejak, dan `tsc` tidak dapat melihatnya karena Prisma menerima `data`
+  parsial. Penjaganya `src/lib/rpkps/terjemahan.test.ts`, yang membaca
+  `schema.prisma`. Cadangan tampilan hanya SATU ARAH: `pilihTeks`
+  (`src/lib/bahasa/teks.ts`) memberi pembaca Inggris teks Indonesia bila
+  terjemahannya kosong, tidak pernah sebaliknya. `komponen_nilai.nama_en`
+  TIDAK boleh masuk `@@unique` maupun pencocokan `rencanakanKomponen`
+  (docs/11 §5.2, §5.3, §5.4).
+- **Nama mata kuliah dwibahasa, dan yang sah tetap yang Indonesia.**
+  `mata_kuliah.nama_en` — bersama `deskripsi_en`, `cpl.deskripsi_en`,
+  `cpmk.rumusan_en`, dan `sub_cpmk.rumusan_en` — disunting HANYA lewat
+  `aksi-mk.ts`/`aksi-cpl.ts`/`aksi-cpmk.ts` pada kurikulum DRAF, melewati
+  `pastikanWenangSunting` dan `periksaKelayakanUbahMk` yang sama seperti nama
+  Indonesianya: nama Inggris ikut ruang sidik `proyeksiIsiEn()`, jadi
+  mengubahnya setelah ada salinan beku sama saja dengan menggeser sidik
+  dokumen terbit. Untuk MENAMPILKAN nama mata kuliah selalu `namaMk()`
+  (`src/lib/bahasa/teks.ts`), tidak pernah `mataKuliah.nama` telanjang —
+  pemuat data mengembalikan KEDUA kolom dan tampilanlah yang memilih
+  bahasanya. Penjaganya `src/lib/kurikulum/terjemahan.test.ts`. Yang tidak
+  ikut berbahasa Inggris dan memang tidak boleh: `log_audit.ringkasan`,
+  `params` notifikasi/riwayat yang sudah tertulis, dan kode mata kuliah
+  (docs/11 §5.1b).
 - **Temuan validator berupa kode dan parameter, bukan kalimat.** `TemuanRpkps`,
   `TemuanKurikulum`, dan `TemuanValidasi` tidak punya medan `pesan` maupun
   `saran`; kalimatnya di `src/kamus/temuan-id.ts`/`temuan-en.ts` berkunci kode

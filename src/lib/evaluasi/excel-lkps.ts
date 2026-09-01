@@ -1,4 +1,6 @@
 import ExcelJS from "exceljs";
+import type { Bahasa } from "@/kamus";
+import { labelDokumen, type LabelDokumen } from "@/lib/dokumen/label";
 import type { BarisCapaian, HasilAgregasi } from "@/domain/evaluasi/agregasi";
 
 /**
@@ -25,15 +27,19 @@ export interface OpsiLkps {
   dibuatPada: Date;
 }
 
-export async function buatTabelLkps(opsi: OpsiLkps): Promise<Buffer> {
+export async function buatTabelLkps(
+  opsi: OpsiLkps,
+  bahasa: Bahasa = "id",
+): Promise<Buffer> {
+  const L = labelDokumen(bahasa);
   const wb = new ExcelJS.Workbook();
   wb.creator = "RPKPS ITTS";
   wb.created = opsi.dibuatPada;
 
-  lembarCapaian(wb, opsi);
-  lembarTren(wb, opsi);
-  lembarSebaran(wb, opsi);
-  lembarRincian(wb, opsi);
+  lembarCapaian(wb, opsi, L);
+  lembarTren(wb, opsi, L);
+  lembarSebaran(wb, opsi, L);
+  lembarRincian(wb, opsi, L);
 
   return Buffer.from(await wb.xlsx.writeBuffer());
 }
@@ -43,17 +49,17 @@ function juduli(ws: ExcelJS.Worksheet) {
   ws.views = [{ state: "frozen", ySplit: 1 }];
 }
 
-function lembarCapaian(wb: ExcelJS.Workbook, opsi: OpsiLkps) {
-  const ws = wb.addWorksheet("Capaian CPL");
+function lembarCapaian(wb: ExcelJS.Workbook, opsi: OpsiLkps, L: LabelDokumen) {
+  const ws = wb.addWorksheet(L.lkps.lembarCapaian);
   ws.columns = [
     { header: "CPL", key: "kode", width: 12 },
-    { header: "Deskripsi", key: "deskripsi", width: 56 },
-    { header: "Rerata (tertimbang sks)", key: "rerata", width: 22 },
-    { header: "Mahasiswa lulus (%)", key: "lulus", width: 20 },
-    { header: "Status", key: "status", width: 18 },
-    { header: "MK terukur", key: "mk", width: 30 },
-    { header: "Kelas tercapai / terukur", key: "kelas", width: 24 },
-    { header: "Mahasiswa terukur", key: "n", width: 18 },
+    { header: L.lkps.deskripsi, key: "deskripsi", width: 56 },
+    { header: L.lkps.rerataTertimbang, key: "rerata", width: 22 },
+    { header: L.lkps.mahasiswaLulusPersen, key: "lulus", width: 20 },
+    { header: L.lkps.status, key: "status", width: 18 },
+    { header: L.lkps.mkTerukur, key: "mk", width: 30 },
+    { header: L.lkps.kelasTercapaiTerukur, key: "kelas", width: 24 },
+    { header: L.lkps.mahasiswaTerukur, key: "n", width: 18 },
   ];
   juduli(ws);
 
@@ -77,14 +83,14 @@ function lembarCapaian(wb: ExcelJS.Workbook, opsi: OpsiLkps) {
 
   ws.addRow({});
   ws.addRow({
-    kode: "Catatan",
+    kode: L.lkps.catatan,
     deskripsi:
       `Rerata ditimbang menurut sks mata kuliah (Capaian CPL Prodi = Σ(Capaian CPL(MK) × sks) / Σ sks). ` +
       `CPL dinyatakan tercapai bila ≥ ${opsi.ambangKetercapaian}% mahasiswa lulus. ` +
       `Hanya evaluasi berstatus DITUTUP yang dihitung.`,
   });
   ws.addRow({
-    kode: "Cakupan",
+    kode: L.lkps.cakupan,
     deskripsi:
       `${opsi.agregasi.ringkasan.mkDievaluasi} mata kuliah dievaluasi ` +
       `(${opsi.agregasi.ringkasan.cakupanPersen}% dari kurikulum ${opsi.kurikulum}), ` +
@@ -92,8 +98,8 @@ function lembarCapaian(wb: ExcelJS.Workbook, opsi: OpsiLkps) {
   });
 }
 
-function lembarTren(wb: ExcelJS.Workbook, opsi: OpsiLkps) {
-  const ws = wb.addWorksheet("Tren");
+function lembarTren(wb: ExcelJS.Workbook, opsi: OpsiLkps, L: LabelDokumen) {
+  const ws = wb.addWorksheet(L.lkps.lembarTren);
 
   const ta = [
     ...new Set(
@@ -119,20 +125,20 @@ function lembarTren(wb: ExcelJS.Workbook, opsi: OpsiLkps) {
   }
 
   ws.addRow({});
-  ws.addRow({ kode: "Angka pada sel adalah persen mahasiswa yang lulus CPL tersebut." });
+  ws.addRow({ kode: L.lkps.angkaSelPersen });
 }
 
-function lembarSebaran(wb: ExcelJS.Workbook, opsi: OpsiLkps) {
-  const ws = wb.addWorksheet("Sebaran Kelas");
+function lembarSebaran(wb: ExcelJS.Workbook, opsi: OpsiLkps, L: LabelDokumen) {
+  const ws = wb.addWorksheet(L.lkps.lembarSebaran);
   ws.columns = [
-    { header: "Mata Kuliah", key: "mk", width: 14 },
+    { header: L.lkps.mataKuliah, key: "mk", width: 14 },
     { header: "CPL", key: "cpl", width: 12 },
-    { header: "Tahun Akademik", key: "ta", width: 20 },
-    { header: "Kelas tertinggi", key: "atas", width: 18 },
+    { header: L.lkps.tahunAkademik, key: "ta", width: 20 },
+    { header: L.lkps.kelasTertinggi, key: "atas", width: 18 },
     { header: "%", key: "persenAtas", width: 10 },
-    { header: "Kelas terendah", key: "bawah", width: 18 },
+    { header: L.lkps.kelasTerendah, key: "bawah", width: 18 },
     { header: "%", key: "persenBawah", width: 10 },
-    { header: "Selisih (poin)", key: "selisih", width: 16 },
+    { header: L.lkps.selisihPoin, key: "selisih", width: 16 },
   ];
   juduli(ws);
 
@@ -150,27 +156,27 @@ function lembarSebaran(wb: ExcelJS.Workbook, opsi: OpsiLkps) {
   }
 
   if (opsi.agregasi.sebaran.length === 0) {
-    ws.addRow({ mk: "Tidak ada selisih antar kelas yang mencolok." });
+    ws.addRow({ mk: L.lkps.tanpaSelisih });
   } else {
     ws.addRow({});
     ws.addRow({
-      mk: "Rencana yang sama dengan hasil jauh berbeda menunjuk pelaksanaan, bukan rancangan.",
+      mk: L.lkps.selisihMenunjukPelaksanaan,
     });
   }
 }
 
-function lembarRincian(wb: ExcelJS.Workbook, opsi: OpsiLkps) {
-  const ws = wb.addWorksheet("Rincian");
+function lembarRincian(wb: ExcelJS.Workbook, opsi: OpsiLkps, L: LabelDokumen) {
+  const ws = wb.addWorksheet(L.lkps.lembarRincian);
   ws.columns = [
     { header: "CPL", key: "cpl", width: 12 },
-    { header: "Kode MK", key: "mkKode", width: 12 },
-    { header: "Mata Kuliah", key: "mkNama", width: 34 },
+    { header: L.kodeMk, key: "mkKode", width: 12 },
+    { header: L.lkps.mataKuliah, key: "mkNama", width: 34 },
     { header: "sks", key: "sks", width: 8 },
-    { header: "Kelas", key: "kelas", width: 10 },
+    { header: L.lkps.kelas, key: "kelas", width: 10 },
     { header: "Tahun Akademik", key: "ta", width: 20 },
-    { header: "Rerata", key: "rerata", width: 12 },
-    { header: "Lulus (%)", key: "lulus", width: 12 },
-    { header: "Tercapai", key: "tercapai", width: 12 },
+    { header: L.lkps.rerata, key: "rerata", width: 12 },
+    { header: L.lkps.lulusPersen, key: "lulus", width: 12 },
+    { header: L.lkps.tercapai, key: "tercapai", width: 12 },
     { header: "Mahasiswa terukur", key: "n", width: 18 },
   ];
   juduli(ws);

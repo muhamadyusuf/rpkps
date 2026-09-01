@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { isi, jamak } from "./teks";
+import { isi, jamak, pilihDaftar, pilihTeks } from "./teks";
 
 describe("perakit kalimat", () => {
   it("mengganti penanda dengan nilainya", () => {
@@ -30,5 +30,43 @@ describe("perakit kalimat", () => {
     const pola = { satu: "{n} pertemuan", banyak: "{n} pertemuan" };
     assert.equal(jamak(pola, 1, "id"), "1 pertemuan");
     assert.equal(jamak(pola, 12, "id"), "12 pertemuan");
+  });
+});
+
+describe("pemilihan teks isi RPKPS", () => {
+  it("pembaca Inggris mendapat terjemahannya bila ada", () => {
+    assert.deepEqual(pilihTeks("Basis data", "Databases", "en"), {
+      teks: "Databases",
+      asli: false,
+    });
+  });
+
+  it("pembaca Inggris jatuh ke bahasa Indonesia bila belum diterjemahkan", () => {
+    assert.deepEqual(pilihTeks("Basis data", null, "en"), {
+      teks: "Basis data",
+      asli: true,
+    });
+    // Spasi kosong datang dari borang yang disentuh lalu ditinggalkan;
+    // menampilkannya menghasilkan baris kosong yang tampak seperti data hilang.
+    assert.deepEqual(pilihTeks("Basis data", "   ", "en"), {
+      teks: "Basis data",
+      asli: true,
+    });
+  });
+
+  it("pembaca Indonesia TIDAK pernah melihat teks Inggris", () => {
+    // Penjaga terpenting di sini: arah cadangan hanya satu. Membalik arahnya
+    // memunculkan kalimat Inggris di tengah dokumen resmi berbahasa Indonesia.
+    assert.deepEqual(pilihTeks("Basis data", "Databases", "id"), {
+      teks: "Basis data",
+      asli: true,
+    });
+    assert.deepEqual(pilihTeks(null, "Databases", "id"), { teks: "", asli: true });
+  });
+
+  it("daftar kosong dihitung belum diterjemahkan", () => {
+    assert.deepEqual(pilihDaftar(["a", "b"], [], "en"), { teks: ["a", "b"], asli: true });
+    assert.deepEqual(pilihDaftar(["a"], ["  "], "en"), { teks: ["a"], asli: true });
+    assert.deepEqual(pilihDaftar(["a"], ["A"], "en"), { teks: ["A"], asli: false });
   });
 });

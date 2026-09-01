@@ -14,6 +14,13 @@ import { simpanNilaiKelas, simpanSkorButir } from "@/lib/evaluasi/nilai-inti";
 import { kamusAksi } from "@/lib/bahasa/server";
 import { isi as sisip } from "@/lib/bahasa/teks";
 import { pesanZod } from "@/lib/bahasa/zod";
+import type { Kamus } from "@/kamus";
+import {
+  PESAN_KLIEN_BASI,
+  intiPesanPrisma,
+  klienBasi,
+  kodePrisma,
+} from "@/lib/galat-prisma";
 
 export type Hasil = { ok: boolean; pesan: string; id?: string };
 
@@ -155,40 +162,49 @@ export async function unggahNilai(
     };
   }
 
-  const simpan = await simpanNilaiKelas(prisma, {
-    kelasId,
-    prodiId,
-    baris: hasil.baris,
-    kolomDikenal: hasil.ringkasan.kolomDikenal,
-  });
-
-  // Lembar butir bersifat opsional — berkas tanpa lembar itu bukan berkas
-  // yang salah, dan capaian tetap terhitung penuh tanpanya.
+  // Galat penulisan DITANGKAP, bukan dibiarkan naik: tanpa ini kegagalan
+  // basis data melewati `useTransition` di pengelola dan mendarat di batas
+  // galat halaman, sehingga dosen kehilangan seluruh laporan temuan berkasnya
+  // dan hanya melihat papan galat.
+  let simpan;
   const temuanButir: TemuanRpkps[] = [];
   let skorButir = 0;
-  for (const kisi of rpkps.kisiKisi) {
-    const barisButir = await bacaBerkasButir(isiBerkas, kisi.jenis);
-    if (barisButir.length === 0) continue;
-
-    const acuan = kisi.butir.map((b) => ({ nomor: b.nomor, skorMaks: Number(b.skor) }));
-    const dibaca = bacaSkorButir(barisButir, acuan, kisi.jenis);
-    temuanButir.push(...dibaca.temuan);
-    if (!dibaca.lolos) continue;
-
-    const hasilButir = await simpanSkorButir(prisma, {
+  try {
+    simpan = await simpanNilaiKelas(prisma, {
       kelasId,
-      butirId: new Map(kisi.butir.map((b) => [b.nomor, b.id])),
-      peserta: dibaca.peserta,
+      prodiId,
+      baris: hasil.baris,
+      kolomDikenal: hasil.ringkasan.kolomDikenal,
     });
-    skorButir += hasilButir.skorDisimpan;
 
-    if (hasilButir.nimTakDikenal.length > 0) {
-      temuanButir.push({
-        kode: "BT-NIM-ASING",
-        tingkat: "PERINGATAN",
-        params: { jumlah: hasilButir.nimTakDikenal.length, jenis: kisi.jenis },
+    // Lembar butir bersifat opsional — berkas tanpa lembar itu bukan berkas
+    // yang salah, dan capaian tetap terhitung penuh tanpanya.
+    for (const kisi of rpkps.kisiKisi) {
+      const barisButir = await bacaBerkasButir(isiBerkas, kisi.jenis);
+      if (barisButir.length === 0) continue;
+
+      const acuan = kisi.butir.map((b) => ({ nomor: b.nomor, skorMaks: Number(b.skor) }));
+      const dibaca = bacaSkorButir(barisButir, acuan, kisi.jenis);
+      temuanButir.push(...dibaca.temuan);
+      if (!dibaca.lolos) continue;
+
+      const hasilButir = await simpanSkorButir(prisma, {
+        kelasId,
+        butirId: new Map(kisi.butir.map((b) => [b.nomor, b.id])),
+        peserta: dibaca.peserta,
       });
+      skorButir += hasilButir.skorDisimpan;
+
+      if (hasilButir.nimTakDikenal.length > 0) {
+        temuanButir.push({
+          kode: "BT-NIM-ASING",
+          tingkat: "PERINGATAN",
+          params: { jumlah: hasilButir.nimTakDikenal.length, jenis: kisi.jenis },
+        });
+      }
     }
+  } catch (galat) {
+    return { ok: false, pesan: pesanGagalSimpanNilai(galat, kam) };
   }
 
   const seluruhPeserta = await prisma.pesertaKelas.count({ where: { kelasId } });
@@ -197,8 +213,16 @@ export async function unggahNilai(
   return {
     ok: true,
     pesan:
-      `${hasil.baris.length} baris tersimpan untuk kelas ${kelas.kode}` +
-      (skorButir > 0 ? `, termasuk ${skorButir} skor per butir.` : "."),
+      skorButir > 0
+        ? sisip(kam.aksi.kelas.nilaiTersimpanButir, {
+            jumlah: hasil.baris.length,
+            kode: kelas.kode,
+            butir: skorButir,
+          })
+        : sisip(kam.aksi.kelas.nilaiTersimpan, {
+            jumlah: hasil.baris.length,
+            kode: kelas.kode,
+          }),
     temuan: [...hasil.temuan, ...temuanButir],
     ringkasan: {
       ...hasil.ringkasan,
@@ -209,4 +233,32 @@ export async function unggahNilai(
       skorButir,
     },
   };
+}
+
+/**
+ * Menerjemahkan galat penulisan nilai menjadi kalimat yang bisa
+ * ditindaklanjuti — pola yang sama dengan `pesanGagalTerap` pada draf AI.
+ *
+ * P2028 disebut tersendiri karena itulah gejala yang paling mungkin muncul di
+ * sini: transaksi yang kehabisan waktu. Bila ia kembali terlihat, yang salah
+ * bukan berkasnya melainkan jumlah kueri di `simpanNilaiKelas` — pesannya
+ * menyebut pembatalan penuh supaya tidak ada yang mengira nilainya masuk
+ * separuh.
+ */
+function pesanGagalSimpanNilai(galat: unknown, kam: Kamus): string {
+  if (klienBasi(galat)) return PESAN_KLIEN_BASI;
+  const kode = kodePrisma(galat);
+
+  switch (kode) {
+    case "P2021":
+    case "P2022":
+      return kam.aksi.galatSimpan.strukturBasiSingkat;
+    case "P2028":
+      return kam.aksi.galatSimpan.transaksiNilai;
+    default: {
+      const nama = galat instanceof Error ? galat.constructor.name : kam.aksi.galatSimpan.galat;
+      const inti = galat instanceof Error ? intiPesanPrisma(galat.message) : "";
+      return `${kam.aksi.galatSimpan.gagalNilai} — ${nama}${kode ? ` (${kode})` : ""}${inti ? `: ${inti}` : "."}`;
+    }
+  }
 }
