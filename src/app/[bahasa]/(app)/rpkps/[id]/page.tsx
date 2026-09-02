@@ -40,13 +40,21 @@ export default async function HalamanRpkpsDetail({
   const sesi = await wajibAktif();
   const { id } = await params;
 
-  const rpkps = await muatRpkps(id);
+  /**
+   * Gelombang pertama. Kebijakan beban belajar tidak bergantung pada dokumen
+   * ini — ia milik institusi — jadi menunggunya SETELAH `muatRpkps` hanya
+   * menambah satu perjalanan pulang-pergi ke basis data yang jauh, tanpa
+   * menghalangi apa pun.
+   */
+  const [rpkps, { kebijakan, dariDatabase }] = await Promise.all([
+    muatRpkps(id),
+    muatKebijakan(),
+  ]);
   if (!rpkps) notFound();
 
   const wenang = wenangAtasRpkps(sesi, rpkps);
   if (!wenang.bolehLihat) notFound();
 
-  const { kebijakan, dariDatabase } = await muatKebijakan();
   /**
    * Sidik isi SEKARANG. Ikut ke validator supaya paraf atas isi yang sudah
    * berubah tidak dihitung — lihat `statusParaf` (docs/14 §2.2).
@@ -94,18 +102,7 @@ export default async function HalamanRpkpsDetail({
   const bisaMemutuskan = bisaReview || bisaSahkan;
   const bisaParaf = bisaSunting && wenang.pengampu;
 
-  /**
-   * Hanya koordinator dan pengelola prodi yang melihat panel pengelolaan —
-   * dan hanya untuk mereka daftar seluruh dosen serta seluruh mata kuliah
-   * ikut dimuat.
-   */
   const bolehKelola = wenang.koordinator || wenang.pengelola;
-  const dataKelola = bolehKelola ? await muatDataKelola(sesi, id) : null;
-
-  // Kunci AI milik dosen yang sedang membuka halaman — bukan milik pengampu
-  // lain, dan bukan kunci institusi (docs/08). Daftar kosong berarti panel
-  // menawarkan mendaftarkan kunci, bukan tombol yang pasti gagal.
-  const kredensialAi = bisaSunting && wenang.boleh ? await daftarKredensial(sesi.id) : [];
 
   /**
    * Alamat publik hanya ada untuk dokumen yang benar-benar terbit. Status lain
@@ -119,16 +116,37 @@ export default async function HalamanRpkpsDetail({
         jalurRpkpsPublik(rpkps.mataKuliah.kurikulum.prodi.kode, rpkps.mataKuliah.kode)
       : null;
 
-  const [snapshot, pergeseran] =
+  /**
+   * Gelombang kedua: seluruh sisa pemuatan, sekaligus. Empat di antaranya
+   * saling bebas — panel pengelolaan, kunci AI milik dosen ini, salinan beku,
+   * dan riwayat — jadi berurutan mereka membayar empat perjalanan
+   * pulang-pergi untuk pekerjaan yang muat dalam satu.
+   *
+   * Syaratnya tetap di sini, bukan di dalam pemuatnya: yang tidak ditampilkan
+   * tetap tidak dibaca dari basis data.
+   */
+  const [dataKelola, kredensialAi, sidikTerbit, riwayat] = await Promise.all([
+    /**
+     * Hanya koordinator dan pengelola prodi yang melihat panel pengelolaan —
+     * dan hanya untuk mereka daftar seluruh dosen serta seluruh mata kuliah
+     * ikut dimuat.
+     */
+    bolehKelola ? muatDataKelola(sesi, id) : null,
+    // Kunci AI milik dosen yang sedang membuka halaman — bukan milik pengampu
+    // lain, dan bukan kunci institusi (docs/08). Daftar kosong berarti panel
+    // menawarkan mendaftarkan kunci, bukan tombol yang pasti gagal.
+    bisaSunting && wenang.boleh ? daftarKredensial(sesi.id) : [],
     rpkps.status === "TERBIT"
-      ? await Promise.all([ambilSnapshot(id, rpkps.versi), periksaPergeseran(rpkps)])
-      : [null, { ada: false as const }];
+      ? Promise.all([ambilSnapshot(id, rpkps.versi), periksaPergeseran(rpkps)])
+      : null,
+    prisma.rpkpsRiwayat.findMany({
+      where: { rpkpsId: id },
+      orderBy: { dibuatPada: "desc" },
+      take: 5,
+    }),
+  ]);
 
-  const riwayat = await prisma.rpkpsRiwayat.findMany({
-    where: { rpkpsId: id },
-    orderBy: { dibuatPada: "desc" },
-    take: 5,
-  });
+  const [snapshot, pergeseran] = sidikTerbit ?? [null, { ada: false as const }];
 
   /**
    * Nilai awal dua penyunting di bawah, dipisah dari JSX karena dipakai dua

@@ -229,14 +229,23 @@ export async function muatDasbor(sesi: PenggunaSesi): Promise<DataDasbor> {
       ]
     : [];
 
-  const [prodi, mutu, dosen, admin, asesor, mahasiswa] = await Promise.all([
-    Promise.all(prodiKaprodi.map((id) => muatPanelProdi(id, tahunAktif?.id ?? null))),
-    adalahMutu || adalahAdmin ? muatPanelMutu(cakupan, tahunAktif?.id ?? null) : null,
-    adalahPengampu || adalahKaprodi ? muatPanelDosen(sesi) : null,
-    adalahAdmin ? muatPanelAdmin() : null,
-    adalahAsesor ? muatPanelAsesor(cakupan) : null,
-    adalahMahasiswa ? muatPanelMahasiswa(sesi) : null,
-  ]);
+  /**
+   * Satu gelombang, bukan dua. Cacah antrian tidak bergantung pada satu pun
+   * panel — yang dibutuhkannya dari panel dosen (jumlah draf, jumlah yang
+   * dikembalikan, kelas siap dihitung) dihitung di memori setelahnya, bukan
+   * ditanyakan ke basis data. Menunggunya sampai panel selesai hanya menambah
+   * satu perjalanan pulang-pergi penuh ke basis data yang jauh.
+   */
+  const [prodi, mutu, dosen, admin, asesor, mahasiswa, cacahAntrian] =
+    await Promise.all([
+      Promise.all(prodiKaprodi.map((id) => muatPanelProdi(id, tahunAktif?.id ?? null))),
+      adalahMutu || adalahAdmin ? muatPanelMutu(cakupan, tahunAktif?.id ?? null) : null,
+      adalahPengampu || adalahKaprodi ? muatPanelDosen(sesi) : null,
+      adalahAdmin ? muatPanelAdmin() : null,
+      adalahAsesor ? muatPanelAsesor(cakupan) : null,
+      adalahMahasiswa ? muatPanelMahasiswa(sesi) : null,
+      cacahAntrianKerja(sesi, { cakupan, adalahAdmin }),
+    ]);
 
   // Dinilai dengan status DRAF: yang diukur di sini adalah petak DOSEN —
   // pekerjaan yang belum diajukan. Petak Kaprodi (review) dan Penjaminan Mutu
@@ -257,8 +266,7 @@ export async function muatDasbor(sesi: PenggunaSesi): Promise<DataDasbor> {
     : null;
 
   const antrian = susunAntrian(
-    await muatSumberAntrian(sesi, {
-      cakupan,
+    rakitSumberAntrian(cacahAntrian, {
       adalahAdmin,
       adalahMutu,
       kebijakanDraf: kebijakan?.status === "DRAF",
@@ -293,17 +301,28 @@ export async function muatDasbor(sesi: PenggunaSesi): Promise<DataDasbor> {
 // Antrian kerja
 // ─────────────────────────────────────────────────────────────
 
-async function muatSumberAntrian(
+interface CacahAntrian {
+  usulanMenunggu: number;
+  rpkpsMenunggu: number;
+  rpkpsPengesahan: number;
+  penggunaMenunggu: number;
+  temuanSaya: number;
+}
+
+/**
+ * Bagian antrian yang benar-benar perlu ditanyakan ke basis data.
+ *
+ * Sengaja dipisah dari perakitannya: seluruh cacah di sini hanya bergantung
+ * pada peran dan cakupan pengguna — keduanya sudah ada sejak baris pertama —
+ * sehingga dapat berangkat bersama panel, bukan sesudahnya.
+ */
+async function cacahAntrianKerja(
   sesi: PenggunaSesi,
   opsi: {
     cakupan: string[] | null;
     adalahAdmin: boolean;
-    adalahMutu: boolean;
-    kebijakanDraf: boolean;
-    dosen: DataDosen | null;
-    tenggat: NilaiTenggat | null;
   },
-): Promise<SumberAntrian> {
+): Promise<CacahAntrian> {
   const bolehMemutus = punyaPeran(sesi, "ADMIN", "KAPRODI", "GPM");
   /**
    * Sejak rantai pengesahan terpasang, dua cap terakhir punya pemilik yang
@@ -343,15 +362,38 @@ async function muatSumberAntrian(
     ]);
 
   return {
+    usulanMenunggu,
+    rpkpsMenunggu,
+    rpkpsPengesahan,
+    penggunaMenunggu,
+    temuanSaya,
+  };
+}
+
+/**
+ * Menggabungkan cacah dari basis data dengan yang dapat dihitung di memori
+ * dari panel dosen. Murni — tidak menyentuh basis data.
+ */
+function rakitSumberAntrian(
+  cacah: CacahAntrian,
+  opsi: {
+    adalahAdmin: boolean;
+    adalahMutu: boolean;
+    kebijakanDraf: boolean;
+    dosen: DataDosen | null;
+    tenggat: NilaiTenggat | null;
+  },
+): SumberAntrian {
+  return {
     ...SUMBER_KOSONG,
-    usulanMenungguKeputusan: usulanMenunggu,
-    rpkpsMenungguKeputusan: rpkpsMenunggu,
-    rpkpsMenungguPengesahan: rpkpsPengesahan,
+    usulanMenungguKeputusan: cacah.usulanMenunggu,
+    rpkpsMenungguKeputusan: cacah.rpkpsMenunggu,
+    rpkpsMenungguPengesahan: cacah.rpkpsPengesahan,
     rpkpsDikembalikan:
       opsi.dosen?.rpkps.filter((r) => r.status === "DIREVISI").length ?? 0,
     rpkpsDraf: opsi.dosen?.rpkps.filter((r) => r.status === "DRAF").length ?? 0,
-    penggunaMenungguVerifikasi: penggunaMenunggu,
-    temuanBelumDiverifikasi: temuanSaya,
+    penggunaMenungguVerifikasi: cacah.penggunaMenunggu,
+    temuanBelumDiverifikasi: cacah.temuanSaya,
     kelasSiapDitutup:
       opsi.dosen?.kelas.filter((k) => k.tahap.tahap === "SIAP_HITUNG").length ?? 0,
     kebijakanMasihDraf:

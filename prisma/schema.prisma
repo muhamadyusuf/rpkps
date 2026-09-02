@@ -5,6 +5,13 @@
 generator client {
   provider = "prisma-client-js"
   output   = "../src/generated/prisma"
+
+  /// relationJoins membuka `relationLoadStrategy: "join"`. Tanpa itu Prisma
+  /// memuat setiap relasi sebagai kueri terpisah — satu `muatRpkps()` menjadi
+  /// 30 perjalanan pulang-pergi ke basis data yang jauh. Strateginya dipasang
+  /// sekali untuk seluruh operasi baca di src/lib/prisma.ts, bukan ditulis di
+  /// tiap pemanggilan.
+  previewFeatures = ["relationJoins"]
 }
 
 datasource db {

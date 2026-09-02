@@ -272,6 +272,27 @@ Konsep lengkap ada di `docs/` — **baca sebelum menambah fitur**:
   — itu jejak audit (docs/11 §4.2, §4.2c).
   terjemahan; jangan melonggarkan tipenya untuk membungkam galat kompilasi —
   galat itu memang pesan bahwa ada kunci yang belum diterjemahkan.
+- **Basis datanya jauh, dan itu mengubah cara kode dibaca.** Postgres terkelola
+  di kawasan lain: satu perjalanan pulang-pergi ~25 ms, membuka SATU koneksi
+  baru ~500 ms. Tiga hal menjaganya, dan ketiganya mudah dibatalkan tanpa
+  gejala apa pun selain aplikasi yang kembali lambat:
+  (1) `idleTimeoutMillis: 0` pada kolam `pg` di `src/lib/prisma.ts` — bawaan
+  `pg` adalah 10 detik, dan pada aplikasi internal yang sepi jeda antar-klik
+  lebih panjang dari itu, sehingga hampir setiap halaman membayar ~500 ms;
+  (2) `previewFeatures = ["relationJoins"]` pada skema, ditambah perluasan
+  `strategi-gabung` yang memasang `relationLoadStrategy: "join"` untuk seluruh
+  operasi BACA — tanpanya satu `muatRpkps()` menjadi 30 kueri, bukan 1;
+  (3) `await` berurutan yang sebenarnya saling bebas. Sebelum menambah `await`
+  pada sebuah halaman, tanya apakah ia benar-benar menunggu hasil sebelumnya —
+  kalau tidak, ia masuk ke `Promise.all` yang sudah ada.
+- **Pemeriksaan pencabutan sesi ke Firebase berkala, bukan tiap permintaan.**
+  Argumen kedua `verifySessionCookie(cookie, true)` memanggil Identity Toolkit
+  lewat jaringan — 290–710 ms, dan dulu itu terjadi pada SETIAP halaman, Server
+  Action, dan route handler. Jadwalnya di `src/domain/firebase/cabut-sesi.ts`.
+  Yang tetap per permintaan: tanda tangan cookie (lokal) dan `pengguna.status`
+  di basis data, sehingga penonaktifan LEWAT APLIKASI INI tetap seketika.
+  Mengembalikan `true` tanpa syarat berarti mengembalikan lantai waktu tunggu
+  yang tidak dapat ditembus optimasi kueri mana pun.
 - Domain `src/domain/` harus murni: tanpa Prisma, tanpa React, agar dapat diuji.
 - Bahasa antarmuka dan penamaan domain: Indonesia. Tabel database snake_case
   lewat `@@map`/`@map`.

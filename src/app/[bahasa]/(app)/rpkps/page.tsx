@@ -69,7 +69,14 @@ export default async function HalamanRpkps({
    * prodi itu saja.
    */
   const saringan = bacaSaringanUnit(mentah);
-  const unit = await muatUnit(cakupan);
+
+  // Tahun akademik aktif tidak bergantung pada saringan unit maupun pada
+  // jumlah baris, jadi ia berangkat bersama gelombang pertama alih-alih
+  // menambah satu perjalanan pulang-pergi sendiri di gelombang berikutnya.
+  const [unit, tahunAktif] = await Promise.all([
+    muatUnit(cakupan),
+    prisma.tahunAkademik.findFirst({ where: { aktif: true } }),
+  ]);
   const terpilih = prodiTersaring(unit, saringan);
   const batasProdi = terpilih ?? cakupan;
   const filterProdi = batasProdi === null ? {} : { prodiId: { in: batasProdi } };
@@ -142,8 +149,7 @@ export default async function HalamanRpkps({
   // Jumlah dihitung lebih dulu supaya nomor halaman dapat dijepit sebelum
   // menjadi `skip`: halaman 999 pada daftar 30 baris harus mendarat di halaman
   // terakhir, bukan mengembalikan tabel kosong.
-  const [tahunAktif, jumlahAktif, jumlahArsip] = await Promise.all([
-    prisma.tahunAkademik.findFirst({ where: { aktif: true } }),
+  const [jumlahAktif, jumlahArsip] = await Promise.all([
     prisma.rpkps.count({ where: saringAktif }),
     prisma.rpkps.count({ where: saringArsip }),
   ]);

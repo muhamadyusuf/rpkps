@@ -1,5 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { buatCookieSesi, UMUR_SESI_MS, adminAuth } from "@/lib/firebase/admin";
+import {
+  buatCookieSesi,
+  lupakanCookieSesi,
+  UMUR_SESI_MS,
+  adminAuth,
+} from "@/lib/firebase/admin";
 import { siapkanPengguna, NAMA_COOKIE_SESI } from "@/lib/sesi";
 import { NAMA_COOKIE_BAHASA } from "@/kamus";
 import { prisma } from "@/lib/prisma";
@@ -158,7 +163,12 @@ function jelaskanKegagalanSesi(galat: unknown): { pesan: string; status: number 
   return { pesan: rinci("Gagal membuat sesi."), status: 500 };
 }
 
-export async function DELETE() {
+export async function DELETE(request: NextRequest) {
+  // Membuang izin-lewat pemeriksaan pencabutan milik cookie ini, supaya jejak
+  // sesi yang sudah selesai tidak menganggur di memori sampai kedaluwarsa.
+  const cookie = request.cookies.get(NAMA_COOKIE_SESI)?.value;
+  if (cookie) lupakanCookieSesi(cookie);
+
   const respons = NextResponse.json({ ok: true });
   respons.cookies.set({
     name: NAMA_COOKIE_SESI,
