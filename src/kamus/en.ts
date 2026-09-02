@@ -100,7 +100,27 @@ export const en: Kamus = {
     DIREVISI: "returned for revision",
     DITOLAK: "rejected",
   },
+  terjemahanPanel: {
+    judul: "AI-assisted translation",
+    keterangan:
+      "Translates fields that have no English version yet, using your own AI key. The result is a draft — you decide what is used.",
+    tombol: "Translate what is missing",
+    berjalan: "Translating…",
+    tinjau: "Review {jumlah} suggestions",
+    terapkan: "Apply the ticked ones",
+    menerapkan: "Applying…",
+    pilihSemua: "Select all",
+    kosongkan: "Clear",
+    naskahSah:
+      "The Indonesian version remains the official document. Translation never blocks submission.",
+    tanpaKunciTebal: "No AI key yet.",
+    tanpaKunciIsi: "Translation uses your own key and bills to your account.",
+    daftarkanKunci: "Register a key",
+    asli: "Indonesian",
+    usulan: "Suggestion",
+  },
   dwibahasa: {
+    unduhBahasaLain: "Download DOCX (Indonesia)",
     mode: "Language",
     modeId: "Indonesian",
     modeEn: "English",
@@ -488,6 +508,7 @@ export const en: Kamus = {
   },
 
   umum: {
+    hapus: "Delete",
     jam: "hours",
     menit: "minutes",
     simpan: "Save",
@@ -694,6 +715,7 @@ export const en: Kamus = {
   },
 
   dokumenPublik: {
+    komponenNilai: "Assessment components",
     versiInggris: {
       belumTerbit: "An English version of this document has not been published.",
       sebagian: "Parts that are not translated appear in Indonesian.",
@@ -1039,6 +1061,7 @@ export const en: Kamus = {
       simpan: "Save",
     },
     sunting: {
+      contohNamaKurikulum: "Curriculum 2026",
       kode: "Code",
       status: "Status",
       ranah: "Domain",
@@ -1127,6 +1150,8 @@ export const en: Kamus = {
       tanpaProdi: "There is no active study programme you can manage.",
     },
     imporForm: {
+      terimaSemua: "Accept all",
+      tutup: "Close",
       langkah1: "1 · Download the template",
       langkah1Keterangan: "Four sheets: CPL, Courses, CPMK, and Sub-CPMK. The grey example rows can be overwritten directly.",
       unduhTemplate: "Download the .xlsx template",
@@ -1311,6 +1336,7 @@ export const en: Kamus = {
       alasanPenolakan: "Reason for rejection",
     },
     butir: {
+      keterangan: "One item = one change that can be accepted or rejected on its own.",
       judul: "Add an item",
       jenisPerubahan: "Type of change",
       kodeCpmk: "CPMK code {sifat}",
@@ -1462,6 +1488,9 @@ export const en: Kamus = {
   },
 
   rpkps: {
+    tabelKosong: "Empty table",
+    tabelKosongPetunjuk:
+      "Creates an RPKPS without a skeleton; you write the weekly table yourself",
     metaJudul: "RPKPS",
     eyebrow: "Module",
     judul: "RPKPS",
@@ -1609,6 +1638,8 @@ export const en: Kamus = {
     },
 
     kisiEditor: {
+      kosongKeterangan:
+        "No items yet. Add some so every Sub-CPMK taught is actually tested.",
       totalSkor: "Total score",
       durasi: "Duration (minutes)",
       catatan: "Note",
@@ -2376,6 +2407,13 @@ export const en: Kamus = {
       diberlakukan: "The policy is now in effect.",
       sudahBerlaku: "This policy is already in effect.",
     },
+    terjemahan: {
+      sudahLengkap: "Every field already has a translation.",
+      selesai: "{jumlah} of {diminta} fields translated. Review before applying.",
+      gagal: "Translation failed. Try again, or check your AI key.",
+      tidakAdaDipilih: "No translation was selected.",
+      diterapkan: "{jumlah} translations applied.",
+    },
     ai: {
       kunciTerlaluPendek: "The API key is too short to be valid.",
       gagalUsulan: "The AI suggestion request failed. Check the server log.",
@@ -2389,6 +2427,7 @@ export const en: Kamus = {
   },
 
   komponen: {
+    tanpaData: "no data yet",
     paginasi: {
       menampilkan: "Showing {dari}–{sampai} of {total} {satuan}",
       sebelumnya: "Previous",

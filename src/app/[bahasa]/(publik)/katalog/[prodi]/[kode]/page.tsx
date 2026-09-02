@@ -10,7 +10,7 @@ import { muatRpkpsPublik } from "@/lib/publik/muat";
 import { jalurRpkpsPublik, urlSitus } from "@/lib/publik/tautan";
 import { bahasaAktif, kamus } from "@/lib/bahasa/server";
 import { tanggal } from "@/lib/bahasa/format";
-import { isi } from "@/lib/bahasa/teks";
+import { isi, pilihTeks } from "@/lib/bahasa/teks";
 import type { Bahasa, Kamus } from "@/kamus";
 import {
   Bagian,
@@ -114,6 +114,9 @@ export default async function HalamanDokumenPublik({
    * yang memang dokumen yang sah — beserta keterangannya di bawah judul.
    */
   const dok = b === "id" ? rpkps.dokumen : (rpkps.dokumenEn ?? rpkps.dokumen);
+  // Nama prodi datang dari data langsung, bukan salinan beku — ia identitas
+  // unit, bukan isi dokumen yang ditandatangani.
+  const namaProdi = pilihTeks(rpkps.prodi.nama, rpkps.prodi.namaEn, b).teks;
   const tanpaVersiEn = b !== "id" && rpkps.dokumenEn === null;
   const mk = dok.mataKuliah;
   const ti = k.dokumenPublik.daftarIsi;
@@ -143,7 +146,7 @@ export default async function HalamanDokumenPublik({
           href={`/katalog/${rpkps.prodi.kode.toLowerCase()}`}
           className="transition-colors hover:text-foreground"
         >
-          {rpkps.prodi.nama}
+          {namaProdi}
         </Tautan>
         <ChevronRight className="size-3.5" />
         <span className="font-mono text-foreground">{mk.kode}</span>
@@ -173,7 +176,7 @@ export default async function HalamanDokumenPublik({
         <dl className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground">
           <Meta
             label={k.dokumenPublik.metaProdi}
-            nilai={`${rpkps.prodi.nama} (${rpkps.prodi.jenjang})`}
+            nilai={`${namaProdi} (${rpkps.prodi.jenjang})`}
           />
           <Meta label={k.dokumenPublik.metaBeban} nilai={ringkasSks(mk)} mono />
           <Meta
@@ -188,9 +191,25 @@ export default async function HalamanDokumenPublik({
         </dl>
 
         <div className="mt-6 flex flex-wrap gap-2 print:hidden">
-          <ButtonLink href={`/api/publik/rpkps/${rpkps.id}/docx`} prefetch={false}>
+          <ButtonLink
+            href={`/api/publik/rpkps/${rpkps.id}/docx?bahasa=${b}`}
+            prefetch={false}
+          >
             <Download />
             {k.dokumenPublik.unduh}
+          </ButtonLink>
+          {/*
+            Berkas bahasa yang satunya selalu ditawarkan. Yang berbahasa
+            Indonesia adalah naskah yang sah, jadi pembaca Inggris harus dapat
+            mengambilnya tanpa berganti bahasa antarmuka lebih dulu.
+          */}
+          <ButtonLink
+            variant="outline"
+            href={`/api/publik/rpkps/${rpkps.id}/docx?bahasa=${b === "id" ? "en" : "id"}`}
+            prefetch={false}
+          >
+            <Download />
+            {k.dwibahasa.unduhBahasaLain}
           </ButtonLink>
           <TombolCetak />
         </div>

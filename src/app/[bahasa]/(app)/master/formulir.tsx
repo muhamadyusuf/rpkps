@@ -43,7 +43,7 @@ function useAksi() {
 
 export function FormulirProdi() {
   const { menunggu, jalankan } = useAksi();
-  const { k } = useBahasa();
+  const { k, isi } = useBahasa();
 
   return (
     <form
@@ -58,6 +58,12 @@ export function FormulirProdi() {
           placeholder={k.master.prodi.contohNama}
           required
         />
+      </div>
+      <div className="space-y-1.5 lg:col-span-2">
+        <Label htmlFor="namaEn">
+          {isi(k.dwibahasa.labelEn, { label: k.master.prodi.labelNama })}
+        </Label>
+        <Input id="namaEn" name="namaEn" placeholder={k.dwibahasa.belumDiterjemahkan} />
       </div>
       <div className="space-y-1.5">
         <Label htmlFor="kode">{k.master.prodi.labelKode}</Label>

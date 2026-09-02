@@ -78,7 +78,7 @@ export function TombolKurikulumKosong({
 
         <div className="min-w-52 flex-1 space-y-1.5">
           <Label htmlFor="kosong-nama">{k.kurikulum.sunting.nama}</Label>
-          <Input id="kosong-nama" name="nama" placeholder="Kurikulum 2026" required />
+          <Input id="kosong-nama" name="nama" placeholder={k.kurikulum.sunting.contohNamaKurikulum} required />
         </div>
 
         <div className="space-y-1.5">

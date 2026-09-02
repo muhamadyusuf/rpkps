@@ -391,6 +391,7 @@ function PanelUsulan({
   onTolak: (u: UsulanPerbaikan) => void;
   onTutup: () => void;
 }) {
+  const { k } = useBahasa();
   return (
     <div className="rounded-lg border border-primary/25 bg-primary/5 p-3">
       <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -434,10 +435,10 @@ function PanelUsulan({
 
       <div className="mt-3 flex flex-wrap gap-2 border-t pt-3">
         <Button size="sm" variant="outline" onClick={() => onTerima(usulan)}>
-          Terima semua
+          {k.kurikulum.imporForm.terimaSemua}
         </Button>
         <Button size="sm" variant="ghost" onClick={onTutup}>
-          Tutup
+          {k.kurikulum.imporForm.tutup}
         </Button>
       </div>
     </div>

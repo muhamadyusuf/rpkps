@@ -12,10 +12,17 @@ import { WARNA_NADA } from "./nada";
 export function BaganTumpuk({
   segmen,
   sisa,
+  tanpaData,
 }: {
   segmen: readonly Segmen[];
   /** Bagian yang belum tercakup sama sekali, mis. MK yang belum punya RPKPS. */
   sisa?: { label: string; jumlah: number };
+  /**
+   * Teks saat tidak ada data. Dioper, bukan diambil dari kamus di sini:
+   * bagan ini komponen server tanpa `use client`, dipakai dari beberapa panel,
+   * dan menariknya ke kamus akan memaksa seluruh pemakainya menjadi async.
+   */
+  tanpaData: string;
 }) {
   const daftar = [
     ...segmen,
@@ -34,7 +41,7 @@ export function BaganTumpuk({
       >
         {total === 0 ? (
           <div className="flex w-full items-center justify-center text-xs text-muted-foreground">
-            belum ada data
+            {tanpaData}
           </div>
         ) : (
           daftar

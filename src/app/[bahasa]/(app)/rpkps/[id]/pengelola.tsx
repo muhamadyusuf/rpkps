@@ -493,7 +493,7 @@ function DialogHapus({
     >
       <DialogTrigger render={<Button variant="ghost" className="text-destructive" />}>
         <Trash2 />
-        Hapus
+        {k.umum.hapus}
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-lg">

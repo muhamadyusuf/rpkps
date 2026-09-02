@@ -1,6 +1,6 @@
 # Dwibahasa: Antarmuka dan Isi RPKPS
 
-> Status: **L1–L5 TERPASANG (31 Agustus 2026). L6–L7 belum.**
+> Status: **TERPASANG SELURUHNYA — L1–L7 (31 Agustus 2026).**
 > Menjawab dua kebutuhan yang sering dikira satu: (a) *antarmuka* aplikasi
 > harus dapat dibaca dalam bahasa Inggris, dan (b) *dokumen RPKPS* harus
 > tersedia dalam dua bahasa. Keduanya berbeda sifat, berbeda tempat
@@ -482,14 +482,23 @@ Kolom baru, semuanya `String?` (atau `String[]`) dan **selalu opsional**:
 | `butir_kisi_kisi` | `indikator_en` |
 | `prodi`, `fakultas`, `institusi` | `nama_en` |
 
-#### 5.1a `aktivitas_belajar.metode` tidak dicerminkan
+#### 5.1a Kolom yang tidak dicerminkan
 
-Rencana semula mencantumkannya. Saat dikerjakan ternyata `metode` sendiri
-tidak ditulis penyunting mana pun dan tidak dibaca satu tampilan pun — kolom
-mati. Mencerminkannya berarti menambah `metode_en` yang tak akan pernah bisa
-diisi siapa pun, dan membuat penjaga muatan simpan (§5.3) gagal selamanya
-tanpa ada yang dapat memperbaikinya. Bila suatu hari `metode` mendapat
-penyuntingnya, kembarannya menyusul bersamaan.
+Tiga tempat sengaja TIDAK mendapat kolom `*_en`, semuanya karena alasan yang
+sama: kolom Indonesianya sendiri belum punya penulis maupun pembaca, sehingga
+kembarannya tak akan pernah bisa diisi siapa pun — dan penjaga muatan simpan
+(§5.3) akan gagal selamanya tanpa ada yang dapat memperbaikinya.
+
+| Kolom | Keadaan |
+|---|---|
+| `aktivitas_belajar.metode` | Tidak ditulis penyunting mana pun, tidak dibaca satu tampilan pun |
+| `rpkps.catatan_evaluasi` | Sama; juga tidak masuk `proyeksiIsi` |
+| seluruh `bahan_kajian` | Tabelnya sendiri belum dipakai sama sekali |
+
+Ketiganya ditemukan oleh penjaga, bukan oleh mata: yang pertama saat penjaga
+§5.3 dipasang, dua sisanya saat daftar model penjaga itu diperluas ke `Rpkps`
+dan seluruh kolom `*En` disapu terhadap penulisnya. Bila suatu hari salah
+satunya mendapat penyunting, kembarannya menyusul bersamaan.
 
 **Yang sengaja TIDAK diterjemahkan:**
 
@@ -729,50 +738,194 @@ proyeksi sidik tidak berlaku.
 
 ## BAGIAN 7 — Ekspor dokumen
 
-`rpkps-docx.ts` (921 baris) memuat puluhan judul bagian Indonesia sebagai
-literal: "HALAMAN PENGESAHAN", "A. DESKRIPSI MATA KULIAH", "Sumber Utama",
-dan seterusnya. Semuanya pindah ke tabel label per bahasa di
-`src/lib/dokumen/label.ts`; bentuk tabel dan urutan kolom **tidak berubah**
-— template adalah data, dan template ITTS tetap 7 kolom di kedua bahasa.
+**Terpasang (31 Agustus 2026).** `rpkps-docx.ts` memuat puluhan judul bagian
+Indonesia sebagai literal. Semuanya pindah ke `src/lib/dokumen/label.ts`;
+bentuk tabel dan urutan kolom **tidak berubah** — template adalah data, dan
+template ITTS tetap 7 kolom di kedua bahasa.
 
-- Rute unduh menerima `?bahasa=id|en`; bawaannya `id`.
-- Berkas Inggris mencetak `sidikEn` (bukan `sidik`) dan membawa satu baris
-  di kaki halaman pengesahan: **versi Indonesia adalah naskah yang sah**.
-  Untuk keperluan akreditasi, yang diserahkan tetap berkas Indonesia.
-- Hal yang sama berlaku untuk `portofolio-docx.ts`, `excel-nilai.ts`,
-  `excel-lkps.ts`, dan templat impor kurikulum. Untuk berkas Excel yang
-  **diimpor kembali**, pengenal kolom tetap kode Indonesia; hanya baris
-  judul yang diterjemahkan — kalau tidak, berkas yang diunduh dalam bahasa
-  Inggris tidak akan dapat diunggah kembali.
+- Empat rute unduh menerima `?bahasa=id|en`; bawaannya `id`. Nilai yang tidak
+  dikenali jatuh ke `id`, bukan ditolak: alamat unduhan sering disalin tangan,
+  dan menjawab 400 atas salah ketik hanya menghalangi orang mengambil
+  dokumennya.
+- Berkas Inggris mencetak `sidikEn`, bukan `sidik`. Mencetak sidik Indonesia
+  pada berkas berbahasa Inggris akan membuat orang membandingkan dua isi yang
+  berbeda dan menyimpulkan dokumennya sudah bergeser.
+- Halaman pengesahan berkas Inggris membawa satu baris di kakinya: **versi
+  Indonesia adalah naskah yang sah**. Untuk keperluan akreditasi, yang
+  diserahkan tetap berkas Indonesia.
+- Tombol unduh selalu menawarkan bahasa yang satunya. Pembaca Inggris harus
+  dapat mengambil naskah yang sah tanpa berganti bahasa antarmuka lebih dulu.
+
+### 7.1 Pengenal Excel tetap bahasa Indonesia
+
+Berkas nilai (`excel-nilai.ts`) dan templat kurikulum (`kurikulum/excel.ts`)
+**dibaca ulang saat diunggah**, dan keduanya mencocokkan kolom lewat TEKS
+judulnya, bukan posisinya. Karena itu judul kolom dan nama lembar tetap
+berbahasa Indonesia — "NIM", "Nama", "Angkatan", "Nilai", "Kode MK",
+"Level Bloom", dan seterusnya. Yang diterjemahkan hanya lembar Petunjuk, yang
+tidak pernah dibaca.
+
+Kegagalannya kalau aturan ini dilanggar bersifat SENYAP: pembaca hanya
+melaporkan "kolom tidak ditemukan", dan tidak ada yang menghubungkannya dengan
+bahasa berkas. Karena itu ada dua penjaga di `label.test.ts`:
+
+1. Tidak satu pun pengenal boleh muncul sebagai nilai di sub-tabel
+   `label.excel` — kalau sebuah pengenal masuk tabel label, cepat atau lambat
+   seseorang akan menerjemahkannya.
+2. Pengenal harus tetap tertulis harfiah di kode pembacanya.
+
+Cakupan penjaga pertama sengaja hanya `excel.*`. Judul bagian DOCX boleh saja
+kebetulan berbunyi "Sub-CPMK", dan label LKPS boleh berbunyi "Mata Kuliah":
+keduanya tidak pernah diimpor, jadi menerjemahkannya justru benar. `excel-lkps.ts`
+diterjemahkan seluruhnya karena ia laporan, bukan formulir.
+
+Lembar Petunjuk kedua bahasa kini membuka dengan peringatan yang sama: nama
+lembar dan judul kolom adalah pengenal, jangan diganti. Itu berlaku bagi
+pengguna Indonesia juga — mengganti nama kolom merusak impor tanpa perlu
+menerjemahkannya.
+
+### 7.2 Penjaga tabel label
+
+Sama seperti kamus antarmuka: kunci dan bentuk harus sama persis di kedua
+bahasa (larik tetap larik, dengan panjang yang sama), penanda `{nama}` tidak
+boleh berubah saat diterjemahkan, dan tidak boleh ada kalimat Inggris yang
+masih identik dengan Indonesianya. Yang ketiga mengecualikan pengenal murni
+("CPMK", "NIDN / NIP / NIK") dan pola yang hanya berisi penanda.
 
 ## BAGIAN 8 — Bantuan AI
 
-Menerjemahkan 34 medan teks per RPKPS dengan tangan adalah pekerjaan yang
-tidak akan dilakukan siapa pun. Karena itu ada tugas AI baru,
-`terjemahkanRpkps`, di `src/lib/ai/`.
+**Terpasang (31 Agustus 2026).** Menerjemahkan tiga puluhan medan teks per
+RPKPS dengan tangan adalah pekerjaan yang tidak akan dilakukan siapa pun.
+`terjemahkanRpkps` (`src/lib/ai/terjemahan-rpkps.ts`) mengerjakannya sebagai
+SATU tugas — bukan tiga puluhan. Selain soal biaya, satu permintaan juga yang
+membuat istilahnya konsisten: model melihat seluruh dokumen sekaligus, bukan
+potongan lepas.
 
-Aturan BYOK yang sudah ada berlaku utuh, tanpa pengecualian:
+Aturan BYOK berlaku utuh: kredensial hanya lewat `pakaiKredensial()`, dibuka
+sekali lalu adapternya diteruskan ke gerbang, tanpa cadangan ke env, tanpa
+klien SDK pada variabel modul. Keempatnya dijaga uji tekstual di
+`terjemahan-rpkps.test.ts`, karena tidak satu pun dapat diberikan tipe.
 
-- Kredensial hanya lewat `pakaiKredensial()`; tanpa cadangan ke env, ke
-  kunci pengguna lain, atau ke penyedia lain.
-- Kunci dibuka **sekali** per tugas, lalu adapternya diteruskan ke gerbang.
-  Menerjemahkan 34 medan tetap satu tugas — bukan 34.
-- Tidak ada klien SDK yang disimpan pada variabel modul.
-- Yang masuk log dan `log_audit` hanya penyedia, model, id kredensial, dan
-  empat karakter terakhir.
+### 8.1 Dua aksi, dan pemisahannya adalah intinya
 
-Sifat hasilnya:
+`usulkanTerjemahan` hanya MEMINTA dan mengembalikan draf; `terapkanTerjemahan`
+menulis apa yang sudah dicentang dosen. Tidak ada jalan dari model langsung ke
+basis data — dijaga uji yang membaca badan `usulkanTerjemahan` dan menuntutnya
+tidak memuat satu pun `prisma.*.update/create/upsert/delete`.
 
-- Hasil terjemahan **draf**, ditandai `sumber = AI` pada baris yang
-  ditulisnya, dan tetap dapat disunting. Asesor berhak tahu bagian mana yang
-  lahir dari model (docs/01 §4.8).
-- Istilah OBE dikunci lewat glosarium tetap dalam prompt (CPL → *Program
-  Learning Outcomes*, CPMK → *Course Learning Outcomes*, Sub-CPMK →
-  *Lesson Learning Outcomes*, SKS → *credit units*, RPKPS tetap RPKPS).
-  Tanpa glosarium, satu dokumen akan memakai tiga istilah berbeda untuk
-  CPMK di tiga bagian.
-- Terjemahan **tidak pernah otomatis**. Selalu ada tombol dan selalu ada
-  peninjauan.
+Panel tinjau menampilkan asli di kiri dan usulan di kanan, sama seperti mode
+berdampingan pada penyunting: menilai terjemahan tanpa melihat aslinya tidak
+mungkin. Seluruhnya tercentang di awal — dosen membaca lalu MEMBATALKAN yang
+salah, bukan mencentang tiga puluhan baris satu per satu.
+
+### 8.2 Alamat adalah masukan dari klien
+
+Setiap medan punya alamat `tabel:id:kolom`. Alamat itu kembali dari peramban
+saat diterapkan, jadi ia masukan yang tidak dipercaya, dan diurai apa adanya
+menjadi `prisma[tabel].update({ [kolom]: … })` ia adalah
+tulis-apa-saja-ke-mana-saja. Dua lapis penjagaan:
+
+1. **Daftar putih kolom.** Hanya kolom berakhiran `En` pada tabel yang
+   terdaftar — `MEDAN_BOLEH` di `src/lib/rpkps/medan-en.ts`. Diuji dua kali:
+   setiap medan di dalamnya harus berakhiran `En`, dan setiap namanya harus
+   cocok dengan `schema.prisma` (§8.6).
+2. **Pengesahan terhadap dokumen ini.** Alamat dicocokkan dengan
+   `medanRpkps(rpkps)` — id baris bersifat global, dan wewenang yang sudah
+   diperiksa hanya berlaku untuk RPKPS ini. Tanpa langkah ini sebuah alamat
+   milik dokumen orang lain akan ditulis begitu saja.
+
+Model juga boleh mengembalikan alamat yang tidak pernah dikirim — entah karena
+mengarang, entah karena dosen menyunting di tab lain selama permintaan
+berjalan. `saringHasilTerjemahan` di domain membuangnya.
+
+### 8.3 Penerapan menulis kolom `*En` saja
+
+Sengaja BUKAN lewat `simpanPertemuan`/`simpanTugas`. Keduanya mengganti seluruh
+isi baris, dan memakainya di sini berarti menulis ulang isi Indonesia dari data
+yang dibaca beberapa detik lalu — menimpa suntingan rekan setim yang terjadi
+sementara model bekerja. Arah sebaliknya aman: menulis kolom terjemahan saja
+tidak dapat menghapus apa pun yang lain (§5.3).
+
+### 8.4 Penyimpangan dari rencana: `sumber = AI` TIDAK dipasang
+
+Rencana semula menyebut baris hasil terjemahan ditandai `sumber = AI`. Itu
+tidak dikerjakan, dan sebaiknya memang tidak.
+
+`SumberIsi` menandai asal ISI sebuah baris. Menaikkannya menjadi `AI` karena
+kolom terjemahannya diisi model akan menyatakan bahwa rumusan **Indonesia**-nya
+lahir dari model — padahal dosen yang menulisnya. Asesor membaca naskah
+Indonesia; menandainya AI justru menyesatkan persis pihak yang hendak
+dilindungi docs/01 §4.8.
+
+Jejaknya ditaruh di tempat yang benar: `log_audit` mencatat
+`RPKPS_DITERJEMAHKAN` beserta jumlah medan, dan panel menampilkan penyedia
+serta model yang dipakai. Kalau kelak provenance per medan memang dibutuhkan,
+tempatnya kolom terpisah pada medan terjemahan — bukan menumpang pada `sumber`
+yang sudah punya arti lain.
+
+### 8.5 Glosarium terkunci
+
+CPL → *Programme Learning Outcomes*, CPMK → *Course Learning Outcomes*,
+Sub-CPMK → *Lesson Learning Outcomes*, sks → *credit units*, RPKPS tetap
+RPKPS, ditambah UTS/UAS, TM/PT/BM, dan jabatan. Tanpa glosarium satu dokumen
+akan memakai tiga istilah berbeda untuk CPMK di tiga bagian, dan pembaca yang
+membandingkannya dengan naskah Indonesia tidak dapat menelusuri mana yang mana.
+
+Glosarium hidup di blok STABIL yang di-cache penyedia — diuji, karena satu
+byte yang berpindah ke blok permintaan membatalkan seluruh cache.
+
+Terjemahan **tidak pernah otomatis**. Selalu ada tombol dan selalu ada
+peninjauan.
+
+### 8.6 Satu kueri per kolom, bukan satu kueri per medan
+
+**Diperbaiki 2 September 2026, setelah gagal di tangan pengguna.** Versi
+pertama menulis `prisma[tabel].update()` sekali per medan di dalam satu
+`$transaction`. Pada RPKPS contoh yang kecil itu jalan; pada dokumen
+sungguhan ia berhenti dengan:
+
+```
+Transaction API error: A rollback cannot be executed on an expired
+transaction. The timeout for this transaction was 5000 ms, however 5071 ms
+passed since the start of the transaction.
+```
+
+Sebabnya bukan kueri yang lambat, melainkan JUMLAHNYA. Sebuah RPKPS 16 minggu
+punya ratusan medan — tujuh kolom per pertemuan, ditambah indikator dan
+aktivitas tiap minggu, tugas, dan butir kisi-kisi. Batas waktu transaksi
+dihitung sejak transaksi dibuka, bukan per kueri, jadi jumlah bolak-balik
+itulah yang melampauinya. Pelajaran yang persis sama sudah tertulis di
+`src/lib/evaluasi/nilai-inti.ts` untuk impor nilai; ia terlewat di sini.
+
+Penulisannya sekarang dikelompokkan menurut **pasangan tabel+kolom**, satu
+pernyataan per kelompok:
+
+```sql
+UPDATE "pertemuan" AS t
+SET "topik_en" = v.teks
+FROM (VALUES ($1::text, $2::text), …) AS v(id, teks)
+WHERE t.id = v.id
+```
+
+Jumlah kueri jadi terikat pada banyaknya KOLOM (paling banyak 20), bukan pada
+besar dokumen. Batas waktu 20 detik tetap dipasang — sebagai margin bagi
+koneksi lambat, bukan sebagai perbaikannya.
+
+Harga yang dibayar: ini satu-satunya SQL tulis-tangan di aplikasi ini, dan
+`Prisma.raw` tidak tahu apa-apa tentang `@map`. Karena itu `MEDAN_BOLEH`
+menyimpan KEDUA penamaan, dan dua penjaga berdiri di belakangnya —
+`src/lib/rpkps/terjemahan-sql.test.ts` mencocokkan tiap nama tabel dan kolom
+dengan `schema.prisma` (termasuk bahwa kunci barisnya benar-benar bernama
+`id`), dan `uji/integrasi.ts` §15 menjalankan penulisannya terhadap Postgres
+sungguhan: nama tabel yang salah atau cast yang kurang hanya terlihat saat
+dieksekusi.
+
+Penulisannya karena itu pindah ke `src/lib/rpkps/terjemahan-tulis.ts` dan
+menerima klien Prisma sebagai PARAMETER — alasan yang sama dengan
+`nilai-inti.ts`: yang tidak dapat diuji terhadap basis data sungguhan tidak
+boleh berisi SQL tulis-tangan. Berkas `"use server"` juga hanya boleh
+mengekspor fungsi async, sehingga daftar putihnya memang tidak dapat tinggal
+di berkas aksi.
 
 ## BAGIAN 9 — Urutan pengerjaan
 
@@ -786,11 +939,11 @@ Berfase, dan tiap fase berdiri sendiri: aplikasi tetap jalan dan tetap lulus
 | ~~**L3**~~ | ✅ **Terpasang.** Temuan validator (§4.1, 127 kode), notifikasi (§4.2, 12 kunci), riwayat RPKPS (§4.2c, 16 kunci), label enum (§4.3) | — |
 | ~~**L4**~~ | ✅ **Terpasang.** 33 kolom `*En`, penyunting berdampingan, `pilihTeks`, ringkasan kelengkapan, W8 | — |
 | ~~**L5**~~ | ✅ **Terpasang.** `proyeksi-en.ts`, `isiEn`/`sidikEn`, katalog publik EN, hreflang per halaman, kunci regresi sidik | — |
-| **L6** | Ekspor DOCX/Excel dua bahasa | Rendah |
-| **L7** | `terjemahkanRpkps` (AI) | Rendah — fitur baru, tidak mengubah yang ada |
+| ~~**L6**~~ | ✅ **Terpasang.** `label.ts` (dua bahasa), `?bahasa=`, sidik ruang kedua di berkas EN, pengenal Excel dijaga uji | — |
+| ~~**L7**~~ | ✅ **Terpasang.** `terjemahkanRpkps` (BYOK), panel tinjau, penerapan berdaftar-putih | — |
 
-L1–L3 sudah memenuhi permintaan pertama (aplikasi dwibahasa).
-L4 sampai L7 memenuhi permintaan kedua (RPKPS dwibahasa).
+L1–L3 memenuhi permintaan pertama (aplikasi dwibahasa); L4–L7 memenuhi
+permintaan kedua (RPKPS dwibahasa). Keduanya terpasang.
 
 ### 9.1 Yang TIDAK dikerjakan di L1, dan mengapa
 

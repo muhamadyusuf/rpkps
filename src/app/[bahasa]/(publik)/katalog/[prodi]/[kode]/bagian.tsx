@@ -600,7 +600,7 @@ export async function BagianPenilaian({ dok }: { dok: DokumenPublik }) {
     <div className="space-y-4">
       <Panel>
         <h3 className="label-teknis mb-4 text-muted-foreground/80">
-          Komponen nilai
+          {k.dokumenPublik.komponenNilai}
         </h3>
         <ul className="space-y-3">
           {dok.komponenNilai.map((komp) => (

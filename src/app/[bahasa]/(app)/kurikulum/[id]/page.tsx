@@ -289,6 +289,7 @@ export default async function HalamanDetailKurikulum({
                 id: p.id,
                 kode: p.kode,
                 deskripsi: p.deskripsi,
+                deskripsiEn: p.deskripsiEn,
                 cplId: p.cpl.map((x) => x.cplId),
               }))}
               cpl={kurikulum.cpl.map((c) => ({

@@ -54,7 +54,7 @@ export type RpkpsPublik = {
   sidik: string;
   disahkanPada: Date;
   diubahPada: Date;
-  prodi: { kode: string; nama: string; jenjang: JenjangProdi };
+  prodi: { kode: string; nama: string; namaEn: string | null; jenjang: JenjangProdi };
   kurikulum: { nama: string; tahun: number };
   tahunAkademik: string;
   dokumen: DokumenPublik;
@@ -381,7 +381,7 @@ export const muatRpkpsPublik = cache(async function muatRpkpsPublik(
             select: {
               nama: true,
               tahun: true,
-              prodi: { select: { kode: true, nama: true, jenjang: true } },
+              prodi: { select: { kode: true, nama: true, namaEn: true, jenjang: true } },
             },
           },
         },

@@ -14,14 +14,13 @@ ALTER TABLE "prodi"     ADD COLUMN "nama_en" TEXT;
 
 ALTER TABLE "profil_lulusan" ADD COLUMN "deskripsi_en" TEXT;
 
-ALTER TABLE "bahan_kajian" ADD COLUMN "nama_en" TEXT;
-ALTER TABLE "bahan_kajian" ADD COLUMN "deskripsi_en" TEXT;
 
+-- `bahan_kajian` dan `rpkps.catatan_evaluasi` tidak dicerminkan: keduanya
+-- belum punya penulis maupun pembaca, jadi kembarannya tak akan pernah diisi.
 ALTER TABLE "mata_kuliah" ADD COLUMN "deskripsi_en" TEXT;
 
 ALTER TABLE "rpkps" ADD COLUMN "deskripsi_en" TEXT;
 ALTER TABLE "rpkps" ADD COLUMN "kalimat_pembuka_cpmk_en" TEXT;
-ALTER TABLE "rpkps" ADD COLUMN "catatan_evaluasi_en" TEXT;
 
 ALTER TABLE "pertemuan" ADD COLUMN "topik_en" TEXT;
 ALTER TABLE "pertemuan" ADD COLUMN "subtopik_en" TEXT[] DEFAULT ARRAY[]::TEXT[];

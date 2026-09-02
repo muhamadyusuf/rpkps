@@ -23,6 +23,7 @@ export type ProfilTampil = {
   id: string;
   kode: string;
   deskripsi: string;
+  deskripsiEn: string | null;
   cplId: string[];
 };
 
@@ -74,9 +75,9 @@ export function PengelolaProfilLulusan({
             awal={p}
             menunggu={menunggu}
             onBatal={() => setMenyunting(null)}
-            onSimpan={(kode, deskripsi) =>
+            onSimpan={(kode, deskripsi, deskripsiEn) =>
               jalankan(
-                () => perbaruiProfilLulusan(p.id, kode, deskripsi),
+                () => perbaruiProfilLulusan(p.id, kode, deskripsi, deskripsiEn),
                 () => setMenyunting(null),
               )
             }
@@ -133,8 +134,11 @@ export function PengelolaProfilLulusan({
       <FormulirProfil
         baru
         menunggu={menunggu}
-        onSimpan={(kode, deskripsi, reset) =>
-          jalankan(() => tambahProfilLulusan(kurikulumId, kode, deskripsi), reset)
+        onSimpan={(kode, deskripsi, deskripsiEn, reset) =>
+          jalankan(
+            () => tambahProfilLulusan(kurikulumId, kode, deskripsi, deskripsiEn),
+            reset,
+          )
         }
       />
     </div>
@@ -234,13 +238,18 @@ function FormulirProfil({
   onSimpan,
   onBatal,
 }: {
-  awal?: { kode: string; deskripsi: string };
+  awal?: { kode: string; deskripsi: string; deskripsiEn: string | null };
   baru?: boolean;
   menunggu: boolean;
-  onSimpan: (kode: string, deskripsi: string, reset: () => void) => void;
+  onSimpan: (
+    kode: string,
+    deskripsi: string,
+    deskripsiEn: string | null,
+    reset: () => void,
+  ) => void;
   onBatal?: () => void;
 }) {
-  const { k } = useBahasa();
+  const { k, isi: isiTeks } = useBahasa();
   const idForm = baru ? "form-profil-baru" : undefined;
 
   return (
@@ -253,7 +262,8 @@ function FormulirProfil({
       action={(fd) => {
         const kode = String(fd.get("kode") ?? "");
         const deskripsi = String(fd.get("deskripsi") ?? "");
-        onSimpan(kode, deskripsi, () => {
+        const deskripsiEn = String(fd.get("deskripsiEn") ?? "").trim() || null;
+        onSimpan(kode, deskripsi, deskripsiEn, () => {
           if (!idForm) return;
           const form = document.getElementById(idForm) as HTMLFormElement | null;
           form?.reset();
@@ -285,6 +295,19 @@ function FormulirProfil({
         />
       </div>
 
+      {/* Terjemahan tampilan; selalu opsional, tidak pernah menghalangi simpan. */}
+      <div className="min-w-64 flex-1 space-y-1.5">
+        <Label htmlFor={`${idForm ?? awal?.kode}-deskripsiEn`}>
+          {isiTeks(k.dwibahasa.labelEn, { label: k.kurikulum.profil.deskripsi })}
+        </Label>
+        <Input
+          id={`${idForm ?? awal?.kode}-deskripsiEn`}
+          name="deskripsiEn"
+          defaultValue={awal?.deskripsiEn ?? ""}
+          placeholder={k.dwibahasa.belumDiterjemahkan}
+        />
+      </div>
+
       <Button type="submit" variant={baru ? "outline" : "default"} disabled={menunggu}>
         {baru ? <Plus /> : <Check />}
         {baru ? k.kurikulum.profil.tambah : k.kurikulum.profil.simpan}
@@ -293,7 +316,7 @@ function FormulirProfil({
       {onBatal ? (
         <Button type="button" variant="ghost" disabled={menunggu} onClick={onBatal}>
           <X />
-          Batal
+          {k.umum.batal}
         </Button>
       ) : null}
     </form>

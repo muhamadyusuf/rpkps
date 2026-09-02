@@ -89,7 +89,7 @@ export async function PanelAdmin({ data }: { data: DataAdmin }) {
           judul={k.dasbor.admin.statusKurikulum.judul}
           keterangan={k.dasbor.admin.statusKurikulum.keterangan}
         >
-          <BaganTumpuk segmen={data.statusKurikulum} />
+          <BaganTumpuk segmen={data.statusKurikulum} tanpaData={k.komponen.tanpaData} />
         </Panel>
 
         <Panel

@@ -516,10 +516,11 @@ model BahanKajian {
   id          String  @id @default(cuid())
   kurikulumId String  @map("kurikulum_id")
   kode        String
+  /// Tabel ini belum punya satu pun penulis maupun pembaca di aplikasi, jadi
+  /// kolom cermin `*_en` sengaja TIDAK ada: ia tak akan pernah bisa diisi
+  /// siapa pun (docs/11 §5.1a).
   nama        String
-  namaEn      String? @map("nama_en")
   deskripsi   String?
-  deskripsiEn String? @map("deskripsi_en")
 
   kurikulum Kurikulum @relation(fields: [kurikulumId], references: [id], onDelete: Cascade)
 
@@ -761,8 +762,9 @@ model Rpkps {
   ambangKelulusanMhs     Decimal @default(55) @map("ambang_kelulusan_mhs") @db.Decimal(5, 2)
   ambangKetercapaianMk   Decimal @default(85) @map("ambang_ketercapaian_mk") @db.Decimal(5, 2)
   minimalKehadiranPersen Int     @default(80) @map("minimal_kehadiran_persen")
+  /// Tidak punya kembaran `catatan_evaluasi_en`: kolom ini sendiri belum
+  /// ditulis maupun dibaca di mana pun (docs/11 §5.1a).
   catatanEvaluasi        String? @map("catatan_evaluasi")
-  catatanEvaluasiEn      String? @map("catatan_evaluasi_en")
 
   dibuatPada DateTime @default(now()) @map("dibuat_pada")
   diubahPada DateTime @updatedAt @map("diubah_pada")

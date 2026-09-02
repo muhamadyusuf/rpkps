@@ -28,6 +28,7 @@ import {
   setelMatriksCplMk,
 } from "@/lib/kurikulum/sunting-inti";
 import { tulisKomponenNilai } from "@/lib/rpkps/komponen-inti";
+import { kelompokkanTerjemahan, tulisTerjemahan } from "@/lib/rpkps/terjemahan-tulis";
 import { simpanNilaiKelas, simpanSkorButir } from "@/lib/evaluasi/nilai-inti";
 import { nilaiTenggatDokumen } from "@/domain/rpkps/tenggat";
 import {
@@ -1561,6 +1562,78 @@ async function main() {
       `disimpan ${hasilButir.skorDisimpan}, sel ${selButir}, asing ${hasilButir.nimTakDikenal.join()}`,
     );
   }
+
+  // ── 15 · Penerapan terjemahan: satu kueri per kolom (docs/11 §8.5) ──
+  //
+  // Satu-satunya SQL tulis-tangan di aplikasi ini. `Prisma.raw` tidak
+  // memvalidasi apa pun — nama tabel yang salah, cast yang kurang, atau
+  // `VALUES` yang tidak dapat ditentukan tipenya baru terlihat saat
+  // dieksekusi. Karena itu ia dijalankan di sini, terhadap Postgres sungguhan.
+  const barisTerjemah = await prisma.pertemuan.findMany({
+    where: { rpkpsId: rpkps.id },
+    orderBy: { minggu: "asc" },
+    take: 3,
+    select: { id: true, minggu: true, topik: true },
+  });
+  const tugasTerjemah = await prisma.tugas.findFirstOrThrow({
+    where: { rpkpsId: rpkps.id },
+    select: { id: true, nama: true },
+  });
+
+  const alamatSah = [
+    ...barisTerjemah.map((b) => `pertemuan:${b.id}:topikEn`),
+    ...barisTerjemah.map((b) => `pertemuan:${b.id}:metodeNarasiEn`),
+    `tugas:${tugasTerjemah.id}:namaEn`,
+  ];
+  const pilihanTerjemah = [
+    ...alamatSah.map((alamat, i) => ({ alamat, teks: `EN ${i + 1}` })),
+    // Racun 1: kolom bahasa Indonesia. Racun 2: baris milik dokumen lain.
+    { alamat: `pertemuan:${barisTerjemah[0].id}:topik`, teks: "ditimpa" },
+    { alamat: `pertemuan:tidak-ada-baris-ini:topikEn`, teks: "ditimpa" },
+    // Racun 3: teks kosong bukan terjemahan, ia hanya centang yang terlanjur.
+    { alamat: `tugas:${tugasTerjemah.id}:deskripsiEn`, teks: "   " },
+  ];
+
+  const { kelompok, jumlah } = kelompokkanTerjemahan(new Set(alamatSah), pilihanTerjemah);
+  cek(
+    "pilihan dikelompokkan per kolom, bukan per baris",
+    jumlah === alamatSah.length && kelompok.length === 3,
+    `${jumlah} medan dalam ${kelompok.length} kueri`,
+  );
+
+  await tulisTerjemahan(prisma, kelompok);
+
+  const sesudahTerjemah = await prisma.pertemuan.findMany({
+    where: { id: { in: barisTerjemah.map((b) => b.id) } },
+    orderBy: { minggu: "asc" },
+    select: { id: true, topik: true, topikEn: true, metodeNarasiEn: true },
+  });
+  const tugasTerjemahSesudah = await prisma.tugas.findUniqueOrThrow({
+    where: { id: tugasTerjemah.id },
+    select: { nama: true, namaEn: true, deskripsiEn: true },
+  });
+
+  cek(
+    "kolom *En terisi pada seluruh baris kelompok",
+    sesudahTerjemah.every((b) => (b.topikEn ?? "").startsWith("EN ")) &&
+      sesudahTerjemah.every((b) => (b.metodeNarasiEn ?? "").startsWith("EN ")) &&
+      tugasTerjemahSesudah.namaEn === `EN ${alamatSah.length}`,
+    sesudahTerjemah.map((b) => b.topikEn).join(" | "),
+  );
+  cek(
+    "tiap baris menerima teksnya sendiri, bukan teks baris pertama",
+    new Set(sesudahTerjemah.map((b) => b.topikEn)).size === sesudahTerjemah.length,
+    sesudahTerjemah.map((b) => b.topikEn).join(" | "),
+  );
+  cek(
+    "kolom Indonesia tidak tersentuh, alamat asing dan teks kosong ditolak",
+    sesudahTerjemah.every(
+      (b, i) => b.topik === barisTerjemah[i].topik && b.topik !== "ditimpa",
+    ) &&
+      tugasTerjemahSesudah.nama === tugasTerjemah.nama &&
+      tugasTerjemahSesudah.deskripsiEn === null,
+    `${sesudahTerjemah[0].topik} · ${tugasTerjemahSesudah.deskripsiEn}`,
+  );
 
   writeFileSync("uji/keluaran-rpkps.docx", buffer);
   console.log("     dokumen contoh: uji/keluaran-rpkps.docx");

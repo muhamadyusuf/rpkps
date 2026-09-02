@@ -130,7 +130,27 @@ export const id = {
     DITOLAK: "ditolak",
   },
   /** Penyunting dwibahasa: sakelar mode dan penanda belum-diterjemahkan. */
+  terjemahanPanel: {
+    judul: "Terjemahan berbantuan AI",
+    keterangan:
+      "Menerjemahkan medan yang belum punya versi Inggris memakai kunci AI Anda sendiri. Hasilnya draf — Anda yang memutuskan mana yang dipakai.",
+    tombol: "Terjemahkan yang belum",
+    berjalan: "Menerjemahkan…",
+    tinjau: "Tinjau {jumlah} usulan",
+    terapkan: "Terapkan yang dicentang",
+    menerapkan: "Menerapkan…",
+    pilihSemua: "Pilih semua",
+    kosongkan: "Kosongkan",
+    naskahSah:
+      "Versi Indonesia tetap naskah yang sah. Terjemahan tidak pernah menghalangi pengajuan.",
+    tanpaKunciTebal: "Belum ada kunci AI.",
+    tanpaKunciIsi: "Terjemahan memakai kunci milik Anda sendiri, dan menagih ke akun Anda.",
+    daftarkanKunci: "Daftarkan kunci",
+    asli: "Indonesia",
+    usulan: "Usulan",
+  },
   dwibahasa: {
+    unduhBahasaLain: "Unduh DOCX (English)",
     mode: "Bahasa",
     modeId: "Indonesia",
     modeEn: "English",
@@ -535,6 +555,7 @@ export const id = {
   },
 
   umum: {
+    hapus: "Hapus",
     jam: "jam",
     menit: "menit",
     simpan: "Simpan",
@@ -742,6 +763,7 @@ export const id = {
   },
 
   dokumenPublik: {
+    komponenNilai: "Komponen nilai",
     versiInggris: {
       belumTerbit: "Versi bahasa Inggris dokumen ini belum diterbitkan.",
       sebagian: "Bagian yang belum diterjemahkan tampil dalam bahasa Indonesia.",
@@ -1087,6 +1109,7 @@ export const id = {
       simpan: "Simpan",
     },
     sunting: {
+      contohNamaKurikulum: "Kurikulum 2026",
       kode: "Kode",
       status: "Status",
       ranah: "Ranah",
@@ -1175,6 +1198,8 @@ export const id = {
       tanpaProdi: "Belum ada program studi aktif yang dapat Anda kelola.",
     },
     imporForm: {
+      terimaSemua: "Terima semua",
+      tutup: "Tutup",
       langkah1: "1 · Unduh template",
       langkah1Keterangan: "Empat lembar: CPL, Mata Kuliah, CPMK, dan Sub-CPMK. Baris contoh abu-abu boleh langsung ditimpa.",
       unduhTemplate: "Unduh template .xlsx",
@@ -1359,6 +1384,7 @@ export const id = {
       alasanPenolakan: "Alasan penolakan",
     },
     butir: {
+      keterangan: "Satu butir = satu perubahan yang dapat diterima atau ditolak sendiri.",
       judul: "Tambah butir",
       jenisPerubahan: "Jenis perubahan",
       kodeCpmk: "Kode CPMK {sifat}",
@@ -1510,6 +1536,9 @@ export const id = {
   },
 
   rpkps: {
+    tabelKosong: "Tabel kosong",
+    tabelKosongPetunjuk:
+      "Membuat RPKPS tanpa kerangka; tabel mingguan disusun sendiri",
     metaJudul: "RPKPS",
     eyebrow: "Modul",
     judul: "RPKPS",
@@ -1657,6 +1686,8 @@ export const id = {
     },
 
     kisiEditor: {
+      kosongKeterangan:
+        "Belum ada butir. Tambahkan agar tiap Sub-CPMK yang diajarkan benar-benar diuji.",
       totalSkor: "Total skor",
       durasi: "Durasi (menit)",
       catatan: "Catatan",
@@ -2436,6 +2467,13 @@ export const id = {
       diberlakukan: "Kebijakan diberlakukan.",
       sudahBerlaku: "Kebijakan ini sudah berlaku.",
     },
+    terjemahan: {
+      sudahLengkap: "Seluruh medan sudah punya terjemahan.",
+      selesai: "{jumlah} dari {diminta} medan diterjemahkan. Tinjau sebelum diterapkan.",
+      gagal: "Gagal menerjemahkan. Coba lagi, atau periksa kunci AI Anda.",
+      tidakAdaDipilih: "Tidak ada terjemahan yang dipilih.",
+      diterapkan: "{jumlah} terjemahan diterapkan.",
+    },
     ai: {
       kunciTerlaluPendek: "Kunci API terlalu pendek untuk sah.",
       gagalUsulan: "Gagal meminta usulan AI. Periksa log server.",
@@ -2449,6 +2487,7 @@ export const id = {
   },
 
   komponen: {
+    tanpaData: "belum ada data",
     paginasi: {
       menampilkan: "Menampilkan {dari}–{sampai} dari {total} {satuan}",
       sebelumnya: "Sebelumnya",

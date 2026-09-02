@@ -70,6 +70,7 @@ export function TombolBuatRpkps({
   tahunAkademikId: string;
   label?: string;
 }) {
+  const { k } = useBahasa();
   const { menunggu, jalankan } = useAksi();
   const buat = (kerangka: "OTOMATIS" | "KOSONG") =>
     jalankan(() => buatRpkps(mataKuliahId, tahunAkademikId, kerangka), {
@@ -85,10 +86,10 @@ export function TombolBuatRpkps({
         size="sm"
         variant="ghost"
         disabled={menunggu}
-        title="Membuat RPKPS tanpa kerangka; tabel mingguan disusun sendiri"
+        title={k.rpkps.tabelKosongPetunjuk}
         onClick={() => buat("KOSONG")}
       >
-        Tabel kosong
+        {k.rpkps.tabelKosong}
       </Button>
     </div>
   );
@@ -235,7 +236,7 @@ function DialogRevisi({
 
           <DialogFooter className="mt-4">
             <DialogClose render={<Button type="button" variant="ghost" />}>
-              Batal
+              {k.umum.batal}
             </DialogClose>
             <Button type="submit" disabled={menunggu || !cukup}>
               {menunggu

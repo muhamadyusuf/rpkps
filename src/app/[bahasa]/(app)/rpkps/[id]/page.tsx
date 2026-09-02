@@ -18,6 +18,7 @@ import { sidikRingkas } from "@/domain/rpkps/sidik";
 import { formatMenit, paguPertemuanEfektif } from "@/domain/beban-belajar/kalkulator";
 import { PanelValidasi } from "./panel-validasi";
 import { PanelDraf } from "./panel-draf";
+import { PanelTerjemahan } from "./panel-terjemahan";
 import { daftarKredensial } from "@/lib/ai/kredensial";
 import { FormulirIdentitas, PengelolaKomponenNilai, PengelolaPustaka } from "./formulir";
 import { PanelBagikan, TimPengampu, ZonaKelola } from "./pengelola";
@@ -196,9 +197,21 @@ export default async function HalamanRpkpsDetail({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <ButtonLink variant="outline" href={`/api/rpkps/${id}/docx`} prefetch={false}>
+          <ButtonLink
+            variant="outline"
+            href={`/api/rpkps/${id}/docx?bahasa=${b}`}
+            prefetch={false}
+          >
             <Download />
             {k.rpkps.ikhtisar.unduhDocx}
+          </ButtonLink>
+          <ButtonLink
+            variant="outline"
+            href={`/api/rpkps/${id}/docx?bahasa=${b === "id" ? "en" : "id"}`}
+            prefetch={false}
+          >
+            <Download />
+            {k.dwibahasa.unduhBahasaLain}
           </ButtonLink>
           <ButtonLink variant="outline" href={`/rpkps/${id}/kelas`}>
             <Users />
@@ -278,7 +291,11 @@ export default async function HalamanRpkpsDetail({
 
       <PanelValidasi hasil={hasil} />
 
-      <PanelTerjemahan kelengkapan={kelengkapanRpkps(rpkps)} k={k} />
+      <PanelKelengkapan kelengkapan={kelengkapanRpkps(rpkps)} k={k} />
+
+      {bisaSunting && wenang.boleh ? (
+        <PanelTerjemahan rpkpsId={id} kredensial={kredensialAi} />
+      ) : null}
 
       <Card className={peta.lolos ? undefined : "border-l-2 border-l-warning bg-warning/8"}>
         <CardHeader>
@@ -549,7 +566,7 @@ function Metrik({ label, nilai }: { label: string; nilai: string }) {
  * menghalangi pengajuan (docs/11 §5.6), jadi panel ini memakai nada netral —
  * bukan peringatan.
  */
-function PanelTerjemahan({
+function PanelKelengkapan({
   kelengkapan,
   k,
 }: {

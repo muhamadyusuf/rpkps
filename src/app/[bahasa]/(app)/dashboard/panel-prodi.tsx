@@ -53,6 +53,7 @@ export async function PanelProdi({ data }: { data: DataProdi }) {
           <BaganTumpuk
             segmen={data.corong}
             sisa={{ label: k.dasbor.prodi.corong.sisa, jumlah: data.mkTanpaRpkps }}
+            tanpaData={k.komponen.tanpaData}
           />
 
           <dl className="mt-5 grid grid-cols-3 gap-3 border-t border-border/70 pt-4 text-center">

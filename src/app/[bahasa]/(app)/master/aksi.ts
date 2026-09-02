@@ -13,6 +13,12 @@ export type HasilAksi = { ok: boolean; pesan: string };
 
 const SkemaProdi = z.object({
   nama: z.string().trim().min(3, "@aksi.periksa.namaProdiMinimal"),
+  /** Terjemahan tampilan; opsional. Dipakai katalog publik berbahasa Inggris. */
+  namaEn: z
+    .string()
+    .trim()
+    .transform((v) => (v === "" ? null : v))
+    .nullable(),
   kode: z
     .string()
     .trim()
@@ -32,6 +38,7 @@ export async function tambahProdi(data: FormData): Promise<HasilAksi> {
 
   const parsed = SkemaProdi.safeParse({
     nama: data.get("nama"),
+    namaEn: data.get("namaEn") ?? "",
     kode: data.get("kode"),
     jenjang: data.get("jenjang"),
     gelar: data.get("gelar"),

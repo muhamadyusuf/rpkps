@@ -373,7 +373,7 @@ export function PanelKosong({ jenis }: { jenis: string }) {
           {isi(k.rpkps.kisiKisi.kartuJudul, { jenis })}
         </CardTitle>
         <CardDescription>
-          Belum ada butir. Tambahkan agar tiap Sub-CPMK yang diajarkan benar-benar diuji.
+          {k.rpkps.kisiEditor.kosongKeterangan}
         </CardDescription>
       </CardHeader>
       <CardContent>

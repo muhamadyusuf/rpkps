@@ -28,7 +28,7 @@ Konsep lengkap ada di `docs/` — **baca sebelum menambah fitur**:
 | `docs/08-kunci-ai-per-pengguna.md` | BYOK Mode A: tiap dosen mendaftarkan kunci AI-nya sendiri. Menggantikan kunci institusi lewat env. Terpasang. |
 | `docs/09-rencana-mingguan-manual.md` | Penyusunan manual tabel mingguan: tambah, sisip, hapus, geser, ubah jenis. M1–M5 terpasang. |
 | `docs/10-notifikasi-dan-tenggat.md` | Notifikasi dalam aplikasi (6 peristiwa) dan tenggat pengajuan per tahun akademik. N1–N4 terpasang; surel (N5) ditunda. |
-| `docs/11-dwibahasa.md` | Dwibahasa Indonesia–Inggris: rute `[bahasa]`, kamus antarmuka, kolom `*En` isi RPKPS, ruang sidik kedua. L1 terpasang (rangka rute + kamus); L2–L7 belum. |
+| `docs/11-dwibahasa.md` | Dwibahasa Indonesia–Inggris: rute `[bahasa]`, kamus antarmuka, kolom `*En` isi RPKPS, ruang sidik kedua, ekspor dua bahasa, terjemahan BYOK. L1–L7 terpasang. |
 | `docs/12-draf-ai-tertutup.md` | Draf AI menutup peta asesmennya sendiri: komponen per baris mingguan, bobot ujian, rekonsiliasi `alokasikanAsesmen`. Terpasang. |
 | `docs/13-penugasan-koordinator-mk.md` | Penugasan dosen koordinator per mata kuliah dan tahun akademik: papan penugasan Kaprodi, aliran ke RPKPS. K1–K4 terpasang. |
 | `docs/14-tenggat-dan-rantai-pengesahan.md` | Tiga tenggat (penyusunan/review/pengesahan) + rantai tanda tangan Koordinator → Kaprodi → Kepala PMI. P1–P4 terpasang; P5–P7 belum. |
@@ -188,6 +188,30 @@ Konsep lengkap ada di `docs/` — **baca sebelum menambah fitur**:
   `segarkan` (`src/lib/bahasa/segarkan.ts`) menyegarkan kedua bahasa, dan
   `revalidatePath` langsung ditolak ESLint.
 - **Kamus `en.ts` bertipe `typeof id`.** Itulah yang menjamin kelengkapan
+- **Terjemahan AI tidak pernah menulis langsung.** `usulkanTerjemahan` hanya
+  mengembalikan draf; `terapkanTerjemahan` menulis setelah dosen mencentang.
+  Alamat medan (`tabel:id:kolom`) datang dari peramban, jadi ia disahkan dua
+  lapis: daftar putih kolom `*En`, dan pencocokan dengan `medanRpkps(rpkps)` —
+  id baris bersifat global, dan wewenang yang diperiksa hanya berlaku untuk
+  RPKPS ini. Penerapan menulis kolom `*En` SAJA, bukan lewat
+  `simpanPertemuan`/`simpanTugas` yang akan menimpa suntingan Indonesia yang
+  terjadi selama model bekerja. `sumber = AI` TIDAK dipasang pada baris hasil
+  terjemahan: medan itu menandai asal isi Indonesia, dan menaikkannya akan
+  menyatakan rumusan dosen lahir dari model. Penjaganya
+  `src/lib/ai/terjemahan-rpkps.test.ts` (docs/11 §8.1–8.4).
+- **Pengenal berkas Excel tetap bahasa Indonesia.** Berkas nilai dan templat
+  impor kurikulum dibaca ulang dengan MENCOCOKKAN TEKS judul kolom dan nama
+  lembarnya, jadi "NIM", "Nama", "Angkatan", "Nilai", "Kode MK", "Level Bloom",
+  dan kerabatnya tidak boleh masuk `src/lib/dokumen/label.ts`. Menerjemahkannya
+  membuat berkas yang diunduh dalam bahasa Inggris tidak dapat diunggah kembali,
+  dan gagalnya senyap — pembaca hanya melaporkan "kolom tidak ditemukan".
+  Yang diterjemahkan hanya lembar Petunjuk. Penjaganya
+  `src/lib/dokumen/label.test.ts` (docs/11 §7.1).
+- **Berkas cetak berbahasa Inggris mencetak `sidikEn`, bukan `sidik`.**
+  Mencetak sidik Indonesia pada berkas Inggris membuat pembacanya
+  membandingkan dua isi yang berbeda dan menyimpulkan dokumennya bergeser.
+  Halaman pengesahan berkas Inggris wajib membawa keterangan bahwa naskah
+  Indonesia adalah yang sah (docs/11 §7).
 - **Isi RPKPS berbahasa Inggris punya ruang sidiknya sendiri.**
   `proyeksiIsi()` dan `sidikDokumen()` TIDAK BOLEH mengenal satu pun medan
   `*En`; versi Inggris hidup di `src/domain/rpkps/proyeksi-en.ts` dan membeku

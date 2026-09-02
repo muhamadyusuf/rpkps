@@ -25,6 +25,7 @@ function kolomEn(model: string): string[] {
 }
 
 const PENULIS: { model: string; berkas: string }[] = [
+  { model: "Rpkps", berkas: "src/app/[bahasa]/(app)/rpkps/aksi.ts" },
   { model: "Pertemuan", berkas: "src/app/[bahasa]/(app)/rpkps/aksi.ts" },
   { model: "AktivitasBelajar", berkas: "src/app/[bahasa]/(app)/rpkps/aksi.ts" },
   { model: "Indikator", berkas: "src/app/[bahasa]/(app)/rpkps/aksi.ts" },

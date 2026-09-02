@@ -173,11 +173,11 @@ function lembarRincian(wb: ExcelJS.Workbook, opsi: OpsiLkps, L: LabelDokumen) {
     { header: L.lkps.mataKuliah, key: "mkNama", width: 34 },
     { header: "sks", key: "sks", width: 8 },
     { header: L.lkps.kelas, key: "kelas", width: 10 },
-    { header: "Tahun Akademik", key: "ta", width: 20 },
+    { header: L.lkps.tahunAkademik, key: "ta", width: 20 },
     { header: L.lkps.rerata, key: "rerata", width: 12 },
     { header: L.lkps.lulusPersen, key: "lulus", width: 12 },
     { header: L.lkps.tercapai, key: "tercapai", width: 12 },
-    { header: "Mahasiswa terukur", key: "n", width: 18 },
+    { header: L.lkps.mahasiswaTerukur, key: "n", width: 18 },
   ];
   juduli(ws);
 

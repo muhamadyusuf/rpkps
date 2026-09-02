@@ -33,6 +33,7 @@ function useAksi() {
 }
 
 export function TombolHapusButir({ butirId }: { butirId: string }) {
+  const { k } = useBahasa();
   const { menunggu, jalankan } = useAksi();
   return (
     <Button
@@ -43,7 +44,7 @@ export function TombolHapusButir({ butirId }: { butirId: string }) {
       onClick={() => jalankan(() => hapusButir(butirId))}
     >
       <Trash2 />
-      Hapus
+      {k.umum.hapus}
     </Button>
   );
 }
@@ -85,7 +86,7 @@ export function FormulirButir({ usulanId, mkKode }: { usulanId: string; mkKode: 
       <CardHeader>
         <CardTitle className="text-base">{k.usulan.butir.judul}</CardTitle>
         <CardDescription>
-          Satu butir = satu perubahan yang dapat diterima atau ditolak sendiri.
+          {k.usulan.butir.keterangan}
         </CardDescription>
       </CardHeader>
       <CardContent>

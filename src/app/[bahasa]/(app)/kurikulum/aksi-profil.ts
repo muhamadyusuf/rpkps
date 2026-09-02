@@ -34,6 +34,8 @@ const SkemaProfil = z.object({
     .string()
     .trim()
     .min(15, "@aksi.periksa.rumusanProfilPendek"),
+  /** Terjemahan tampilan; selalu opsional (docs/11 §5.1). */
+  deskripsiEn: z.string().trim().nullable(),
 });
 
 type Sesi = Awaited<ReturnType<typeof wajibPeran>>;
@@ -83,12 +85,13 @@ export async function tambahProfilLulusan(
   kurikulumId: string,
   kode: string,
   deskripsi: string,
+  deskripsiEn: string | null,
 ): Promise<HasilSimpan> {
   const kam = await kamusAksi();
   const wenang = await pastikanWenang(kurikulumId);
   if (!wenang.ok) return wenang;
 
-  const parsed = SkemaProfil.safeParse({ kode, deskripsi });
+  const parsed = SkemaProfil.safeParse({ kode, deskripsi, deskripsiEn });
   if (!parsed.success) {
     return { ok: false, pesan: pesanZod(parsed.error, kam, kam.aksi.umum.dataTidakValid) };
   }
@@ -114,6 +117,7 @@ export async function tambahProfilLulusan(
       kurikulumId,
       kode: parsed.data.kode,
       deskripsi: parsed.data.deskripsi,
+      deskripsiEn: parsed.data.deskripsiEn,
       urutan: (terakhir?.urutan ?? -1) + 1,
     },
   });
@@ -127,6 +131,7 @@ export async function perbaruiProfilLulusan(
   id: string,
   kode: string,
   deskripsi: string,
+  deskripsiEn: string | null,
 ): Promise<HasilSimpan> {
   const kam = await kamusAksi();
   const kurikulumId = await kurikulumProfil(id);
@@ -135,7 +140,7 @@ export async function perbaruiProfilLulusan(
   const wenang = await pastikanWenang(kurikulumId);
   if (!wenang.ok) return wenang;
 
-  const parsed = SkemaProfil.safeParse({ kode, deskripsi });
+  const parsed = SkemaProfil.safeParse({ kode, deskripsi, deskripsiEn });
   if (!parsed.success) {
     return { ok: false, pesan: pesanZod(parsed.error, kam, kam.aksi.umum.dataTidakValid) };
   }
@@ -150,7 +155,11 @@ export async function perbaruiProfilLulusan(
 
   await prisma.profilLulusan.update({
     where: { id },
-    data: { kode: parsed.data.kode, deskripsi: parsed.data.deskripsi },
+    data: {
+      kode: parsed.data.kode,
+      deskripsi: parsed.data.deskripsi,
+      deskripsiEn: parsed.data.deskripsiEn,
+    },
   });
 
   await catat(wenang.sesi, kurikulumId, `menyunting profil lulusan ${parsed.data.kode}`);
