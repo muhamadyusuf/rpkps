@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { useBahasa } from "@/components/penyedia-bahasa";
+import { pilihTeks } from "@/lib/bahasa/teks";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TombolIkon } from "@/components/tombol-ikon";
@@ -27,7 +28,12 @@ export type ProfilTampil = {
   cplId: string[];
 };
 
-export type CplRingkas = { id: string; kode: string; deskripsi: string };
+export type CplRingkas = {
+  id: string;
+  kode: string;
+  deskripsi: string;
+  deskripsiEn: string | null;
+};
 
 function useAksi() {
   const [menunggu, mulai] = useTransition();
@@ -63,7 +69,7 @@ export function PengelolaProfilLulusan({
   cpl: CplRingkas[];
 }) {
   const { menunggu, jalankan } = useAksi();
-  const { k, isi } = useBahasa();
+  const { k, isi, bahasa } = useBahasa();
   const [menyunting, setMenyunting] = useState<string | null>(null);
 
   return (
@@ -106,7 +112,9 @@ export function PengelolaProfilLulusan({
               </div>
             </div>
 
-            <p className="mt-1.5 text-sm">{p.deskripsi}</p>
+            <p className="mt-1.5 text-sm">
+              {pilihTeks(p.deskripsi, p.deskripsiEn, bahasa).teks}
+            </p>
 
             {/* `key` dari isi pemetaan, bukan dari id profil: pilihan
                 ditahan di state komponen, jadi ia harus dipasang ulang bila
@@ -164,7 +172,7 @@ function PemetaanCpl({
   menunggu: boolean;
   onSimpan: (cplId: string[]) => void;
 }) {
-  const { k } = useBahasa();
+  const { k, bahasa } = useBahasa();
   const [dipilih, setDipilih] = useState<string[]>(profil.cplId);
 
   const berubah =
@@ -185,7 +193,7 @@ function PemetaanCpl({
               key={c.id}
               type="button"
               aria-pressed={aktif}
-              title={c.deskripsi}
+              title={pilihTeks(c.deskripsi, c.deskripsiEn, bahasa).teks}
               disabled={menunggu}
               onClick={() =>
                 setDipilih((s) =>

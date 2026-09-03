@@ -3,7 +3,10 @@ import { describe, it } from "node:test";
 import {
   hitungKelengkapan,
   medanBelumDiterjemahkan,
+  medanKurang,
   saringHasilTerjemahan,
+  susunAlamat,
+  uraiAlamat,
 } from "./terjemahan";
 
 describe("kelengkapan terjemahan", () => {
@@ -94,5 +97,75 @@ describe("saring hasil terjemahan", () => {
       medanBelumDiterjemahkan(semua).map((m) => m.alamat),
       ["rpkps:r1:deskripsiEn", "pertemuan:p1:topikEn"],
     );
+  });
+});
+
+describe("alamat medan", () => {
+  it("kolom biasa bolak-balik utuh", () => {
+    const alamat = susunAlamat("pertemuan", "p1", "topikEn");
+    assert.equal(alamat, "pertemuan:p1:topikEn");
+    assert.deepEqual(uraiAlamat(alamat), {
+      model: "pertemuan",
+      id: "p1",
+      medan: "topikEn",
+      indeks: null,
+    });
+  });
+
+  it("elemen larik membawa indeksnya", () => {
+    // Tanpa indeks, `subtopik` dan `rincian` tidak dapat ditunjuk sama sekali —
+    // dan itulah yang dulu membuat kelengkapan mentok di bawah 100%.
+    const alamat = susunAlamat("kriteriaTugas", "kr1", "rincianEn", 2);
+    assert.equal(alamat, "kriteriaTugas:kr1:rincianEn#2");
+    assert.deepEqual(uraiAlamat(alamat), {
+      model: "kriteriaTugas",
+      id: "kr1",
+      medan: "rincianEn",
+      indeks: 2,
+    });
+  });
+
+  it("indeks nol bukan ketiadaan indeks", () => {
+    // `indeks == null` dan `indeks === 0` menempuh jalur tulis yang BERBEDA:
+    // yang satu kolom teks, yang satu larik. Menyamakannya menulis string
+    // tunggal ke kolom `text[]`.
+    assert.equal(uraiAlamat("pertemuan:p1:subtopikEn#0")?.indeks, 0);
+  });
+
+  it("bentuk yang tidak dikenali dibuang, bukan ditebak", () => {
+    // Alamat datang dari peramban.
+    for (const buruk of [
+      "pertemuan:p1",
+      "pertemuan:p1:topikEn:lagi",
+      "pertemuan:p1:subtopikEn#",
+      "pertemuan:p1:subtopikEn#dua",
+      "pertemuan:p1:subtopikEn#-1",
+      "pertemuan:p1:#2",
+      ":p1:topikEn",
+    ]) {
+      assert.equal(uraiAlamat(buruk), null, `${buruk} lolos`);
+    }
+  });
+});
+
+describe("ronde ulang", () => {
+  const medan = [
+    { alamat: "a", label: "a", asal: "satu", terjemahan: null },
+    { alamat: "b", label: "b", asal: "dua", terjemahan: null },
+    { alamat: "c", label: "c", asal: "tiga", terjemahan: null },
+  ];
+
+  it("yang tidak dijawab model dikembalikan untuk dikirim ulang", () => {
+    // Sebuah model yang menjatuhkan medan menghasilkan jawaban yang SAH menurut
+    // skema, hanya lebih pendek. Tanpa langkah ini kekurangannya tidak pernah
+    // terlihat sampai dosen membuka angka kelengkapan.
+    assert.deepEqual(
+      medanKurang(medan, new Set(["b"])).map((m) => m.alamat),
+      ["a", "c"],
+    );
+  });
+
+  it("kosong bila semuanya terjawab", () => {
+    assert.deepEqual(medanKurang(medan, new Set(["a", "b", "c"])), []);
   });
 });

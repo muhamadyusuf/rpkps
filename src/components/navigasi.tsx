@@ -5,6 +5,7 @@ import { useBahasa, useJalurTanpaBahasa } from "@/components/penyedia-bahasa";
 import {
   Bell,
   BookMarked,
+  BookOpen,
   CalendarRange,
   FileText,
   GitPullRequestArrow,
@@ -24,6 +25,7 @@ const IKON: Record<KunciIkon, LucideIcon> = {
   kurikulum: BookMarked,
   usulan: GitPullRequestArrow,
   rpkps: FileText,
+  buku: BookOpen,
   evaluasi: LineChart,
   beban: Timer,
   prodi: GraduationCap,

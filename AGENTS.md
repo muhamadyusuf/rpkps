@@ -33,6 +33,7 @@ Konsep lengkap ada di `docs/` — **baca sebelum menambah fitur**:
 | `docs/13-penugasan-koordinator-mk.md` | Penugasan dosen koordinator per mata kuliah dan tahun akademik: papan penugasan Kaprodi, aliran ke RPKPS. K1–K4 terpasang. |
 | `docs/14-tenggat-dan-rantai-pengesahan.md` | Tiga tenggat (penyusunan/review/pengesahan) + rantai tanda tangan Koordinator → Kaprodi → Kepala PMI. P1–P4 terpasang; P5–P7 belum. |
 | `docs/15-penyuntingan-kurikulum-langsung.md` | CRUD CPL/MK/CPMK/Sub-CPMK langsung di `/kurikulum`, hanya pada kurikulum DRAF. Gerbang dua lapis, kurikulum kosong, validator hidup. C1–C6 terpasang. |
+| `docs/16-bahan-ajar.md` | Menu Bahan Ajar: buku ajar per bab disusun AI dari baris mingguan RPKPS, luaran `.docx` siap ISBN + slide `.pptx`. BA1–BA6 terpasang: skema, domain, empat tahap AI, halaman, cetak .docx (`?kunci=0` untuk berkas mahasiswa) dan slide .pptx. |
 
 ## Aturan yang mengikat
 
@@ -199,6 +200,25 @@ Konsep lengkap ada di `docs/` — **baca sebelum menambah fitur**:
   terjemahan: medan itu menandai asal isi Indonesia, dan menaikkannya akan
   menyatakan rumusan dosen lahir dari model. Penjaganya
   `src/lib/ai/terjemahan-rpkps.test.ts` (docs/11 §8.1–8.4).
+- **Apa yang dihitung kelengkapan terjemahan wajib dapat dikerjakan AI.**
+  `pasanganTerjemahan` DITURUNKAN dari `medanRpkps`
+  (`src/lib/rpkps/terjemahan.ts`); menuliskannya kembali sebagai daftar kedua
+  memunculkan lagi bug docs/11 §8.7 — penyebutnya memuat medan yang tidak
+  pernah ditawarkan ke model, dan angka kelengkapan menjadi target yang tidak
+  dapat dicapai siapa pun. Kolom larik (`subtopik`, `rincian`) ikut lewat
+  alamat berindeks `tabel:id:kolom#i`, disusun HANYA oleh `susunAlamat` /
+  `uraiAlamat`, dan ditulis dengan mengganti larik UTUH di atas larik yang
+  sekarang — `SET kolom[i] = …` meninggalkan NULL yang tidak dapat dibaca
+  `String[]` Prisma. Setiap kolom `*En` baru harus masuk `MEDAN_BOLEH` DAN
+  disusun menjadi alamat; penjaganya `terjemahan-cakupan.test.ts`.
+- **Satu tugas terjemahan bukan satu permintaan jaringan.** Kuncinya dibuka
+  sekali (`pakaiKredensial`), tetapi medannya dikirim bergelombang dengan ronde
+  ulang yang mengecil (`UKURAN_RONDE` di `src/lib/ai/terjemahan-rpkps.ts`).
+  Mengembalikannya menjadi satu panggilan raksasa menghidupkan lagi dua
+  kegagalan senyap: model menjatuhkan sebagian medan tanpa melanggar skema, dan
+  jawaban yang terpotong menghanguskan SELURUH pekerjaan yang sudah benar. Sisa
+  yang tetap tak terjawab dilaporkan sebagai `kurang`, tidak dibulatkan menjadi
+  sukses.
 - **Pengenal berkas Excel tetap bahasa Indonesia.** Berkas nilai dan templat
   impor kurikulum dibaca ulang dengan MENCOCOKKAN TEKS judul kolom dan nama
   lembarnya, jadi "NIM", "Nama", "Angkatan", "Nilai", "Kode MK", "Level Bloom",
@@ -232,9 +252,10 @@ Konsep lengkap ada di `docs/` — **baca sebelum menambah fitur**:
   TIDAK boleh masuk `@@unique` maupun pencocokan `rencanakanKomponen`
   (docs/11 §5.2, §5.3, §5.4).
 - **Nama mata kuliah dwibahasa, dan yang sah tetap yang Indonesia.**
-  `mata_kuliah.nama_en` — bersama `deskripsi_en`, `cpl.deskripsi_en`,
-  `cpmk.rumusan_en`, dan `sub_cpmk.rumusan_en` — disunting HANYA lewat
-  `aksi-mk.ts`/`aksi-cpl.ts`/`aksi-cpmk.ts` pada kurikulum DRAF, melewati
+  `mata_kuliah.nama_en` — bersama `deskripsi_en`, `profil_lulusan.deskripsi_en`,
+  `cpl.deskripsi_en`, `cpmk.rumusan_en`, dan `sub_cpmk.rumusan_en` — disunting
+  HANYA lewat `aksi-profil.ts`/`aksi-mk.ts`/`aksi-cpl.ts`/`aksi-cpmk.ts` pada
+  kurikulum DRAF, melewati
   `pastikanWenangSunting` dan `periksaKelayakanUbahMk` yang sama seperti nama
   Indonesianya: nama Inggris ikut ruang sidik `proyeksiIsiEn()`, jadi
   mengubahnya setelah ada salinan beku sama saja dengan menggeser sidik

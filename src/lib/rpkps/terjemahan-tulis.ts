@@ -1,4 +1,5 @@
 import { Prisma, type PrismaClient } from "@/generated/prisma";
+import { uraiAlamat } from "@/domain/rpkps/terjemahan";
 import { MEDAN_BOLEH } from "./medan-en";
 
 /**
@@ -30,6 +31,30 @@ export interface KelompokTerjemahan {
 }
 
 /**
+ * Satu kolom `String[]` beserta larik UTUH yang menggantikannya.
+ *
+ * Bukan per elemen: `UPDATE … SET subtopik_en[3] = …` pada larik yang lebih
+ * pendek diam-diam mengisi posisi sebelumnya dengan NULL, dan `String[]`
+ * Prisma menolak membacanya kembali. Jadi lariknya disusun utuh di sini,
+ * di atas larik yang sekarang, lalu ditulis sekali.
+ */
+export interface KelompokLarik {
+  tabel: string;
+  kolom: string;
+  baris: { id: string; teks: string[] }[];
+}
+
+/**
+ * Larik `*En` yang sekarang, dikunci `model:id:medan`.
+ *
+ * Datang dari RPKPS yang baru dimuat, dan panjangnya mengikuti larik
+ * INDONESIA — itulah yang menentukan berapa elemen dokumen ini punya. Tanpa
+ * dasar ini, menerapkan satu subtopik saja akan memangkas subtopik lain yang
+ * sudah diterjemahkan lebih dulu.
+ */
+export type LarikSekarang = ReadonlyMap<string, readonly string[]>;
+
+/**
  * Batas waktu transaksi. Setelah penulisannya dijamakkan, angka ini MARGIN —
  * bukan perbaikannya: ia menampung koneksi yang sedang lambat atau basis data
  * tanpa server yang baru bangun, bukan kueri per baris.
@@ -49,28 +74,63 @@ const OPSI_TRANSAKSI = { timeout: 20_000, maxWait: 10_000 };
 export function kelompokkanTerjemahan(
   sah: ReadonlySet<string>,
   pilihan: readonly { alamat: string; teks: string }[],
-): { kelompok: KelompokTerjemahan[]; jumlah: number } {
+  /** Larik `*En` yang sekarang — wajib bila ada alamat berindeks di pilihan. */
+  larikSekarang: LarikSekarang = new Map(),
+): { kelompok: KelompokTerjemahan[]; larik: KelompokLarik[]; jumlah: number } {
   const per = new Map<string, KelompokTerjemahan>();
+  /** Kunci `tabel.kolom` → id baris → larik yang sedang disusun. */
+  const perLarik = new Map<string, { tabel: string; kolom: string; baris: Map<string, string[]> }>();
   let jumlah = 0;
 
   for (const p of pilihan) {
     if (!sah.has(p.alamat)) continue;
-    const [model, id, medan] = p.alamat.split(":");
-    if (!model || !id || !medan) continue;
-    const izin = MEDAN_BOLEH[model];
-    const kolom = izin?.kolom[medan];
-    if (!izin || !kolom) continue;
+    const alamat = uraiAlamat(p.alamat);
+    if (!alamat) continue;
+    const izin = MEDAN_BOLEH[alamat.model];
+    if (!izin) continue;
     const teks = p.teks.trim();
     if (teks.length === 0) continue;
 
+    if (alamat.indeks == null) {
+      const kolom = izin.kolom[alamat.medan];
+      if (!kolom) continue;
+      const kunci = `${izin.tabel}.${kolom}`;
+      const grup = per.get(kunci) ?? { tabel: izin.tabel, kolom, baris: [] };
+      grup.baris.push({ id: alamat.id, teks });
+      per.set(kunci, grup);
+      jumlah += 1;
+      continue;
+    }
+
+    const kolom = izin.larik?.[alamat.medan];
+    if (!kolom) continue;
+    /*
+     * Dasarnya larik yang sekarang, bukan larik kosong: dosen boleh menerapkan
+     * satu elemen saja, dan elemen lain yang sudah diterjemahkan harus tetap
+     * ada. Tanpa dasar itu — atau bila indeksnya di luar jangkauan larik
+     * Indonesia — pilihan ini dilewati, bukan ditulis ke posisi karangan.
+     */
+    const dasar = larikSekarang.get(`${alamat.model}:${alamat.id}:${alamat.medan}`);
+    if (!dasar || alamat.indeks >= dasar.length) continue;
+
     const kunci = `${izin.tabel}.${kolom}`;
-    const grup = per.get(kunci) ?? { tabel: izin.tabel, kolom, baris: [] };
-    grup.baris.push({ id, teks });
-    per.set(kunci, grup);
+    const grup = perLarik.get(kunci) ?? { tabel: izin.tabel, kolom, baris: new Map() };
+    const nilai = grup.baris.get(alamat.id) ?? [...dasar];
+    nilai[alamat.indeks] = teks;
+    grup.baris.set(alamat.id, nilai);
+    perLarik.set(kunci, grup);
     jumlah += 1;
   }
 
-  return { kelompok: [...per.values()], jumlah };
+  return {
+    kelompok: [...per.values()],
+    larik: [...perLarik.values()].map((g) => ({
+      tabel: g.tabel,
+      kolom: g.kolom,
+      baris: [...g.baris].map(([id, teks]) => ({ id, teks })),
+    })),
+    jumlah,
+  };
 }
 
 /**
@@ -86,8 +146,9 @@ export function kelompokkanTerjemahan(
 export async function tulisTerjemahan(
   klien: Klien,
   kelompok: readonly KelompokTerjemahan[],
+  larik: readonly KelompokLarik[] = [],
 ): Promise<void> {
-  if (kelompok.length === 0) return;
+  if (kelompok.length === 0 && larik.length === 0) return;
 
   await klien.$transaction(async (tx) => {
     for (const grup of kelompok) {
@@ -103,6 +164,21 @@ export async function tulisTerjemahan(
        */
       const nilai = Prisma.join(
         grup.baris.map((b) => Prisma.sql`(${b.id}::text, ${b.teks}::text)`),
+      );
+      await tx.$executeRaw`
+        UPDATE ${Prisma.raw(`"${grup.tabel}"`)} AS t
+        SET ${Prisma.raw(`"${grup.kolom}"`)} = v.teks
+        FROM (VALUES ${nilai}) AS v(id, teks)
+        WHERE t.id = v.id
+      `;
+    }
+
+    for (const grup of larik) {
+      // Bentuknya sama, hanya tipe nilainya `text[]`. Cast-nya tetap wajib
+      // dengan alasan yang sama: parameter di dalam `VALUES` sampai ke
+      // Postgres bertipe unknown.
+      const nilai = Prisma.join(
+        grup.baris.map((b) => Prisma.sql`(${b.id}::text, ${b.teks}::text[])`),
       );
       await tx.$executeRaw`
         UPDATE ${Prisma.raw(`"${grup.tabel}"`)} AS t

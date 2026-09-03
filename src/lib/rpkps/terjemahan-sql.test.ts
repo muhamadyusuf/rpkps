@@ -57,6 +57,25 @@ describe("peta nama SQL kolom terjemahan", () => {
         assert.equal(map ? map[1] : medan, kolom);
       });
     }
+
+    for (const [medan, kolom] of Object.entries(izin.larik ?? {})) {
+      it(`${properti}.${medan} → "${kolom}" dan bertipe String[]`, () => {
+        // Kolom larik ditulis `= v.teks` dengan cast `::text[]`. Kolom `String?`
+        // yang tersesat ke daftar `larik` akan ditolak Postgres saat dijalankan,
+        // pada dokumen dosen sungguhan — bukan di sini kalau penjaganya tidak ada.
+        const baris = blok.match(new RegExp(`^\\s+${medan}\\s+(\\S+)([^\\n]*)`, "m"));
+        assert.ok(baris, `${medan} tidak ada pada model ${namaModel(properti)}`);
+        assert.equal(baris[1], "String[]", `${properti}.${medan} bukan larik: ${baris[1]}`);
+        const map = baris[2].match(/@map\("([^"]+)"\)/);
+        assert.equal(map ? map[1] : medan, kolom);
+      });
+
+      it(`${properti}.${medan} tidak juga terdaftar sebagai kolom biasa`, () => {
+        // Terdaftar di dua tempat berarti alamat tanpa indeks menulis string
+        // tunggal ke kolom larik — galat SQL yang hanya muncul saat dipakai.
+        assert.ok(!(medan in izin.kolom), `${properti}.${medan} ada di kolom DAN larik`);
+      });
+    }
   }
 
   it("hanya kolom berakhiran En yang boleh ditulis", () => {
@@ -64,7 +83,7 @@ describe("peta nama SQL kolom terjemahan", () => {
     // peramban dan sebuah UPDATE. Kolom bahasa Indonesia yang menyelinap ke
     // sini berarti terjemahan dapat menimpa naskah yang sah.
     for (const [properti, izin] of Object.entries(MEDAN_BOLEH)) {
-      for (const [medan, kolom] of Object.entries(izin.kolom)) {
+      for (const [medan, kolom] of Object.entries({ ...izin.kolom, ...izin.larik })) {
         assert.ok(medan.endsWith("En"), `${properti}.${medan} bukan medan terjemahan`);
         assert.ok(kolom.endsWith("_en"), `${properti}.${kolom} bukan kolom terjemahan`);
       }
@@ -77,7 +96,9 @@ describe("peta nama SQL kolom terjemahan", () => {
     const aman = /^[a-z][a-z0-9_]*$/;
     for (const izin of Object.values(MEDAN_BOLEH)) {
       assert.match(izin.tabel, aman);
-      for (const kolom of Object.values(izin.kolom)) assert.match(kolom, aman);
+      for (const kolom of Object.values({ ...izin.kolom, ...izin.larik })) {
+        assert.match(kolom, aman);
+      }
     }
   });
 });

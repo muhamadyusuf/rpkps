@@ -513,11 +513,14 @@ satunya mendapat penyunting, kembarannya menyusul bersamaan.
 
 #### 5.1b Lapisan kurikulum: kolom lama yang akhirnya punya penyunting
 
-**Terpasang (1 September 2026.)** Lima kolom yang disebut di awal §5.1 sebagai
-"ada di basis data tetapi tidak dipakai satu baris pun" sekarang dapat diisi:
+**Terpasang (1–3 September 2026.)** Seluruh lapisan kurikulum — profil lulusan,
+mata kuliah, CPL, CPMK, Sub-CPMK — kini dapat diisi dua bahasa. Termasuk lima
+kolom yang disebut di awal §5.1 sebagai "ada di basis data tetapi tidak dipakai
+satu baris pun":
 
 | Tabel | Kolom | Penyuntingnya |
 |---|---|---|
+| `profil_lulusan` | `deskripsi_en` | `kurikulum/aksi-profil.ts` |
 | `mata_kuliah` | `nama_en`, `deskripsi_en` | `kurikulum/aksi-mk.ts` + tabel MK |
 | `cpl` | `deskripsi_en` | `kurikulum/aksi-cpl.ts` |
 | `cpmk` | `rumusan_en` | `kurikulum/aksi-cpmk.ts` |
@@ -538,7 +541,13 @@ Indonesianya (§6.2). Konsekuensinya jujur dan perlu diketahui: mata kuliah
 yang RPKPS-nya sudah terbit baru bisa mendapat nama Inggris pada kurikulum
 berikutnya.
 
-**Menampilkannya selalu lewat `namaMk()`** (`src/lib/bahasa/teks.ts`), bungkus
+Rumusan capaian ditampilkan lewat `pilihTeks` di tempat ia dibaca: halaman
+kurikulum dan halaman mata kuliah, daftar CPMK pada ikhtisar RPKPS, serta
+pemilih Sub-CPMK di ketiga penyunting (mingguan, tugas, kisi-kisi). Pemilih
+Sub-CPMK memilih bahasanya di HALAMAN, bukan di penyunting: yang menyeberang ke
+klien cukup teks yang akan tampil.
+
+**Menampilkan nama mata kuliah selalu lewat `namaMk()`** (`src/lib/bahasa/teks.ts`), bungkus
 sebaris untuk `pilihTeks` yang dipakai ±20 tempat: kepala halaman RPKPS,
 daftar RPKPS, peta semester, papan koordinator, dasbor dosen, dan pemilih mata
 kuliah pada usulan serta salin RPKPS. Aturan lapisannya: **pemuat data
@@ -558,10 +567,12 @@ yang tertinggal dari skema Zod tidak terhapus, ia hanya tidak akan pernah
 dapat diisi siapa pun — kegagalan yang lebih senyap lagi, dan persis nasib
 `mata_kuliah.nama_en` selama ini.
 
-**Yang masih menganggur setelah ini:** `profil_lulusan.deskripsi_en`,
-`bahan_kajian.nama_en`/`deskripsi_en`, dan `butir_usulan.rumusan_en` —
-ketiganya belum punya penyunting, jadi sengaja belum didaftarkan pada
-penjaga (alasan yang sama dengan §5.1a). Impor kurikulum (JSON) juga belum
+**Yang masih menganggur setelah ini:** `bahan_kajian.nama_en`/`deskripsi_en`
+dan `butir_usulan.rumusan_en` — keduanya belum punya penyunting, jadi sengaja
+belum didaftarkan pada penjaga (alasan yang sama dengan §5.1a). `sub_cpmk.kko`
+juga tidak dicerminkan: kata kerja operasionalnya adalah kutipan dari rumusan
+Indonesia, dan menerjemahkannya sendirian memutuskannya dari kalimat yang
+menaunginya. Impor kurikulum (JSON) juga belum
 membawa medan `*En`: berkas impor lama tetap sah, dan mengimpor ulang tidak
 menghapus terjemahan yang sudah ada karena `createMany` hanya menulis
 kurikulum baru. Katalog publik menyusul di L5, ekspor DOCX/Excel di L6.
@@ -797,14 +808,15 @@ masih identik dengan Indonesianya. Yang ketiga mengecualikan pengenal murni
 **Terpasang (31 Agustus 2026).** Menerjemahkan tiga puluhan medan teks per
 RPKPS dengan tangan adalah pekerjaan yang tidak akan dilakukan siapa pun.
 `terjemahkanRpkps` (`src/lib/ai/terjemahan-rpkps.ts`) mengerjakannya sebagai
-SATU tugas — bukan tiga puluhan. Selain soal biaya, satu permintaan juga yang
-membuat istilahnya konsisten: model melihat seluruh dokumen sekaligus, bukan
-potongan lepas.
+SATU tugas — bukan tiga puluhan. Yang dimaksud satu tugas adalah satu kunci,
+satu peninjauan, satu jejak audit; sejak §8.7 ia TIDAK berarti satu permintaan
+jaringan.
 
 Aturan BYOK berlaku utuh: kredensial hanya lewat `pakaiKredensial()`, dibuka
-sekali lalu adapternya diteruskan ke gerbang, tanpa cadangan ke env, tanpa
-klien SDK pada variabel modul. Keempatnya dijaga uji tekstual di
-`terjemahan-rpkps.test.ts`, karena tidak satu pun dapat diberikan tipe.
+sekali di awal lalu adapternya dipakai ulang untuk seluruh gelombang, tanpa
+cadangan ke env, tanpa klien SDK pada variabel modul. Keempatnya dijaga uji
+tekstual di `terjemahan-rpkps.test.ts`, karena tidak satu pun dapat diberikan
+tipe.
 
 ### 8.1 Dua aksi, dan pemisahannya adalah intinya
 
@@ -820,7 +832,8 @@ salah, bukan mencentang tiga puluhan baris satu per satu.
 
 ### 8.2 Alamat adalah masukan dari klien
 
-Setiap medan punya alamat `tabel:id:kolom`. Alamat itu kembali dari peramban
+Setiap medan punya alamat `tabel:id:kolom`, atau `tabel:id:kolom#indeks` untuk
+elemen kolom larik (§8.7). Alamat itu kembali dari peramban
 saat diterapkan, jadi ia masukan yang tidak dipercaya, dan diurai apa adanya
 menjadi `prisma[tabel].update({ [kolom]: … })` ia adalah
 tulis-apa-saja-ke-mana-saja. Dua lapis penjagaan:
@@ -927,6 +940,75 @@ boleh berisi SQL tulis-tangan. Berkas `"use server"` juga hanya boleh
 mengekspor fungsi async, sehingga daftar putihnya memang tidak dapat tinggal
 di berkas aksi.
 
+### 8.7 Kelengkapan yang tidak dapat dicapai
+
+**Diperbaiki 2 September 2026, setelah dilaporkan pengguna.** Keluhannya:
+"Terjemahkan yang belum" dijalankan sampai habis, tetapi angka **Kelengkapan
+terjemahan** tidak pernah sampai 100%. Dua sebab, dan keduanya nyata.
+
+**Sebab pertama — dua daftar yang berbeda.** Penyebut kelengkapan
+(`pasanganTerjemahan`) dan daftar yang dikirim ke model (`medanRpkps`) dulu
+ditulis TERPISAH di berkas yang sama. Penyebut memuat `pertemuan.subtopik` dan
+`kriteriaTugas.rincian`; daftar yang ditawarkan ke AI tidak — keduanya
+`String[]`, dan alamat `tabel:id:kolom` tidak dapat menunjuk satu elemen larik.
+Komentarnya bahkan menyebutnya sengaja. Akibatnya, pada dokumen mana pun yang
+punya subtopik — yaitu hampir semuanya — pekerjaan itu dihitung tetapi tidak
+ada satu tombol pun di aplikasi ini yang dapat menyelesaikannya.
+
+Perbaikannya dua langkah:
+
+1. Alamat mendapat bentuk berindeks, `pertemuan:<id>:subtopikEn#2`, disusun dan
+   diurai HANYA oleh `susunAlamat`/`uraiAlamat` di domain. `indeks === 0` dan
+   `indeks == null` sengaja dibedakan: keduanya menempuh jalur tulis yang
+   berbeda, dan menyamakannya mengirim string tunggal ke kolom `text[]`.
+2. `pasanganTerjemahan` DITURUNKAN dari `medanRpkps`, tidak lagi menyusun
+   daftarnya sendiri. Selama keduanya satu sumber, angka yang ditampilkan
+   selalu angka yang dapat dikerjakan. Penjaganya
+   `src/lib/rpkps/terjemahan-cakupan.test.ts`, yang membaca `schema.prisma` dan
+   menuntut setiap kolom `*En` milik model isi RPKPS ada di `MEDAN_BOLEH`
+   sekaligus disusun menjadi alamat.
+
+Penulisan kolom larik mengganti larik UTUH, bukan satu elemen di tempat:
+`UPDATE … SET subtopik_en[3] = …` pada larik yang lebih pendek diam-diam
+mengisi posisi sebelumnya dengan NULL, dan `String[]` Prisma menolak membacanya
+kembali. Dasarnya larik yang sekarang, diambil dari dokumen yang baru dimuat
+dan disesuaikan panjangnya dengan larik Indonesia — supaya menerapkan satu
+subtopik tidak memangkas subtopik lain yang sudah diterjemahkan lebih dulu, dan
+supaya indeks di luar jangkauan dilewati alih-alih mengarang elemen kosong.
+
+**Sebab kedua — satu permintaan raksasa.** Seluruh medan dikirim dalam SATU
+panggilan dengan `maxTokens: 16000`. Sebuah RPKPS 16 minggu punya ratusan
+medan, dan hasilnya dua kegagalan yang sama-sama senyap:
+
+- model menjatuhkan sebagian medan tanpa memberi tanda apa pun — jawabannya
+  SAH menurut skema, hanya lebih pendek, jadi tidak ada galat yang muncul;
+- jawabannya terpotong di batas token, `alasan = TERPOTONG`, dan SELURUH
+  pekerjaan hangus — termasuk dua ratus medan yang sudah benar.
+
+Sekarang permintaannya dipecah menjadi gelombang, dan yang belum terjawab
+dikirim ULANG dengan gelombang yang lebih kecil: `UKURAN_RONDE = [40, 15, 6]`,
+dengan batas 9.000 aksara sumber per gelombang sebagai penjaga kedua untuk
+medan yang panjang. Anggaran token dihitung dari besar gelombangnya, bukan
+dipatok. Tiga gelombang berjalan sekaligus — cukup untuk dokumen besar, cukup
+tertahan untuk tidak menabrak rate limit kunci dosen.
+
+Kegagalan satu gelombang tidak lagi menggagalkan dokumen: medannya kembali
+menjadi sisa dan berangkat lagi pada ronde berikutnya. Yang tetap dilempar
+adalah keadaan "tidak ada satu pun yang berhasil" — itu tandanya kuncinya,
+bukan dokumennya, dan galat penyedianya yang harus sampai ke dosen, bukan
+"0 dari 300 diterjemahkan".
+
+### 8.8 Sisa dilaporkan, bukan dibulatkan
+
+Setelah ronde terakhir masih mungkin ada medan yang tidak dijawab. Itu
+dikembalikan sebagai `kurang` dan ditampilkan di panel, bukan didiamkan: satu
+putaran yang menutup 280 dari 300 medan terlihat berhasil di layar, dan dosen
+baru menemukan sisanya berbulan-bulan kemudian dari angka kelengkapan yang
+tidak pernah bergerak. Pesannya menyebut jumlahnya dan menyarankan hal yang
+memang benar — terapkan yang ada, lalu tekan tombolnya sekali lagi:
+`medanBelumDiterjemahkan` membuat putaran berikutnya hanya mengirim sisanya,
+sehingga mengulang itu murah.
+
 ## BAGIAN 9 — Urutan pengerjaan
 
 Berfase, dan tiap fase berdiri sendiri: aplikasi tetap jalan dan tetap lulus
@@ -940,7 +1022,7 @@ Berfase, dan tiap fase berdiri sendiri: aplikasi tetap jalan dan tetap lulus
 | ~~**L4**~~ | ✅ **Terpasang.** 33 kolom `*En`, penyunting berdampingan, `pilihTeks`, ringkasan kelengkapan, W8 | — |
 | ~~**L5**~~ | ✅ **Terpasang.** `proyeksi-en.ts`, `isiEn`/`sidikEn`, katalog publik EN, hreflang per halaman, kunci regresi sidik | — |
 | ~~**L6**~~ | ✅ **Terpasang.** `label.ts` (dua bahasa), `?bahasa=`, sidik ruang kedua di berkas EN, pengenal Excel dijaga uji | — |
-| ~~**L7**~~ | ✅ **Terpasang.** `terjemahkanRpkps` (BYOK), panel tinjau, penerapan berdaftar-putih | — |
+| ~~**L7**~~ | ✅ **Terpasang.** `terjemahkanRpkps` (BYOK), panel tinjau, penerapan berdaftar-putih, alamat berindeks + gelombang & ronde ulang (§8.7) | — |
 
 L1–L3 memenuhi permintaan pertama (aplikasi dwibahasa); L4–L7 memenuhi
 permintaan kedua (RPKPS dwibahasa). Keduanya terpasang.

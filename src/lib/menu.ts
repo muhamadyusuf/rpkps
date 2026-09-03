@@ -32,6 +32,7 @@ export type KunciIkon =
   | "usulan"
   | "evaluasi"
   | "rpkps"
+  | "buku"
   | "beban"
   | "prodi"
   | "tahun"
@@ -45,6 +46,9 @@ export const MENU: readonly ButirMenu[] = [
   { href: "/kurikulum", label: "kurikulum", ikon: "kurikulum", peran: null },
   { href: "/usulan", label: "usulan", ikon: "usulan", peran: null },
   { href: "/rpkps", label: "rpkps", ikon: "rpkps", peran: null },
+  // Bahan ajar terbuka untuk semua pengguna aktif; yang membatasi siapa boleh
+  // MENULIS adalah kepengampuan, dan itu diputuskan per buku (docs/16 §5.2).
+  { href: "/bahan-ajar", label: "bahanAjar", ikon: "buku", peran: null },
   { href: "/evaluasi", label: "evaluasi", ikon: "evaluasi", peran: null },
   {
     href: "/kebijakan",

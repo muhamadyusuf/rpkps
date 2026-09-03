@@ -7,9 +7,13 @@ import { isi as sisip } from "@/lib/bahasa/teks";
 import { GalatAi } from "@/lib/ai/galat";
 import { terjemahkanRpkps } from "@/lib/ai/terjemahan-rpkps";
 import { bolehSuntingIsi, pesanTerkunci, wenangRpkps } from "@/lib/rpkps/wenang";
-import { muatRpkps } from "@/lib/rpkps/muat";
+import { muatRpkps, type RpkpsLengkap } from "@/lib/rpkps/muat";
 import { medanRpkps } from "@/lib/rpkps/terjemahan";
-import { kelompokkanTerjemahan, tulisTerjemahan } from "@/lib/rpkps/terjemahan-tulis";
+import {
+  kelompokkanTerjemahan,
+  tulisTerjemahan,
+  type LarikSekarang,
+} from "@/lib/rpkps/terjemahan-tulis";
 import { medanBelumDiterjemahkan, type MedanTerjemahan } from "@/domain/rpkps/terjemahan";
 
 /**
@@ -37,6 +41,13 @@ export type HasilUsulTerjemahan =
       ok: true;
       pesan: string;
       usul: Usul[];
+      /**
+       * Medan yang diminta tetapi tidak dijawab model sampai ronde terakhir.
+       * Ditampilkan apa adanya: dosen yang menekan tombol berhak tahu bahwa
+       * dokumennya belum tertutup, bukan menemukannya sendiri dari angka
+       * kelengkapan yang tidak bergerak.
+       */
+      kurang: number;
       penyedia: string;
       model: string;
     };
@@ -81,8 +92,16 @@ export async function usulkanTerjemahan(
 
     return {
       ok: true,
-      pesan: sisip(kam.aksi.terjemahan.selesai, { jumlah: usul.length, diminta: perlu.length }),
+      pesan:
+        hasil.kurang.length === 0
+          ? sisip(kam.aksi.terjemahan.selesaiPenuh, { jumlah: usul.length })
+          : sisip(kam.aksi.terjemahan.selesai, {
+              jumlah: usul.length,
+              diminta: perlu.length,
+              kurang: hasil.kurang.length,
+            }),
       usul,
+      kurang: hasil.kurang.length,
       penyedia: hasil.penyedia,
       model: hasil.model,
     };
@@ -91,6 +110,32 @@ export async function usulkanTerjemahan(
     console.error("[rpkps] gagal menerjemahkan:", galat);
     return { ok: false, pesan: kam.aksi.terjemahan.gagal };
   }
+}
+
+/**
+ * Larik `*En` yang sekarang, disesuaikan panjangnya dengan larik INDONESIA.
+ *
+ * Kolom `subtopik_en` dan `rincian_en` ditulis utuh, bukan per elemen (lihat
+ * `terjemahan-tulis.ts`), jadi penulisannya butuh dasar. Dasarnya diambil dari
+ * dokumen yang baru saja dimuat — bukan dari peramban — supaya menerapkan satu
+ * subtopik tidak memangkas subtopik lain yang sudah diterjemahkan lebih dulu,
+ * dan supaya larik hasil selalu sepanjang larik Indonesia.
+ */
+function larikSekarang(rpkps: RpkpsLengkap): LarikSekarang {
+  const peta = new Map<string, string[]>();
+  const isi = (kunci: string, asal: readonly string[], terjemahan: readonly string[]) => {
+    peta.set(kunci, asal.map((_, i) => terjemahan[i] ?? ""));
+  };
+
+  for (const p of rpkps.pertemuan) {
+    isi(`pertemuan:${p.id}:subtopikEn`, p.subtopik, p.subtopikEn);
+  }
+  for (const t of rpkps.tugas) {
+    for (const kr of t.kriteria) {
+      isi(`kriteriaTugas:${kr.id}:rincianEn`, kr.rincian, kr.rincianEn);
+    }
+  }
+  return peta;
 }
 
 export type HasilTerapTerjemahan = { ok: boolean; pesan: string };
@@ -113,13 +158,14 @@ export async function terapkanTerjemahan(
    * berlaku untuk RPKPS ini. Penyaringan dan pengelompokannya di
    * `kelompokkanTerjemahan`, berdampingan dengan SQL yang menulisnya.
    */
-  const { kelompok, jumlah } = kelompokkanTerjemahan(
+  const { kelompok, larik, jumlah } = kelompokkanTerjemahan(
     new Set(medanRpkps(rpkps).map((m) => m.alamat)),
     pilihan,
+    larikSekarang(rpkps),
   );
   if (jumlah === 0) return { ok: false, pesan: kam.aksi.terjemahan.tidakAdaDipilih };
 
-  await tulisTerjemahan(prisma, kelompok);
+  await tulisTerjemahan(prisma, kelompok, larik);
 
   await prisma.logAudit.create({
     data: {

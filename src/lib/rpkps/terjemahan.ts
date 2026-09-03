@@ -1,71 +1,30 @@
 import "server-only";
 import {
   hitungKelengkapan,
+  susunAlamat,
   type MedanTerjemahan,
   type PasanganTeks,
 } from "@/domain/rpkps/terjemahan";
 import type { RpkpsLengkap } from "@/lib/rpkps/muat";
 
 /**
- * Mengumpulkan seluruh pasangan teks sebuah RPKPS untuk dihitung
+ * Pasangan teks Indonesia–Inggris sebuah RPKPS, untuk menghitung
  * kelengkapannya.
  *
- * Daftarnya sengaja ditulis apa adanya, bukan diturunkan dari nama kolom yang
- * berakhiran "En": kolom `*En` juga ada di lapisan kurikulum
- * (`MataKuliah.namaEn`, `Cpmk.rumusanEn`) yang BUKAN milik dokumen ini dan
- * tidak dapat disunting dari sini. Memasukkannya akan menampilkan angka
- * kelengkapan yang tidak dapat diperbaiki siapa pun dari halaman RPKPS.
+ * DITURUNKAN dari `medanRpkps`, bukan ditulis sebagai daftar kedua. Dulu
+ * keduanya adalah daftar terpisah, dan itulah bug docs/11 §8.2: penyebut
+ * kelengkapan memuat `subtopik` serta `rincian`, sedangkan yang ditawarkan ke
+ * AI tidak — sehingga "Terjemahkan yang belum" selalu berhenti di bawah 100%
+ * dan tidak ada tombol mana pun yang dapat menutup sisanya. Selama keduanya
+ * satu sumber, angka yang ditampilkan selalu angka yang dapat dikerjakan.
+ *
+ * Kolom `*En` lapisan KURIKULUM (`MataKuliah.namaEn`, `Cpmk.rumusanEn`) tetap
+ * di luar: ia bukan milik dokumen ini dan tidak dapat disunting dari sini.
+ * Memasukkannya menampilkan kekurangan yang tidak dapat diperbaiki siapa pun
+ * dari halaman RPKPS.
  */
 export function pasanganTerjemahan(r: RpkpsLengkap): PasanganTeks[] {
-  const p: PasanganTeks[] = [
-    { asal: r.deskripsi, terjemahan: r.deskripsiEn },
-    { asal: r.kalimatPembukaCpmk, terjemahan: r.kalimatPembukaCpmkEn },
-  ];
-
-  for (const m of r.pertemuan) {
-    p.push(
-      { asal: m.topik, terjemahan: m.topikEn },
-      { asal: m.metodeNarasi, terjemahan: m.metodeNarasiEn },
-      { asal: m.aktivitasDosen, terjemahan: m.aktivitasDosenEn },
-      { asal: m.aktivitasMahasiswa, terjemahan: m.aktivitasMahasiswaEn },
-      { asal: m.tugasTerstruktur, terjemahan: m.tugasTerstrukturEn },
-      { asal: m.penilaianJenis, terjemahan: m.penilaianJenisEn },
-      { asal: m.penilaianSistem, terjemahan: m.penilaianSistemEn },
-    );
-    // Daftar dipasangkan menurut urutan — sama seperti penyuntingnya.
-    m.subtopik.forEach((teks, i) => p.push({ asal: teks, terjemahan: m.subtopikEn[i] }));
-    for (const i of m.indikator) p.push({ asal: i.teks, terjemahan: i.teksEn });
-    for (const a of m.aktivitas) p.push({ asal: a.nama, terjemahan: a.namaEn });
-  }
-
-  for (const komp of r.komponenNilai) p.push({ asal: komp.nama, terjemahan: komp.namaEn });
-
-  for (const t of r.tugas) {
-    p.push(
-      { asal: t.nama, terjemahan: t.namaEn },
-      { asal: t.deskripsi, terjemahan: t.deskripsiEn },
-      { asal: t.uraianTugas, terjemahan: t.uraianTugasEn },
-      { asal: t.formatLuaran, terjemahan: t.formatLuaranEn },
-      { asal: t.ketentuanLain, terjemahan: t.ketentuanLainEn },
-    );
-    for (const kr of t.kriteria) {
-      p.push({ asal: kr.indikator, terjemahan: kr.indikatorEn });
-      kr.rincian.forEach((teks, i) => p.push({ asal: teks, terjemahan: kr.rincianEn[i] }));
-    }
-    for (const l of t.linimasa) {
-      p.push(
-        { asal: l.tahapan, terjemahan: l.tahapanEn },
-        { asal: l.aktivitas, terjemahan: l.aktivitasEn },
-      );
-    }
-  }
-
-  for (const kk of r.kisiKisi) {
-    p.push({ asal: kk.catatan, terjemahan: kk.catatanEn });
-    for (const b of kk.butir) p.push({ asal: b.indikator, terjemahan: b.indikatorEn });
-  }
-
-  return p;
+  return medanRpkps(r).map((m) => ({ asal: m.asal, terjemahan: m.terjemahan }));
 }
 
 /** Kelengkapan terjemahan sebuah RPKPS. */
@@ -76,11 +35,10 @@ export function kelengkapanRpkps(r: RpkpsLengkap) {
 /**
  * Medan terjemahan beserta alamatnya — bentuk yang dapat ditulis kembali.
  *
- * Daftarnya sengaja lebih sempit daripada `pasanganTerjemahan`: hanya medan
- * yang punya baris sendiri dengan id, sehingga hasilnya dapat dituliskan
- * kembali tanpa menebak. Daftar berindeks (`subtopik`, `rincian`) tidak ikut —
- * menuliskannya kembali menuntut menulis ulang seluruh larik, dan larik itu
- * milik muatan simpan yang lain (§5.3).
+ * SETIAP teks yang dihitung kelengkapan ada di sini, termasuk elemen larik
+ * (`subtopik`, `rincian`) yang alamatnya berindeks. Menambah medan `*En` baru
+ * ke skema tanpa menambahkannya ke sini berarti menambah pekerjaan yang tidak
+ * pernah dapat diselesaikan; penjaganya `terjemahan-cakupan.test.ts`.
  */
 export function medanRpkps(r: RpkpsLengkap): MedanTerjemahan[] {
   const m: MedanTerjemahan[] = [];
@@ -91,6 +49,23 @@ export function medanRpkps(r: RpkpsLengkap): MedanTerjemahan[] {
     terjemahan: string | null,
   ) => {
     m.push({ alamat, label, asal: asal ?? "", terjemahan });
+  };
+  /**
+   * Elemen larik, dipasangkan MENURUT URUTAN — sama seperti penyuntingnya.
+   * Larik Inggris boleh lebih pendek (atau kosong): yang menentukan banyaknya
+   * pekerjaan adalah larik Indonesia.
+   */
+  const tambahLarik = (
+    model: string,
+    id: string,
+    medan: string,
+    label: (i: number) => string,
+    asal: readonly string[],
+    terjemahan: readonly string[],
+  ) => {
+    asal.forEach((teks, i) => {
+      tambah(susunAlamat(model, id, medan, i), label(i), teks, terjemahan[i] ?? null);
+    });
   };
 
   tambah(`rpkps:${r.id}:deskripsiEn`, "Deskripsi mata kuliah", r.deskripsi, r.deskripsiEn);
@@ -104,6 +79,14 @@ export function medanRpkps(r: RpkpsLengkap): MedanTerjemahan[] {
   for (const p of r.pertemuan) {
     const m0 = `Minggu ${p.minggu}`;
     tambah(`pertemuan:${p.id}:topikEn`, `${m0} · Topik`, p.topik, p.topikEn);
+    tambahLarik(
+      "pertemuan",
+      p.id,
+      "subtopikEn",
+      (i) => `${m0} · Subtopik ${i + 1}`,
+      p.subtopik,
+      p.subtopikEn,
+    );
     tambah(`pertemuan:${p.id}:metodeNarasiEn`, `${m0} · Metode`, p.metodeNarasi, p.metodeNarasiEn);
     tambah(
       `pertemuan:${p.id}:aktivitasDosenEn`,
@@ -165,6 +148,14 @@ export function medanRpkps(r: RpkpsLengkap): MedanTerjemahan[] {
         `${t0} · Indikator ${kr.nomor}`,
         kr.indikator,
         kr.indikatorEn,
+      );
+      tambahLarik(
+        "kriteriaTugas",
+        kr.id,
+        "rincianEn",
+        (i) => `${t0} · Rincian ${kr.nomor}.${i + 1}`,
+        kr.rincian,
+        kr.rincianEn,
       );
     }
     for (const l of t.linimasa) {

@@ -100,6 +100,76 @@ export const temuanId = {
     pesan: "Minggu {daftar} belum ada pada tabel mingguan.",
     saran: "Minggu ujian tetap harus muncul sebagai baris bernomor.",
   },
+  "BA-BAB-BERGESER": {
+    pesan: "Bab {daftar} disusun dari rencana minggu yang sudah berubah sejak itu.",
+    saran:
+      "Bandingkan isinya dengan baris mingguan yang berlaku sekarang; bab tidak pernah ditulis ulang otomatis.",
+  },
+  "BA-BAB-KOSONG": {
+    pesan: "{jumlah} bab belum punya uraian materi: {daftar}.",
+    saran: "Bab tanpa uraian tetap tercetak di daftar isi sebagai halaman kosong.",
+  },
+  "BA-BLOOM-ASING": {
+    pesan: "Level Bloom {daftar} tidak dikenal dan dikosongkan.",
+  },
+  "BA-GLOSARIUM-GANDA": {
+    pesan: "{jumlah} istilah glosarium yang berulang disatukan.",
+  },
+  "BA-ISBN-TIDAK-SAH": {
+    pesan: "Nomor ISBN \u201c{isbn}\u201d tidak lolos pemeriksaan digit periksa.",
+    saran:
+      "Periksa ulang ketikannya. Nomor yang salah akan tercetak di halaman hak cipta dan ikut beredar bersama bukunya.",
+  },
+  "BA-LATIHAN-KOSONG-DIBUANG": {
+    pesan: "{jumlah} soal latihan tanpa pertanyaan dibuang.",
+  },
+  "BA-LATIHAN-TANPA-KUNCI": {
+    pesan: "Bab {daftar} punya soal latihan tanpa kunci jawaban.",
+    saran:
+      "Kunci disimpan terpisah dari soal, jadi mengisinya tidak membuatnya ikut terbagikan ke berkas mahasiswa.",
+  },
+  "BA-MINGGU-HILANG": {
+    pesan: "Bab {daftar} tidak lagi menunjuk baris mingguan mana pun.",
+    saran: "Baris mingguan asalnya sudah dihapus; isi babnya tetap utuh.",
+  },
+  "BA-PUSTAKA-ASING": {
+    pesan: "{jumlah} sitiran menunjuk pustaka yang tidak ada di RPKPS: {daftar}.",
+    saran:
+      "Daftar pustaka buku dirakit dari pustaka RPKPS, sehingga sitiran ini akan menggantung tanpa padanan.",
+  },
+  "BA-SELURUHNYA-AI": {
+    pesan: "Belum ada satu bab pun yang disunting manusia.",
+    saran:
+      "Nama Anda yang tercetak di sampul. Baca dan sunting isinya sebelum buku ini dibawa ke penerbit.",
+  },
+  "BA-SITIRAN-DIBUANG": {
+    pesan: "{jumlah} sitiran menunjuk pustaka di luar RPKPS dan dibuang: {daftar}.",
+    saran:
+      "Tambahkan pustakanya ke RPKPS lebih dulu bila memang hendak dirujuk buku ini.",
+  },
+  "BA-SLIDE-KOSONG-DIBUANG": {
+    pesan: "{jumlah} slide tanpa judul maupun butir dibuang.",
+  },
+  "BA-TANPA-BAB": {
+    pesan: "Buku ini belum punya satu bab pun.",
+  },
+  "BA-TANPA-PENERBIT": {
+    pesan: "Penerbit belum diisi.",
+    saran: "Diperlukan pada halaman hak cipta saat mengajukan ISBN.",
+  },
+  "BA-TANPA-PENULIS": {
+    pesan: "Penulis belum diisi.",
+  },
+  "BA-TANPA-PRAKATA": {
+    pesan: "Prakata belum ditulis.",
+  },
+  "BA-TANPA-TAHUN": {
+    pesan: "Tahun terbit belum diisi.",
+  },
+  "BA-TANPA-TUJUAN": {
+    pesan: "Bab {daftar} belum punya tujuan pembelajaran.",
+    saran: "Tujuan bab diturunkan dari indikator atau Sub-CPMK minggu asalnya.",
+  },
   "BS-BUTIR-SUKAR": {
     pesan: "Butir {daftar} tergolong sukar (P < 0,3).",
     saran:

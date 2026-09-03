@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Lock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { bahasaAktif, kamus } from "@/lib/bahasa/server";
-import { isi, namaMk } from "@/lib/bahasa/teks";
+import { isi, namaMk, pilihTeks } from "@/lib/bahasa/teks";
 import { ButtonLink } from "@/components/ui/button";
 import { wajibAktif } from "@/lib/otorisasi";
 import { wenangAtasRpkps } from "@/lib/rpkps/wenang";
@@ -38,12 +38,18 @@ export default async function HalamanEditorTugas({
     ...rpkps.pertemuan.map((p) => p.minggu),
   );
 
+  const b = await bahasaAktif();
   const subCpmkTersedia = rpkps.mataKuliah.cpmk.flatMap((c) =>
-    c.subCpmk.map((s) => ({ id: s.id, kode: s.kode, rumusan: s.rumusan })),
+    // Rumusan dipilih di sini, bukan di penyunting: yang menyeberang ke klien
+    // cukup teks yang akan tampil (docs/11 §5.4).
+    c.subCpmk.map((s) => ({
+      id: s.id,
+      kode: s.kode,
+      rumusan: pilihTeks(s.rumusan, s.rumusanEn, b).teks,
+    })),
   );
 
   const k = await kamus();
-  const b = await bahasaAktif();
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">

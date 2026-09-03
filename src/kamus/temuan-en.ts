@@ -85,6 +85,75 @@ export const temuanEn: KamusTemuan = {
     pesan: "Week {daftar} is missing from the weekly table.",
     saran: "Exam weeks must still appear as numbered rows.",
   },
+  "BA-BAB-BERGESER": {
+    pesan: "Chapters {daftar} were written from a weekly plan that has changed since.",
+    saran:
+      "Compare them with the current weekly rows; a chapter is never rewritten automatically.",
+  },
+  "BA-BAB-KOSONG": {
+    pesan: "{jumlah} chapters have no body text yet: {daftar}.",
+    saran: "A chapter without body text still appears in the table of contents as a blank page.",
+  },
+  "BA-BLOOM-ASING": {
+    pesan: "Bloom level {daftar} is not recognised and was left empty.",
+  },
+  "BA-GLOSARIUM-GANDA": {
+    pesan: "{jumlah} repeated glossary entries were merged.",
+  },
+  "BA-ISBN-TIDAK-SAH": {
+    pesan: "The ISBN \u201c{isbn}\u201d fails its check-digit test.",
+    saran:
+      "Check the typing. A wrong number is printed on the copyright page and travels with every copy.",
+  },
+  "BA-LATIHAN-KOSONG-DIBUANG": {
+    pesan: "{jumlah} exercises without a question were dropped.",
+  },
+  "BA-LATIHAN-TANPA-KUNCI": {
+    pesan: "Chapters {daftar} contain exercises without an answer key.",
+    saran:
+      "Keys are stored separately from the questions, so filling them in does not leak them into the student copy.",
+  },
+  "BA-MINGGU-HILANG": {
+    pesan: "Chapters {daftar} no longer point at any weekly row.",
+    saran: "Their source row was deleted; the chapter text itself is intact.",
+  },
+  "BA-PUSTAKA-ASING": {
+    pesan: "{jumlah} citations point at references absent from the RPKPS: {daftar}.",
+    saran:
+      "The book bibliography is assembled from the RPKPS references, so these citations would dangle.",
+  },
+  "BA-SELURUHNYA-AI": {
+    pesan: "Not a single chapter has been edited by a human yet.",
+    saran:
+      "Your name goes on the cover. Read and revise the text before taking this book to a publisher.",
+  },
+  "BA-SITIRAN-DIBUANG": {
+    pesan: "{jumlah} citations pointed outside the RPKPS references and were dropped: {daftar}.",
+    saran: "Add the reference to the RPKPS first if this book should really cite it.",
+  },
+  "BA-SLIDE-KOSONG-DIBUANG": {
+    pesan: "{jumlah} slides with neither a title nor bullets were dropped.",
+  },
+  "BA-TANPA-BAB": {
+    pesan: "This book has no chapters yet.",
+  },
+  "BA-TANPA-PENERBIT": {
+    pesan: "The publisher is empty.",
+    saran: "Required on the copyright page when applying for an ISBN.",
+  },
+  "BA-TANPA-PENULIS": {
+    pesan: "The author is empty.",
+  },
+  "BA-TANPA-PRAKATA": {
+    pesan: "The preface has not been written.",
+  },
+  "BA-TANPA-TAHUN": {
+    pesan: "The year of publication is empty.",
+  },
+  "BA-TANPA-TUJUAN": {
+    pesan: "Chapters {daftar} have no learning objectives yet.",
+    saran: "Chapter objectives come from the indicators or Sub-CPMK of their source week.",
+  },
   "BS-BUTIR-SUKAR": {
     pesan: "Item {daftar} counts as difficult (P < 0.3).",
     saran: "Check whether the material was actually taught in adequate depth.",

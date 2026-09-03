@@ -1573,20 +1573,40 @@ async function main() {
     where: { rpkpsId: rpkps.id },
     orderBy: { minggu: "asc" },
     take: 3,
-    select: { id: true, minggu: true, topik: true },
+    select: { id: true, minggu: true, topik: true, subtopik: true, subtopikEn: true },
   });
   const tugasTerjemah = await prisma.tugas.findFirstOrThrow({
     where: { rpkpsId: rpkps.id },
     select: { id: true, nama: true },
   });
 
+  /*
+   * Baris pertama yang punya subtopik: kolom `text[]` ditulis lewat cast
+   * `::text[]`, jalur yang sama sekali berbeda dari kolom teks dan yang hanya
+   * dapat dibuktikan di sini — `Prisma.raw` tidak akan mengeluhkan apa pun
+   * sampai Postgres yang menolaknya (docs/11 §8.7).
+   */
+  const barisLarik = barisTerjemah.find((b) => b.subtopik.length >= 2);
+
   const alamatSah = [
     ...barisTerjemah.map((b) => `pertemuan:${b.id}:topikEn`),
     ...barisTerjemah.map((b) => `pertemuan:${b.id}:metodeNarasiEn`),
     `tugas:${tugasTerjemah.id}:namaEn`,
   ];
+  const alamatLarik = barisLarik
+    ? barisLarik.subtopik.map((_, i) => `pertemuan:${barisLarik.id}:subtopikEn#${i}`)
+    : [];
   const pilihanTerjemah = [
     ...alamatSah.map((alamat, i) => ({ alamat, teks: `EN ${i + 1}` })),
+    // Hanya elemen GENAP yang diterapkan: yang ganjil harus tetap seperti
+    // sebelumnya, bukan ikut terhapus karena lariknya ditulis utuh.
+    ...alamatLarik
+      .filter((_, i) => i % 2 === 0)
+      .map((alamat, i) => ({ alamat, teks: `SUB ${i + 1}` })),
+    // Racun 4: indeks di luar jangkauan larik Indonesia.
+    ...(barisLarik
+      ? [{ alamat: `pertemuan:${barisLarik.id}:subtopikEn#99`, teks: "ditimpa" }]
+      : []),
     // Racun 1: kolom bahasa Indonesia. Racun 2: baris milik dokumen lain.
     { alamat: `pertemuan:${barisTerjemah[0].id}:topik`, teks: "ditimpa" },
     { alamat: `pertemuan:tidak-ada-baris-ini:topikEn`, teks: "ditimpa" },
@@ -1594,19 +1614,43 @@ async function main() {
     { alamat: `tugas:${tugasTerjemah.id}:deskripsiEn`, teks: "   " },
   ];
 
-  const { kelompok, jumlah } = kelompokkanTerjemahan(new Set(alamatSah), pilihanTerjemah);
+  const larikSekarang = new Map(
+    barisTerjemah.map((b) => [
+      `pertemuan:${b.id}:subtopikEn`,
+      b.subtopik.map((_, i) => b.subtopikEn[i] ?? ""),
+    ]),
+  );
+  const diterapkanLarik = Math.ceil(alamatLarik.length / 2);
+
+  const { kelompok, larik, jumlah } = kelompokkanTerjemahan(
+    new Set([...alamatSah, ...alamatLarik]),
+    pilihanTerjemah,
+    larikSekarang,
+  );
   cek(
     "pilihan dikelompokkan per kolom, bukan per baris",
-    jumlah === alamatSah.length && kelompok.length === 3,
-    `${jumlah} medan dalam ${kelompok.length} kueri`,
+    jumlah === alamatSah.length + diterapkanLarik && kelompok.length === 3,
+    `${jumlah} medan dalam ${kelompok.length} kueri + ${larik.length} kueri larik`,
+  );
+  cek(
+    "indeks di luar jangkauan larik Indonesia dilewati",
+    larik.every((g) => g.baris.every((b) => b.teks.length === (barisLarik?.subtopik.length ?? 0))),
+    larik.map((g) => g.baris.map((b) => b.teks.length).join(",")).join(" | "),
   );
 
-  await tulisTerjemahan(prisma, kelompok);
+  await tulisTerjemahan(prisma, kelompok, larik);
 
   const sesudahTerjemah = await prisma.pertemuan.findMany({
     where: { id: { in: barisTerjemah.map((b) => b.id) } },
     orderBy: { minggu: "asc" },
-    select: { id: true, topik: true, topikEn: true, metodeNarasiEn: true },
+    select: {
+      id: true,
+      topik: true,
+      topikEn: true,
+      metodeNarasiEn: true,
+      subtopik: true,
+      subtopikEn: true,
+    },
   });
   const tugasTerjemahSesudah = await prisma.tugas.findUniqueOrThrow({
     where: { id: tugasTerjemah.id },
@@ -1634,6 +1678,24 @@ async function main() {
       tugasTerjemahSesudah.deskripsiEn === null,
     `${sesudahTerjemah[0].topik} · ${tugasTerjemahSesudah.deskripsiEn}`,
   );
+
+  if (barisLarik) {
+    const sesudahLarik = sesudahTerjemah.find((b) => b.id === barisLarik.id)!;
+    cek(
+      "kolom text[] ditulis utuh, sepanjang larik Indonesia",
+      sesudahLarik.subtopikEn.length === barisLarik.subtopik.length,
+      `${sesudahLarik.subtopikEn.length} vs ${barisLarik.subtopik.length}`,
+    );
+    cek(
+      "elemen yang dipilih terisi, yang tidak dipilih tetap seperti sebelumnya",
+      sesudahLarik.subtopikEn.every((teks, i) =>
+        i % 2 === 0 ? teks.startsWith("SUB ") : teks === (barisLarik.subtopikEn[i] ?? ""),
+      ),
+      sesudahLarik.subtopikEn.join(" | "),
+    );
+  } else {
+    console.log("     ⚠ tidak ada pertemuan bersubtopik — jalur text[] tidak teruji");
+  }
 
   writeFileSync("uji/keluaran-rpkps.docx", buffer);
   console.log("     dokumen contoh: uji/keluaran-rpkps.docx");

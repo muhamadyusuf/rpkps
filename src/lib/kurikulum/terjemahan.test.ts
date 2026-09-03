@@ -28,6 +28,7 @@ function kolomEn(model: string): string[] {
 }
 
 const PENULIS: { model: string; berkas: string }[] = [
+  { model: "ProfilLulusan", berkas: "src/app/[bahasa]/(app)/kurikulum/aksi-profil.ts" },
   { model: "MataKuliah", berkas: "src/app/[bahasa]/(app)/kurikulum/aksi-mk.ts" },
   { model: "Cpl", berkas: "src/app/[bahasa]/(app)/kurikulum/aksi-cpl.ts" },
   { model: "Cpmk", berkas: "src/app/[bahasa]/(app)/kurikulum/aksi-cpmk.ts" },

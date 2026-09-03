@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { Tautan } from "@/components/tautan";
 import { bahasaAktif, kamus } from "@/lib/bahasa/server";
-import { isi, namaMk } from "@/lib/bahasa/teks";
+import { isi, namaMk, pilihTeks } from "@/lib/bahasa/teks";
 import { ArrowLeft, ArrowRight, ListChecks, Lock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
@@ -64,8 +64,15 @@ export default async function HalamanPertemuan({
   const sebelum = rpkps.pertemuan.filter((p) => p.minggu < minggu).at(-1);
   const sesudah = rpkps.pertemuan.find((p) => p.minggu > minggu);
 
+  const b = await bahasaAktif();
   const subCpmkTersedia = rpkps.mataKuliah.cpmk.flatMap((c) =>
-    c.subCpmk.map((s) => ({ id: s.id, kode: s.kode, rumusan: s.rumusan })),
+    // Rumusan dipilih di sini, bukan di penyunting: yang menyeberang ke klien
+    // cukup teks yang akan tampil (docs/11 §5.4).
+    c.subCpmk.map((s) => ({
+      id: s.id,
+      kode: s.kode,
+      rumusan: pilihTeks(s.rumusan, s.rumusanEn, b).teks,
+    })),
   );
 
   /**
@@ -87,7 +94,6 @@ export default async function HalamanPertemuan({
         )?.id ?? null));
 
   const k = await kamus();
-  const b = await bahasaAktif();
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">

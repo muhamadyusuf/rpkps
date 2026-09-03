@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { bahasaAktif, kamus } from "@/lib/bahasa/server";
 import { tanggal } from "@/lib/bahasa/format";
-import { isi, namaMk } from "@/lib/bahasa/teks";
+import { isi, namaMk, pilihTeks } from "@/lib/bahasa/teks";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { prisma } from "@/lib/prisma";
 import { punyaPeran, punyaPeranDiProdi, wajibAktif } from "@/lib/otorisasi";
@@ -423,7 +423,8 @@ export default async function HalamanRpkpsDetail({
             <ul className="space-y-2 text-sm">
               {rpkps.mataKuliah.cpmk.map((c) => (
                 <li key={c.id}>
-                  <span className="font-medium">{c.kode}</span> — {c.rumusan}
+                  <span className="font-medium">{c.kode}</span> —{" "}
+                  {pilihTeks(c.rumusan, c.rumusanEn, b).teks}
                   <span className="ml-1 text-xs text-muted-foreground">
                     {isi(k.rpkps.ikhtisar.jumlahSub, { jumlah: c.subCpmk.length })}
                   </span>

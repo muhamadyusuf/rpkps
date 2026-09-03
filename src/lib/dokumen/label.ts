@@ -138,6 +138,34 @@ export const labelDokumenId = {
    * "kolom tidak ditemukan" (docs/11 §7). Yang diterjemahkan hanya baris judul
    * lembar Petunjuk dan kalimat-kalimat penjelasnya, yang tidak pernah dibaca.
    */
+  buku: {
+    halamanJudul: "",
+    hakCipta: "Hak Cipta",
+    hakCiptaBawaan:
+      "Hak cipta dilindungi undang-undang. Dilarang memperbanyak sebagian atau seluruh isi buku ini dalam bentuk apa pun tanpa izin tertulis dari penulis.",
+    penerbit: "Penerbit",
+    kotaTerbit: "Kota terbit",
+    tahunTerbit: "Tahun terbit",
+    edisi: "Edisi",
+    isbn: "ISBN",
+    penulis: "Penulis",
+    belumDidaftarkan: "(belum didaftarkan)",
+    prakata: "PRAKATA",
+    daftarIsi: "DAFTAR ISI",
+    pendahuluan: "PENDAHULUAN",
+    bab: "BAB",
+    tujuanPembelajaran: "Tujuan Pembelajaran",
+    studiKasus: "Studi Kasus",
+    ringkasan: "Ringkasan",
+    latihan: "Latihan",
+    kunciJawaban: "Kunci Jawaban",
+    glosarium: "GLOSARIUM",
+    daftarPustaka: "DAFTAR PUSTAKA",
+    tentangPenulis: "TENTANG PENULIS",
+    disusunDari: "Disusun dari RPKPS {mk} - {prodi}",
+    catatanDraf:
+      "Naskah ini masih memuat bab yang belum disunting penulis. Periksa seluruh isinya sebelum didaftarkan untuk penerbitan.",
+  },
   excel: {
     kode: "Kode",
     asesmen: "Asesmen",
@@ -440,6 +468,34 @@ export const labelDokumenEn: LabelDokumen = {
   sidikDokumen: ". Document fingerprint: {sidik}",
 
 
+  buku: {
+    halamanJudul: "",
+    hakCipta: "Copyright",
+    hakCiptaBawaan:
+      "All rights reserved. No part of this book may be reproduced in any form without the written permission of the author.",
+    penerbit: "Publisher",
+    kotaTerbit: "Place of publication",
+    tahunTerbit: "Year of publication",
+    edisi: "Edition",
+    isbn: "ISBN",
+    penulis: "Author",
+    belumDidaftarkan: "(not yet registered)",
+    prakata: "PREFACE",
+    daftarIsi: "TABLE OF CONTENTS",
+    pendahuluan: "INTRODUCTION",
+    bab: "CHAPTER",
+    tujuanPembelajaran: "Learning Objectives",
+    studiKasus: "Case Study",
+    ringkasan: "Summary",
+    latihan: "Exercises",
+    kunciJawaban: "Answer Key",
+    glosarium: "GLOSSARY",
+    daftarPustaka: "BIBLIOGRAPHY",
+    tentangPenulis: "ABOUT THE AUTHOR",
+    disusunDari: "Compiled from the RPKPS of {mk} - {prodi}",
+    catatanDraf:
+      "This manuscript still contains chapters the author has not revised. Review the whole text before submitting it for publication.",
+  },
   excel: {
     kode: "Code",
     asesmen: "Assessment",

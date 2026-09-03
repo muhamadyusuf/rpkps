@@ -296,6 +296,7 @@ export default async function HalamanDetailKurikulum({
                 id: c.id,
                 kode: c.kode,
                 deskripsi: c.deskripsi,
+                deskripsiEn: c.deskripsiEn,
               }))}
             />
           ) : (
@@ -314,7 +315,9 @@ export default async function HalamanDetailKurikulum({
                         </Badge>
                       ))}
                     </div>
-                    <p className="mt-1 text-sm">{p.deskripsi}</p>
+                    <p className="mt-1 text-sm">
+                      {pilihTeks(p.deskripsi, p.deskripsiEn, b).teks}
+                    </p>
                   </div>
                 );
               })}

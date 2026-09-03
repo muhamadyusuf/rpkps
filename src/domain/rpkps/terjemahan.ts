@@ -53,6 +53,72 @@ export interface MedanTerjemahan {
   terjemahan: string | null;
 }
 
+/**
+ * Pemisah indeks pada alamat medan LARIK — `pertemuan:<id>:subtopikEn#2`.
+ *
+ * `subtopik` dan `rincian` adalah `String[]`, jadi id baris saja belum cukup
+ * untuk menunjuk satu teks. Indeksnya ikut ke alamat, dan penulisannya
+ * menyusun ulang SELURUH larik dari larik yang sekarang (lihat
+ * `terjemahan-tulis.ts`) — bukan menulis satu elemen di tempat, yang pada
+ * Postgres akan meninggalkan lubang NULL di tengah larik.
+ *
+ * Tanpa ini kedua medan itu tidak pernah dapat diterjemahkan, sementara
+ * `hitungKelengkapan` tetap menghitungnya — dan angka kelengkapan mentok di
+ * bawah 100% tanpa ada yang dapat memperbaikinya (docs/11 §8.2).
+ */
+const PEMISAH_INDEKS = "#";
+
+export interface AlamatMedan {
+  model: string;
+  id: string;
+  medan: string;
+  /** Null untuk kolom biasa; indeks elemen untuk kolom larik. */
+  indeks: number | null;
+}
+
+/** Menyusun alamat medan. Satu-satunya tempat bentuknya ditulis. */
+export function susunAlamat(
+  model: string,
+  id: string,
+  medan: string,
+  indeks?: number | null,
+): string {
+  const ekor = indeks == null ? "" : `${PEMISAH_INDEKS}${indeks}`;
+  return `${model}:${id}:${medan}${ekor}`;
+}
+
+/**
+ * Menguraikan alamat. Mengembalikan null bila bentuknya tidak dikenali —
+ * alamat datang dari peramban, jadi yang tidak terurai dibuang, bukan ditebak.
+ */
+export function uraiAlamat(alamat: string): AlamatMedan | null {
+  const [model, id, ekor, ...sisa] = alamat.split(":");
+  if (!model || !id || !ekor || sisa.length > 0) return null;
+
+  const pisah = ekor.indexOf(PEMISAH_INDEKS);
+  if (pisah < 0) return { model, id, medan: ekor, indeks: null };
+
+  const medan = ekor.slice(0, pisah);
+  const angka = ekor.slice(pisah + 1);
+  if (!medan || !/^\d+$/.test(angka)) return null;
+  return { model, id, medan, indeks: Number(angka) };
+}
+
+/**
+ * Medan yang diminta tetapi tidak dijawab model.
+ *
+ * Dipakai untuk RONDE ULANG: sebuah model yang menerima tiga ratus medan
+ * sekaligus akan menjatuhkan sebagian tanpa memberi tanda apa pun — jawabannya
+ * sah menurut skema, hanya lebih pendek. Yang tidak terjawab dikirim ulang,
+ * bukan didiamkan (docs/11 §8.3).
+ */
+export function medanKurang(
+  diminta: readonly MedanTerjemahan[],
+  diterima: ReadonlySet<string>,
+): MedanTerjemahan[] {
+  return diminta.filter((m) => !diterima.has(m.alamat));
+}
+
 /** Medan yang belum punya terjemahan. Inilah yang dikirim ke model. */
 export function medanBelumDiterjemahkan(
   medan: readonly MedanTerjemahan[],

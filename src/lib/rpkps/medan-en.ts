@@ -25,7 +25,20 @@
  * migrasi L4 tetapi `schema.prisma` tidak pernah mendapat medannya, jadi
  * belum ada yang dapat mengisinya — dan `medanRpkps` pun tidak menawarkannya.
  */
-export const MEDAN_BOLEH: Record<string, { tabel: string; kolom: Record<string, string> }> = {
+export interface IzinMedan {
+  tabel: string;
+  /** Kolom `String?` biasa: satu alamat, satu nilai. */
+  kolom: Record<string, string>;
+  /**
+   * Kolom `String[]`. Alamatnya berindeks (`…:subtopikEn#2`) dan penulisannya
+   * mengganti SELURUH larik, karena Postgres tidak dapat menulis satu elemen
+   * tanpa meninggalkan NULL di posisi yang belum terisi — dan `String[]`
+   * Prisma tidak dapat membaca larik ber-NULL.
+   */
+  larik?: Record<string, string>;
+}
+
+export const MEDAN_BOLEH: Record<string, IzinMedan> = {
   rpkps: {
     tabel: "rpkps",
     kolom: {
@@ -44,6 +57,7 @@ export const MEDAN_BOLEH: Record<string, { tabel: string; kolom: Record<string, 
       penilaianJenisEn: "penilaian_jenis_en",
       penilaianSistemEn: "penilaian_sistem_en",
     },
+    larik: { subtopikEn: "subtopik_en" },
   },
   indikator: { tabel: "indikator", kolom: { teksEn: "teks_en" } },
   aktivitasBelajar: { tabel: "aktivitas_belajar", kolom: { namaEn: "nama_en" } },
@@ -58,7 +72,11 @@ export const MEDAN_BOLEH: Record<string, { tabel: string; kolom: Record<string, 
       ketentuanLainEn: "ketentuan_lain_en",
     },
   },
-  kriteriaTugas: { tabel: "kriteria_tugas", kolom: { indikatorEn: "indikator_en" } },
+  kriteriaTugas: {
+    tabel: "kriteria_tugas",
+    kolom: { indikatorEn: "indikator_en" },
+    larik: { rincianEn: "rincian_en" },
+  },
   linimasaTugas: {
     tabel: "linimasa_tugas",
     kolom: { tahapanEn: "tahapan_en", aktivitasEn: "aktivitas_en" },

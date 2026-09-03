@@ -36,6 +36,13 @@ export function PanelTerjemahan({
   const [usul, setUsul] = useState<Usul[] | null>(null);
   const [pilih, setPilih] = useState<Set<string>>(new Set());
   const [asal, setAsal] = useState<string | null>(null);
+  /**
+   * Medan yang tidak dijawab model. Ditampilkan, bukan didiamkan: satu putaran
+   * yang menutup 280 dari 300 medan terlihat berhasil di layar, dan dosen baru
+   * menemukan sisanya berbulan-bulan kemudian dari angka kelengkapan yang tidak
+   * pernah sampai 100%.
+   */
+  const [kurang, setKurang] = useState(0);
   const [berjalan, setBerjalan] = useState(false);
   const [menerapkan, mulaiTerap] = useTransition();
   const router = useRouter();
@@ -87,6 +94,7 @@ export function PanelTerjemahan({
         return;
       }
       setUsul(h.usul);
+      setKurang(h.kurang);
       // Seluruhnya tercentang di awal: dosen membaca lalu MEMBATALKAN yang
       // salah, bukan mencentang tiga puluhan baris satu per satu.
       setPilih(new Set(h.usul.map((u) => u.alamat)));
@@ -108,6 +116,7 @@ export function PanelTerjemahan({
         toast.success(h.pesan);
         setUsul(null);
         setPilih(new Set());
+        setKurang(0);
         router.refresh();
       } else {
         toast.error(h.pesan);
@@ -151,6 +160,12 @@ export function PanelTerjemahan({
         </div>
 
         <p className="text-xs text-muted-foreground">{k.terjemahanPanel.naskahSah}</p>
+
+        {kurang > 0 ? (
+          <p className="rounded-lg border border-warning/25 bg-warning/10 p-3 text-xs">
+            {isi(k.terjemahanPanel.sisa, { kurang })}
+          </p>
+        ) : null}
 
         {usul ? (
           <div className="space-y-3">

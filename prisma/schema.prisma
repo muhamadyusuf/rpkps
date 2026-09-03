@@ -788,6 +788,7 @@ model Rpkps {
   tugas         Tugas[]
   kelas         Kelas[]
   tandaTangan   TandaTanganRpkps[]
+  bukuAjar      BukuAjar[]
 
   @@unique([mataKuliahId, tahunAkademikId])
   @@index([status])
@@ -888,6 +889,7 @@ model Pustaka {
 
   rpkps     Rpkps              @relation(fields: [rpkpsId], references: [id], onDelete: Cascade)
   pertemuan PertemuanPustaka[]
+  bab       BabPustaka[]
 
   @@unique([rpkpsId, jenis, nomor])
   @@map("pustaka")
@@ -942,6 +944,7 @@ model Pertemuan {
   aktivitas     AktivitasBelajar[]
   indikator     Indikator[]
   pustaka       PertemuanPustaka[]
+  babBukuAjar   BabBukuAjar[]
 
   @@unique([rpkpsId, minggu])
   @@index([rpkpsId])
@@ -1725,4 +1728,157 @@ model NilaiButir {
   @@unique([pesertaKelasId, butirKisiKisiId])
   @@index([butirKisiKisiId])
   @@map("nilai_butir")
+}
+
+// ─────────────────────────────────────────────────────────────
+// BAHAN AJAR — docs/16
+//
+// Buku ajar dan slide yang disusun dari baris mingguan RPKPS. BERDAMPINGAN
+// dengan RPKPS, bukan bagian isinya: tidak masuk `proyeksiIsi()`, tidak masuk
+// `rpkps_snapshot`, tidak ikut rantai pengesahan, dan karena itu tidak pernah
+// menggeser sidik dokumen yang sudah terbit (docs/16 P1).
+//
+// Tidak ada satu pun kolom `*En` di sini, dan itu disengaja. Buku memilih
+// bahasanya sekali lewat `buku_ajar.bahasa`; satu RPKPS boleh punya dua buku
+// yang isinya ditulis terpisah. Teks bab terlalu panjang untuk ikut mesin
+// terjemahan medan-per-medan docs/11, dan mencampurkannya akan membuat angka
+// kelengkapan terjemahan RPKPS mengukur pekerjaan menulis buku (docs/16 P7).
+// ─────────────────────────────────────────────────────────────
+
+model BukuAjar {
+  id      String          @id @default(cuid())
+  rpkpsId String          @map("rpkps_id")
+  bahasa  BahasaAntarmuka @default(id)
+
+  /// Metadata terbitan. Diisi dosen, TIDAK PERNAH oleh AI: skema keluaran
+  /// tugas `BUKU_*` tidak punya medan ini sama sekali. Nomor ISBN karangan
+  /// yang tercetak di halaman hak cipta tidak dapat ditarik kembali setelah
+  /// bukunya beredar (docs/16 P5).
+  judul       String
+  subjudul    String?
+  penulis     String[]
+  afiliasi    String?
+  penerbit    String?
+  kotaTerbit  String?  @map("kota_terbit")
+  tahunTerbit Int?     @map("tahun_terbit")
+  edisi       String?
+  isbn        String?
+  hakCipta    String?  @map("hak_cipta")
+
+  /// Kelengkapan yang boleh didraf AI lalu disunting dosen.
+  prakata     String?
+  pendahuluan String?
+  /// [{ istilah, arti }] — daftar, bukan kalimat, supaya dapat diurutkan dan
+  /// dicetak sebagai glosarium tanpa mengurai teks bebas.
+  glosarium   Json?
+  biografi    String?
+
+  sumber     SumberIsi @default(AI)
+  dibuatPada DateTime  @default(now()) @map("dibuat_pada")
+  diubahPada DateTime  @updatedAt @map("diubah_pada")
+
+  rpkps Rpkps         @relation(fields: [rpkpsId], references: [id], onDelete: Cascade)
+  bab   BabBukuAjar[]
+
+  @@unique([rpkpsId, bahasa])
+  @@index([rpkpsId])
+  @@map("buku_ajar")
+}
+
+/// Satu bab = satu baris mingguan EFEKTIF. Minggu UTS dan UAS tidak melahirkan
+/// bab: tidak ada materi yang diajarkan di sana.
+model BabBukuAjar {
+  id          String  @id @default(cuid())
+  bukuAjarId  String  @map("buku_ajar_id")
+  /// Baris mingguan asalnya. SetNull, BUKAN Cascade: bab yang sudah ditulis
+  /// dan disunting dosen tidak boleh lenyap karena baris mingguannya disusun
+  /// ulang. Bab yang kehilangan minggunya ditandai `BA-MINGGU-HILANG`.
+  pertemuanId String? @map("pertemuan_id")
+
+  nomor      Int
+  judul      String
+  tujuan     String[]
+  /// Satu kalimat dari tahap kerangka: apa yang dikerjakan bab ini dalam alur
+  /// buku. Disimpan karena bab ditulis satu per satu pada panggilan terpisah —
+  /// kalimat inilah yang menjaga bab-bab tidak saling mengulang.
+  alur       String?
+  uraian     String?
+  studiKasus String?  @map("studi_kasus")
+  ringkasan  String?
+
+  /// Sidik rencana minggu SAAT bab disusun — topik, subtopik, indikator, dan
+  /// kode Sub-CPMK. Bila RPKPS bergerak sesudahnya, layar menandai bab ini
+  /// "disusun dari rencana yang sudah berubah" (`BA-BAB-BERGESER`). Ini
+  /// penanda, bukan gerbang: bab tidak pernah ditulis ulang otomatis.
+  sidikSumber String? @map("sidik_sumber")
+
+  sumber        SumberIsi @default(AI)
+  /// Diisi saat manusia menyimpan suntingannya. `null` berarti bab masih
+  /// murni keluaran model — yang menyalakan `BA-SELURUHNYA-AI`.
+  disuntingPada DateTime? @map("disunting_pada")
+  dibuatPada    DateTime  @default(now()) @map("dibuat_pada")
+  /// Kunci optimistik. Penyunting bab menulis ulang SELURUH isinya beserta
+  /// latihan dan slide, jadi tanpa cap ini dua penyunting saling menimpa
+  /// tanpa gejala — aturan yang sama dengan `simpanPertemuan`.
+  diubahPada    DateTime  @updatedAt @map("diubah_pada")
+
+  buku      BukuAjar     @relation(fields: [bukuAjarId], references: [id], onDelete: Cascade)
+  pertemuan Pertemuan?   @relation(fields: [pertemuanId], references: [id], onDelete: SetNull)
+  latihan   LatihanBab[]
+  slide     SlideBab[]
+  pustaka   BabPustaka[]
+
+  @@unique([bukuAjarId, nomor])
+  @@index([bukuAjarId])
+  @@index([pertemuanId])
+  @@map("bab_buku_ajar")
+}
+
+/// Soal latihan satu bab.
+model LatihanBab {
+  id    String      @id @default(cuid())
+  babId String      @map("bab_id")
+  nomor Int
+  soal  String
+  /// Kolomnya sendiri, terpisah dari `soal`, supaya berkas untuk mahasiswa
+  /// (`?kunci=0`) dapat dicetak tanpa menyunting apa pun. Menggabungkannya ke
+  /// satu kolom teks membuat kunci jawaban ikut terbagikan, dan gagalnya
+  /// senyap (docs/16 §4.1).
+  kunci String?
+  bloom LevelBloom?
+
+  bab BabBukuAjar @relation(fields: [babId], references: [id], onDelete: Cascade)
+
+  @@unique([babId, nomor])
+  @@map("latihan_bab")
+}
+
+/// Satu slide presentasi. `catatan` menjadi speaker notes pada .pptx dan tidak
+/// pernah ikut ke badan slide.
+model SlideBab {
+  id      String   @id @default(cuid())
+  babId   String   @map("bab_id")
+  nomor   Int
+  judul   String
+  butir   String[]
+  catatan String?
+
+  bab BabBukuAjar @relation(fields: [babId], references: [id], onDelete: Cascade)
+
+  @@unique([babId, nomor])
+  @@map("slide_bab")
+}
+
+/// Pustaka RPKPS yang disitir sebuah bab. Daftar pustaka buku dirakit dari
+/// baris `pustaka` yang ditunjuk di sini — bukan dari karangan model
+/// (docs/16 P6).
+model BabPustaka {
+  babId     String @map("bab_id")
+  pustakaId String @map("pustaka_id")
+
+  bab     BabBukuAjar @relation(fields: [babId], references: [id], onDelete: Cascade)
+  pustaka Pustaka     @relation(fields: [pustakaId], references: [id], onDelete: Cascade)
+
+  @@id([babId, pustakaId])
+  @@map("bab_pustaka")
 }
