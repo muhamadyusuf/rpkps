@@ -1,0 +1,11 @@
+-- Satu jenis notifikasi baru: koordinator meminta paraf timnya (docs/14 §4.2,
+-- tahap P6).
+--
+-- Berkas tersendiri, dan itu bukan kerapian: PostgreSQL menolak PEMAKAIAN nilai
+-- enum baru di dalam transaksi yang sama dengan `ALTER TYPE … ADD VALUE`,
+-- sedangkan penerap di `prisma/terapkan-migrasi.mts` membungkus satu berkas
+-- sebagai satu transaksi.
+--
+-- `IF NOT EXISTS` supaya penerapan ulang pada basis data yang sudah punya
+-- nilainya tidak menggagalkan seluruh berkas.
+ALTER TYPE "JenisNotifikasi" ADD VALUE IF NOT EXISTS 'RPKPS_MINTA_PARAF';

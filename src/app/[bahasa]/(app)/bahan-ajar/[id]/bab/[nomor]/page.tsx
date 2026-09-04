@@ -10,6 +10,9 @@ import { muatBuku, sidikSekarang } from "@/lib/bahan-ajar/muat";
 import { wenangBuku } from "@/lib/bahan-ajar/wenang";
 import { babBergeser } from "@/domain/bahan-ajar/sidik-sumber";
 import { EditorBab } from "./editor";
+import { PanelGambar } from "./panel-gambar";
+import { PanelUsulan } from "../../panel-usulan";
+import { aiTersediaUntuk } from "@/lib/ai/kredensial";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +33,8 @@ export default async function HalamanBab({
   if (!buku || !bab) notFound();
 
   const k = await kamus();
+  // Kunci AI hanya ditanyakan bila tombolnya memang akan ada.
+  const adaKunciAi = w.bolehTulis ? await aiTersediaUntuk(w.sesi.id) : false;
   const pertemuan = buku.rpkps.pertemuan.find((p) => p.id === bab.pertemuanId);
   const sidik = sidikSekarang(buku);
   const sekarang = bab.pertemuanId ? (sidik.get(bab.pertemuanId) ?? null) : null;
@@ -105,6 +110,42 @@ export default async function HalamanBab({
           ringkasan: bab.ringkasan,
           latihan: bab.latihan.map((l) => ({ soal: l.soal, kunci: l.kunci })),
         }}
+      />
+
+      {/* Usulan untuk bab INI saja; tinjauan lintas bab ada di halaman buku. */}
+      <PanelUsulan
+        bukuId={buku.id}
+        nomorBab={bab.nomor}
+        bolehTulis={w.bolehTulis}
+        adaKunciAi={adaKunciAi}
+        usulan={buku.usulan
+          .filter((u) => u.babId === bab.id)
+          .map((u) => ({
+            id: u.id,
+            babNomor: bab.nomor,
+            jenis: u.jenis,
+            kutipan: u.kutipan,
+            usul: u.usul,
+            alasan: u.alasan,
+          }))}
+      />
+
+      <PanelGambar
+        bukuId={buku.id}
+        nomorBab={bab.nomor}
+        bolehTulis={w.bolehTulis}
+        adaUraian={Boolean(bab.uraian?.trim())}
+        adaKunciAi={adaKunciAi}
+        gambar={bab.gambar.map((g) => ({
+          id: g.id,
+          nomor: g.nomor,
+          judul: g.judul,
+          altTeks: g.altTeks,
+          letak: g.letak,
+          sumber: g.sumber,
+          bentuk: g.bentuk,
+          kode: g.kode,
+        }))}
       />
 
       <Card>

@@ -1,6 +1,8 @@
 # Daur Hidup dan Berbagi RPKPS
 
-> Status: **B1–B4 TERPASANG (24 Agustus 2026); B5 ditunda.**
+> Status: **B1–B5 TERPASANG (B1–B4 24 Agustus 2026; B5 4 September 2026).**
+> Amandemen §4.3 DITERIMA: sejak B5 ada dua pintu tanpa login, dan keduanya
+> tertutup rapat pada berkasnya masing-masing.
 > Menjawab tiga permintaan yang sering diucapkan sebagai satu: *menghapus RPKPS*,
 > *mengirimkannya pada dosen lain*, dan *"fitur share lainnya"*.
 > Ketiganya sebenarnya **enam operasi berbeda** dengan risiko yang jauh berbeda.
@@ -337,7 +339,36 @@ lewat penambahan pengampu (3.2) atau kiriman berkas DOCX.
 | **B2** | Kelola tim pengampu (P) + serah terima (S) + perubahan otorisasi 3.4 | — |
 | **B3** | Panel "Bagikan": alamat publik, salin, unduh DOCX (4.1) | — |
 | **B4** | Salin RPKPS (D) | B2 (koordinator hasil salinan) |
-| **B5** | Tautan pratinjau bertoken (4.2) | Keputusan K4 — **ditunda** |
+| **B5** ✅ | Tautan pratinjau bertoken (4.2) | Keputusan K4 dicabut 4 September 2026 |
+
+### 5.0 Di mana B5 berada
+
+| Lapisan | Berkas |
+|---|---|
+| Aturan umur & keadaan tautan (murni, teruji) | `src/domain/rpkps/berbagi.ts` + `.test.ts` |
+| Pintu kedua tanpa login | `src/lib/berbagi/muat.ts` |
+| Tindakan server (buat, cabut) | `src/app/[bahasa]/(app)/rpkps/[id]/aksi-berbagi.ts` |
+| Halaman pratinjau | `src/app/[bahasa]/(publik)/pratinjau/[token]/page.tsx` |
+| Penjaga amandemen §4.3 | `src/lib/berbagi/pintu.test.ts` |
+
+Empat hal yang ditegakkan kode, bukan disiplin:
+
+1. **Tokennya 32 bita acak kriptografis** (`randomBytes`), bukan cuid: cuid
+   dirancang agar unik, bukan agar tidak dapat ditebak — dan token inilah
+   satu-satunya penjaga pintu ini.
+2. **Umur dijepit di domain**, 1–90 hari, bawaan 14. Permintaan di luar
+   rentang dijepit, bukan ditolak: nilainya datang dari borang, dan borang yang
+   menolak tanpa menawarkan apa pun hanya memaksa orang menebak.
+3. **Token tidak dikenal, dicabut, dan kedaluwarsa menghasilkan halaman yang
+   SAMA.** Membedakannya berarti memberi tahu bahwa sebuah token pernah ada.
+4. **Pencatatan akses tidak pernah menutup pintu.** Ia `void` beserta
+   `catch`-nya: halaman yang gagal terbuka karena penghitungnya bermasalah
+   adalah pertukaran yang salah arah. Yang dicatat hanya jumlah dan waktu —
+   bukan siapa, karena pembacanya memang tidak punya akun.
+
+Yang membuat tautan ini boleh dibuat: koordinator mata kuliah dan pengelola
+prodi, **bukan** setiap pengampu. Membagikan draf ke luar institusi adalah
+keputusan pemegang dokumen (§3.4).
 
 ### 5.1 Di mana B1–B4 berada
 
@@ -371,6 +402,6 @@ pratinjau bertoken) ditunda** — dengan demikian amandemen §4.3 belum berlaku 
 | **K1** | Mana yang dimaksud "kirim ke dosen lain": tambah pengampu, serah terima, atau salin? | **Ketiganya**, sebagai tindakan terpisah bernama sendiri (Bagian 3) |
 | **K2** | Apakah kepengampuan memberi akses lintas cakupan prodi? | **Ya.** Kepengampuan adalah jalur akses tersendiri; aturan §3.4 berlaku serentak di seluruh berkas |
 | **K3** | Apakah RPKPS `TERBIT` yang diarsipkan hilang dari katalog publik? | **Ya.** Arsip berarti penarikan. Tidak perlu kode tambahan: `HANYA_TERBIT` di `publik/muat.ts` sudah menyaringnya |
-| **K4** | Tautan pratinjau bertoken untuk draf — dibuat atau tidak? | **Ditunda.** Berbagi draf sementara ini lewat penambahan pengampu (§3.2) atau kiriman berkas DOCX |
+| **K4** | Tautan pratinjau bertoken untuk draf — dibuat atau tidak? | Semula **ditunda**; **dikerjakan 4 September 2026** beserta amandemen §4.3 |
 | **K5** | Siapa yang boleh menghapus: koordinator saja, atau Kaprodi saja? | Koordinator RPKPS **atau** ADMIN/KAPRODI dalam cakupan; anggota tidak |
 | **K6** | Perlukah pemberitahuan dalam aplikasi saat seseorang ditunjuk sebagai pengampu? | Belum. Tidak ada lapisan notifikasi sama sekali; menambahnya untuk satu peristiwa terlalu mahal. Cukup tanda "Anda pengampu" di daftar RPKPS |

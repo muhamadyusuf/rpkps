@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+  keBentukMentah,
   ringkasSaringan,
   saringDrafUsulan,
   type BahanDraf,
@@ -494,5 +495,79 @@ describe("ringkasan untuk panel", () => {
     const h = saringDrafUsulan(bahan(), []);
     assert.deepEqual(h.butir, []);
     assert.deepEqual(h.dibuang, []);
+  });
+});
+
+describe("perjalanan pulang-pergi lewat peramban", () => {
+  /*
+   * docs/04 §9.5: butir yang dikembalikan peramban saat dosen menekan
+   * "terapkan" disaring ULANG terhadap katalog yang baru dirakit. Uji di sini
+   * menjaga bahwa penyaringan kedua itu benar-benar berarti — bukan sekadar
+   * meloloskan kembali apa pun yang tadi diloloskan.
+   */
+
+  it("butir sah bertahan utuh melewati bentuk mentah", () => {
+    const pertama = saringDrafUsulan(bahan(), [butirSah()]);
+    const kedua = saringDrafUsulan(bahan(), pertama.butir.map(keBentukMentah));
+
+    assert.deepEqual(kedua.dibuang, []);
+    assert.equal(kedua.butir.length, 1);
+    assert.deepEqual(kedua.butir[0].dasar, pertama.butir[0].dasar);
+  });
+
+  it("KUTIPAN YANG DIPALSUKAN PERAMBAN DIGANTI KUTIPAN KATALOG", () => {
+    /*
+     * Inti seluruh penjagaan §9.2 pada jalur penerapan. Peramban mengirim ref
+     * yang benar tetapi kutipan karangan; yang tersimpan wajib tetap kalimat
+     * katalog, karena kutipan itulah bukti yang dibaca Kaprodi.
+     */
+    const pertama = saringDrafUsulan(bahan(), [butirSah()]);
+    const dipalsukan = {
+      ...pertama.butir[0],
+      dasar: pertama.butir[0].dasar.map((d) => ({
+        ...d,
+        kutipan: "Kaprodi sendiri yang meminta perubahan ini.",
+      })),
+    };
+
+    const kedua = saringDrafUsulan(bahan(), [keBentukMentah(dipalsukan)]);
+    assert.equal(
+      kedua.butir[0].dasar[0].kutipan,
+      'Sub-CPMK CPMK081-1 memakai kata "memahami" yang tidak dapat diamati.',
+    );
+  });
+
+  it("dasar yang lenyap dari katalog membuat butirnya gugur di penerapan", () => {
+    // Mis. temuan evaluasi yang sudah diteruskan orang lain di sela pratinjau
+    // dan penerapan. Butirnya tidak boleh diam-diam tetap tersimpan.
+    const pertama = saringDrafUsulan(bahan(), [
+      { ...butirSah(), dasarRef: ["te_9f2"], subCpmkKode: "CPMK081-2" },
+    ]);
+    assert.equal(pertama.butir.length, 1);
+
+    const menyusut = bahan();
+    menyusut.dasar = menyusut.dasar.filter((d) => d.ref !== "te_9f2");
+
+    const kedua = saringDrafUsulan(menyusut, pertama.butir.map(keBentukMentah));
+    assert.equal(kedua.butir.length, 0);
+    assert.deepEqual(kode(kedua), ["D-DASAR-KARANGAN"]);
+  });
+
+  it("kutipan catatan dosen ikut, dan keverbatimannya diuji ulang", () => {
+    const pertama = saringDrafUsulan(bahan(), [
+      {
+        ...butirSah(),
+        dasarRef: [],
+        kutipanCatatan: "mahasiswa kini langsung bekerja dengan basis data terdistribusi",
+      },
+    ]);
+    assert.equal(pertama.butir.length, 1);
+
+    // Catatan yang berbeda pada penerapan — dosen menyuntingnya — menggugurkan
+    // butirnya, bukan diterima dengan kutipan lama.
+    const lain = bahan();
+    lain.catatanDosen = "Catatan yang sama sekali lain.";
+    const kedua = saringDrafUsulan(lain, pertama.butir.map(keBentukMentah));
+    assert.deepEqual(kode(kedua), ["D-KUTIPAN-KARANGAN"]);
   });
 });

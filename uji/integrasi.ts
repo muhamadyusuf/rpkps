@@ -37,6 +37,8 @@ import {
   terapkanStruktur,
 } from "@/lib/rpkps/struktur";
 import { periksaPenerapan, periksaUsulanRevisi } from "@/domain/kurikulum/usulan";
+import { saringDrafUsulan, type ButirDraf } from "@/domain/kurikulum/draf-usulan";
+import { rakitBahanDraf, tulisButirDraf } from "@/lib/kurikulum/draf-inti";
 import {
   keUsulanInput,
   muatKurikulumInput,
@@ -45,6 +47,7 @@ import {
 } from "@/lib/kurikulum/usulan-inti";
 import type { KategoriWaktu } from "@/generated/prisma";
 import { pesanTemuanId } from "@/lib/bahasa/temuan";
+import { teksTenggatId } from "@/lib/bahasa/tenggat";
 
 function cek(nama: string, syarat: boolean, detail?: string) {
   console.log(`${syarat ? "  OK  " : " GAGAL"} ${nama}${detail ? ` — ${detail}` : ""}`);
@@ -460,9 +463,11 @@ async function main() {
     include: bentukMuat,
   });
 
-  const buffer = await buatDokumenRpkps(untukDocx, [
-    { versi: 1, dibuatPada: new Date(), deskripsi: "Kerangka dibuat otomatis" },
-  ]);
+  const buffer = await buatDokumenRpkps(
+    untukDocx,
+    [{ versi: 1, dibuatPada: new Date(), deskripsi: "Kerangka dibuat otomatis" }],
+    [],
+  );
   cek("DOCX terbentuk", buffer.length > 10_000, `${(buffer.length / 1024).toFixed(1)} KB`);
 
   const zip = await JSZip.loadAsync(buffer);
@@ -528,6 +533,56 @@ async function main() {
     hasilKk.lolos ? "tanpa pemblokir" : hasilKk.pemblokir.map((t) => t.kode).join(", "),
   );
   cek("seluruh Sub-CPMK pra-UTS teruji", hasilKk.ringkasan.subCpmkTercakup === 7);
+  /*
+   * P7 (docs/14 §5): halaman pengesahan berhenti mencetak kotak kosong.
+   *
+   * Diuji terhadap dokumen yang sama, sekali tanpa tanda tangan dan sekali
+   * dengan — karena yang paling mudah rusak justru keadaan KOSONG: blok yang
+   * diam-diam terisi nama pemegang jabatan hari ini akan membuat dokumen
+   * menyatakan sesuatu yang tidak pernah ditandatangani siapa pun.
+   */
+  cek(
+    "blok pengesahan kosong selama belum ditandatangani",
+    !docXml.includes("Ditandatangani secara elektronik"),
+  );
+
+  const sidikCap = "a".repeat(64);
+  const docTtd = await buatDokumenRpkps(
+    untukDocx,
+    [{ versi: 1, dibuatPada: new Date(), deskripsi: "Kerangka dibuat otomatis" }],
+    [
+      {
+        peran: "PENGAMPU",
+        penggunaId: untukDocx.pengampu[0].penggunaId,
+        nama: "Dr. Uji Pengampu",
+        identitas: "0401019001",
+        sidik: sidikCap,
+        ditandatanganiPada: new Date("2026-02-03T02:00:00Z"),
+      },
+      {
+        peran: "KOORDINATOR",
+        penggunaId: untukDocx.pengampu[0].penggunaId,
+        nama: "Dr. Uji Koordinator",
+        identitas: "0401019001",
+        sidik: sidikCap,
+        ditandatanganiPada: new Date("2026-02-04T02:00:00Z"),
+      },
+    ],
+  );
+  const xmlTtd = await (await JSZip.loadAsync(docTtd)).file("word/document.xml")!.async("string");
+  cek(
+    "blok yang ditandatangani memuat nama beku dan sidik yang ditandatangani",
+    xmlTtd.includes("Dr. Uji Koordinator") && xmlTtd.includes("aaaaaaaa · aaaaaaaa"),
+  );
+  cek(
+    "kolom tanda tangan tim berisi tanggal paraf",
+    xmlTtd.includes("3 Februari 2026") || xmlTtd.includes("03 Februari 2026"),
+  );
+  cek(
+    "blok yang belum ditandatangani tetap kosong",
+    !xmlTtd.includes("Kepala Penjaminan Mutu Internal</w:t></w:r></w:p><w:p><w:r><w:t>Ditandatangani"),
+  );
+
   const jumlahSel = (docXml.match(/<w:tbl>/g) ?? []).length;
   cek("empat tabel terbentuk (tim, distribusi, skala, mingguan, riwayat)", jumlahSel >= 5, `${jumlahSel} tabel`);
 
@@ -563,7 +618,7 @@ async function main() {
   cek("salinan beku tidak ikut berubah", snapshot.sidik === sidikSebelum);
 
   const beku = cairkanSnapshot<typeof untukDocx>(snapshot.isi as never);
-  const docBeku = await buatDokumenRpkps(beku.rpkps, beku.riwayat, snapshot.sidik);
+  const docBeku = await buatDokumenRpkps(beku.rpkps, beku.riwayat, [], snapshot.sidik);
   const zipBeku = await JSZip.loadAsync(docBeku);
   const xmlBeku = await zipBeku.file("word/document.xml")!.async("string");
   cek(
@@ -1188,7 +1243,11 @@ async function main() {
     jaminanHari: taTenggat.jaminanHariPutusan,
     sekarang: new Date(),
   });
-  cek("tenggat terbaca kembali dan dinilai terlambat", nilai.tingkat === "LEWAT", nilai.label);
+  cek(
+    "tenggat terbaca kembali dan dinilai terlambat",
+    nilai.tingkat === "LEWAT",
+    teksTenggatId(nilai),
+  );
 
   // ── 13 · Kunci optimistik: penyimpanan yang kalah balapan ─────
   //
@@ -1695,6 +1754,169 @@ async function main() {
     );
   } else {
     console.log("     ⚠ tidak ada pertemuan bersubtopik — jalur text[] tidak teruji");
+  }
+
+
+  // ── 16 · Draf AI usulan revisi: rakit → saring → terapkan (docs/04 §9) ──
+  // Yang dibuktikan di sini bukan "AI bekerja" — model tidak dipanggil sama
+  // sekali. Yang dibuktikan adalah poros §9.2 pada jalur yang benar-benar
+  // menyentuh basis data: dasar yang dikarang tidak pernah tersimpan, kutipan
+  // yang tersimpan berasal dari katalog server, dan temuan evaluasi yang
+  // menjadi dasar ikut tertaut ke usulannya.
+  const subDraf = await prisma.subCpmk.findFirstOrThrow({
+    where: { cpmk: { mataKuliahId: mk.id }, pensiunSejakTaId: null },
+    select: { kode: true, cpmk: { select: { kode: true } } },
+  });
+
+  const kelasDraf = await prisma.kelas.create({
+    data: { rpkpsId: rpkps.id, kode: "DRAF-AI" },
+    select: { id: true },
+  });
+  const evaluasiDraf = await prisma.evaluasiMk.create({
+    data: { kelasId: kelasDraf.id },
+    select: { id: true },
+  });
+  const AKAR = "Praktikum hanya dua pekan, sehingga tahapan ini tidak pernah tuntas dilatih.";
+  const temuanDraf = await prisma.temuanEvaluasi.create({
+    data: {
+      evaluasiId: evaluasiDraf.id,
+      tingkat: "SUB_CPMK",
+      kode: subDraf.kode,
+      akarMasalah: AKAR,
+      tindakan: "Menambah satu pekan praktikum pada rencana semester berikutnya.",
+    },
+    select: { id: true },
+  });
+
+  const usulanDraf = await prisma.usulanRevisi.create({
+    data: {
+      kurikulumId: kurikulum.id,
+      mataKuliahId: mk.id,
+      judul: "Draf AI: penajaman rumusan",
+      latar: "Menguji jalur draf AI dari temuan yang sudah ada menjadi butir usulan.",
+      diajukanOlehId: pengguna.id,
+    },
+    select: { id: true },
+  });
+
+  const CATATAN = "Dosen pengampu menilai tahapan ini terlalu tinggi levelnya untuk waktu yang tersedia.";
+  const bahanDraf = await rakitBahanDraf(prisma, {
+    kurikulumId: kurikulum.id,
+    mataKuliahId: mk.id,
+    catatanDosen: CATATAN,
+  });
+
+  const refEvaluasi = `E:${temuanDraf.id}`;
+  cek(
+    "katalog dasar memuat temuan evaluasi beserta akar masalahnya",
+    bahanDraf !== null &&
+      bahanDraf.bahan.dasar.some(
+        (d) => d.ref === refEvaluasi && d.kutipan === AKAR && d.subCpmkKode === subDraf.kode,
+      ),
+    `${bahanDraf?.bahan.dasar.length ?? 0} dasar`,
+  );
+  cek(
+    "rujukan dasar unik — dua sumber tidak pernah bertabrakan kodenya",
+    bahanDraf !== null &&
+      new Set(bahanDraf.bahan.dasar.map((d) => d.ref)).size === bahanDraf.bahan.dasar.length,
+  );
+
+  if (bahanDraf) {
+    /*
+     * "Keluaran model" ditulis tangan: satu butir sah, satu berdasar palsu,
+     * dan satu yang mengarang kutipan catatan dosen. Ketiganya melewati
+     * penyaring yang sama dengan yang dipakai Server Action.
+     */
+    const KARANGAN = "Kaprodi sendiri yang meminta perubahan ini.";
+    const drafModel: ButirDraf[] = [
+      {
+        jenis: "SUB_RUMUSAN",
+        cpmkKode: subDraf.cpmk.kode,
+        subCpmkKode: subDraf.kode,
+        rumusan: "Mahasiswa mampu menerapkan tahapan tersebut pada satu studi kasus utuh.",
+        levelBloom: "C3",
+        alasan: "Capaian rendah dua semester berturut-turut karena latihan tidak pernah tuntas.",
+        dasarRef: [refEvaluasi],
+        // Model menempelkan kalimatnya sendiri lewat medan yang tidak ada pada
+        // skema; yang tersimpan harus tetap kalimat katalog.
+        kutipanCatatan: "tahapan ini terlalu tinggi levelnya untuk waktu yang tersedia",
+      },
+      {
+        jenis: "SUB_RUMUSAN",
+        cpmkKode: subDraf.cpmk.kode,
+        subCpmkKode: subDraf.kode,
+        rumusan: "Mahasiswa mampu menganalisis tahapan tersebut secara menyeluruh.",
+        levelBloom: "C4",
+        alasan: "Perlu dinaikkan levelnya agar sepadan dengan mata kuliah lanjut.",
+        dasarRef: ["E:temuan-yang-tidak-pernah-ada"],
+      },
+      {
+        jenis: "SUB_MINGGU",
+        cpmkKode: subDraf.cpmk.kode,
+        subCpmkKode: subDraf.kode,
+        mingguDisarankan: [6, 7],
+        alasan: "Digeser agar praktikumnya mendapat dua pekan penuh.",
+        kutipanCatatan: KARANGAN,
+      },
+    ];
+
+    const saring = saringDrafUsulan(bahanDraf.bahan, drafModel);
+    cek(
+      "butir berdasar palsu ditolak sebelum menyentuh basis data",
+      saring.butir.length === 1 &&
+        saring.dibuang.map((d) => d.kode).includes("D-DASAR-KARANGAN") &&
+        saring.dibuang.map((d) => d.kode).includes("D-KUTIPAN-KARANGAN"),
+      `lolos ${saring.butir.length}, dibuang ${saring.dibuang.map((d) => d.kode).join(", ")}`,
+    );
+
+    const tulis = await tulisButirDraf(prisma, {
+      usulanId: usulanDraf.id,
+      butir: saring.butir,
+      refTemuanEvaluasi: bahanDraf.refTemuanEvaluasi,
+    });
+
+    const tersimpan = await prisma.butirUsulan.findMany({
+      where: { usulanId: usulanDraf.id },
+      include: { dasar: true },
+    });
+    cek(
+      "butir tersimpan bertanda sumber AI",
+      tersimpan.length === 1 && tersimpan[0].sumber === "AI",
+      `${tersimpan.length} butir · ${tersimpan[0]?.sumber}`,
+    );
+    cek(
+      "KUTIPAN YANG TERSIMPAN BERASAL DARI KATALOG, BUKAN DARI MODEL",
+      tersimpan[0]?.dasar.some((d) => d.jenis === "TEMUAN_EVALUASI" && d.kutipan === AKAR) ===
+        true &&
+        tersimpan[0]?.dasar.every((d) => d.kutipan !== KARANGAN) === true,
+      tersimpan[0]?.dasar.map((d) => d.jenis).join(", "),
+    );
+    cek(
+      "kutipan catatan dosen tersimpan verbatim, sebagai dasar tersendiri",
+      tersimpan[0]?.dasar.some(
+        (d) => d.jenis === "CATATAN_DOSEN" && CATATAN.includes(d.kutipan),
+      ) === true,
+    );
+
+    const temuanSesudah = await prisma.temuanEvaluasi.findUniqueOrThrow({
+      where: { id: temuanDraf.id },
+      select: { usulanId: true },
+    });
+    cek(
+      "temuan evaluasi tertaut ke usulannya — siklus PPEPP tertutup",
+      temuanSesudah.usulanId === usulanDraf.id && tulis.temuanTertaut === 1,
+      `${temuanSesudah.usulanId === usulanDraf.id}`,
+    );
+
+    const bahanUlang = await rakitBahanDraf(prisma, {
+      kurikulumId: kurikulum.id,
+      mataKuliahId: mk.id,
+      catatanDosen: null,
+    });
+    cek(
+      "temuan yang sudah diteruskan tidak ditawarkan lagi pada draf berikutnya",
+      bahanUlang !== null && !bahanUlang.bahan.dasar.some((d) => d.ref === refEvaluasi),
+    );
   }
 
   writeFileSync("uji/keluaran-rpkps.docx", buffer);

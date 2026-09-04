@@ -5,7 +5,35 @@ import {
   buatBukuAjarDocx,
   namaBerkasBuku,
   type BukuUntukCetak,
+  type GambarCetak,
 } from "./buku-ajar-docx";
+
+/** PNG 1x1 yang sah — cukup untuk diselipkan ke berkas dan dibaca kembali. */
+const PNG_1PX = new Uint8Array(
+  Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+    "base64",
+  ),
+);
+
+const SVG_DIAGRAM =
+  `<svg viewBox="0 0 800 400"><rect x="10" y="10" width="100" height="40" fill="none" ` +
+  `stroke="#111827" stroke-width="1.5"/></svg>`;
+
+function gambar(ubah: Partial<GambarCetak> = {}): GambarCetak {
+  return {
+    nomor: 1,
+    judul: "Alur penelusuran pohon biner",
+    altTeks: "Bagan alur penelusuran",
+    letak: "1. Pengertian Rekursi",
+    png: PNG_1PX,
+    svg: SVG_DIAGRAM,
+    lebarPx: 800,
+    tinggiPx: 400,
+    dariModelGambar: false,
+    ...ubah,
+  };
+}
 
 /**
  * Uji pencetak buku ajar.
@@ -37,6 +65,9 @@ function buku(ubah: Partial<BukuUntukCetak> = {}): BukuUntukCetak {
     pendahuluan: "Struktur data adalah cara menyimpan data.",
     glosarium: [{ istilah: "Rekursi", arti: "Fungsi yang memanggil dirinya." }],
     biografi: "Penulis mengampu mata kuliah ini sejak 2020.",
+    sinopsis: "Buku ini memperkenalkan struktur data dasar bagi mahasiswa semester tiga.",
+    kataKunci: ["struktur data", "rekursi"],
+    taksiranHalaman: 62,
     mataKuliah: { kode: "TI214", nama: "Struktur Data" },
     prodi: "Teknik Informatika",
     pustaka: [{ nomor: 1, jenis: "UTAMA", teks: "Cormen, T. (2022). Introduction to Algorithms." }],
@@ -49,6 +80,7 @@ function buku(ubah: Partial<BukuUntukCetak> = {}): BukuUntukCetak {
         studiKasus: "Menara Hanoi.",
         ringkasan: "Bab ini membahas rekursi.",
         belumDisunting: false,
+        gambar: [gambar()],
         latihan: [
           { nomor: 1, soal: "Jelaskan kasus dasar.", kunci: KUNCI_1 },
           { nomor: 2, soal: "Hitung kompleksitasnya.", kunci: KUNCI_2 },
@@ -62,6 +94,7 @@ function buku(ubah: Partial<BukuUntukCetak> = {}): BukuUntukCetak {
         studiKasus: null,
         ringkasan: null,
         belumDisunting: true,
+        gambar: [],
         latihan: [],
       },
     ],
@@ -178,5 +211,113 @@ describe("buku ajar .docx", () => {
       "Struktur Data dan Algoritma - tanpa kunci.docx",
     );
     assert.ok(!namaBerkasBuku(buku({ judul: 'A/B:C*D?' }), {}).match(/[/\\?%*:|"<>]/));
+  });
+});
+
+describe("gambar di dalam buku", () => {
+  it("berkas memuat media, dan keterangannya bernomor bab.urutan", async () => {
+    const berkas = await buatBukuAjarDocx(buku());
+    const zip = await JSZip.loadAsync(berkas);
+    const media = Object.keys(zip.files).filter((n) => n.startsWith("word/media/"));
+    assert.ok(media.length > 0, "tidak ada berkas media di dalam .docx");
+
+    const teks = await teksBerkas(berkas);
+    assert.ok(teks.includes("Gambar 1.1"), "keterangan gambar tidak bernomor");
+    assert.ok(teks.includes("Alur penelusuran pohon biner"));
+  });
+
+  it("SVG disematkan BESERTA cadangan PNG-nya", async () => {
+    /*
+     * Bentuk yang diwajibkan `docx`, bukan pilihan kita: Word memakai SVG-nya
+     * bila mampu, pembaca lama jatuh ke PNG. Menghilangkan salah satunya
+     * membuat sebagian pembaca melihat bingkai kosong.
+     */
+    const zip = await JSZip.loadAsync(await buatBukuAjarDocx(buku()));
+    const media = Object.keys(zip.files).filter((n) => n.startsWith("word/media/"));
+    assert.ok(media.some((n) => n.endsWith(".svg")), "SVG tidak disematkan");
+    assert.ok(media.some((n) => n.endsWith(".png")), "cadangan PNG tidak disematkan");
+  });
+
+  it("Daftar Gambar memuat setiap gambar", async () => {
+    const teks = await teksBerkas(await buatBukuAjarDocx(buku()));
+    assert.ok(teks.includes("DAFTAR GAMBAR"));
+  });
+
+  it("buku tanpa gambar tidak mencetak halaman Daftar Gambar", async () => {
+    const kosong = buku({ bab: buku().bab.map((b) => ({ ...b, gambar: [] })) });
+    const teks = await teksBerkas(await buatBukuAjarDocx(kosong));
+    assert.ok(!teks.includes("DAFTAR GAMBAR"));
+  });
+
+  it("GAMBAR YANG LETAKNYA TIDAK DIKENALI TETAP TERCETAK", async () => {
+    // Kegagalan paling mahal: dosen menyetujui gambar, mencetak bukunya, dan
+    // menemukan gambarnya hilang tanpa satu pesan pun.
+    const asing = buku({
+      bab: [
+        {
+          ...buku().bab[0],
+          gambar: [gambar({ letak: "Subbab yang tidak pernah ada" })],
+        },
+      ],
+    });
+    const teks = await teksBerkas(await buatBukuAjarDocx(asing));
+    assert.ok(teks.includes("Alur penelusuran pohon biner"), "gambar hilang");
+    assert.ok(teks.includes("Gambar 1.1"));
+  });
+
+  it("ilustrasi AI membawa keterangan asalnya, yang lain tidak", async () => {
+    // docs/17 I5: buku ini beredar dengan nama dosen sebagai penulis.
+    const biasa = await teksBerkas(await buatBukuAjarDocx(buku()));
+    assert.ok(!biasa.includes("dihasilkan AI"));
+
+    const dariModel = buku({
+      bab: [{ ...buku().bab[0], gambar: [gambar({ dariModelGambar: true, svg: null })] }],
+    });
+    const teks = await teksBerkas(await buatBukuAjarDocx(dariModel));
+    assert.ok(teks.includes("dihasilkan AI"), "asal ilustrasi AI tidak diungkap");
+  });
+
+  it("gambar ikut pada cetakan satu bab", async () => {
+    const teks = await teksBerkas(await buatBukuAjarDocx(buku(), { bab: 1 }));
+    assert.ok(teks.includes("Alur penelusuran pohon biner"));
+    // Daftar Gambar tidak ikut — ia bagian kelengkapan buku.
+    assert.ok(!teks.includes("DAFTAR GAMBAR"));
+  });
+});
+
+describe("kesiapan terbit di dalam berkas", () => {
+  it("blok KDT dicetak bila ISBN sudah ada", async () => {
+    const teks = await teksBerkas(await buatBukuAjarDocx(buku()));
+    assert.ok(teks.includes("KATALOG DALAM TERBITAN"));
+    assert.ok(teks.includes("62 halaman"));
+    assert.ok(teks.includes("Perpustakaan Nasional"));
+  });
+
+  it("BLOK KDT TIDAK DICETAK SEBELUM ISBN ADA", async () => {
+    /*
+     * Halaman KDT pada buku yang belum didaftarkan menjanjikan sesuatu yang
+     * belum terjadi, dan penerbit yang menerimanya harus membuangnya sendiri.
+     */
+    const teks = await teksBerkas(await buatBukuAjarDocx(buku({ isbn: null })));
+    assert.ok(!teks.includes("KATALOG DALAM TERBITAN"));
+  });
+
+  it("sinopsis dan kata kunci dicetak sebagai lampiran terakhir", async () => {
+    const teks = await teksBerkas(await buatBukuAjarDocx(buku()));
+    assert.ok(teks.includes("SINOPSIS"));
+    assert.ok(teks.includes("memperkenalkan struktur data dasar"));
+    assert.ok(teks.includes("struktur data; rekursi"));
+  });
+
+  it("buku tanpa sinopsis tidak mencetak halaman kosong", async () => {
+    const teks = await teksBerkas(
+      await buatBukuAjarDocx(buku({ sinopsis: null, kataKunci: [] })),
+    );
+    assert.ok(!teks.includes("SINOPSIS"));
+  });
+
+  it("cetakan satu bab tidak membawa lampiran penerbit", async () => {
+    const teks = await teksBerkas(await buatBukuAjarDocx(buku(), { bab: 1 }));
+    assert.ok(!teks.includes("SINOPSIS"));
   });
 });

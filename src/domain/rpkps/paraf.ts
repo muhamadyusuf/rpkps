@@ -94,3 +94,43 @@ export function capRonde<T extends { versi: number; peran: PeranTtdRingkas }>(
 ): T | null {
   return tandaTangan.find((t) => t.versi === versi && t.peran === peran) ?? null;
 }
+
+/**
+ * Urutan rantai pengesahan, dan satu-satunya tempat urutan itu ditulis.
+ *
+ * Bukan sekadar selera tampilan: urutan inilah yang membuat halaman pengesahan
+ * terbaca sebagai rantai — koordinator menandatangani a.n tim penyusun, Kaprodi
+ * menyetujui, Penjaminan Mutu menyatakan sesuai standar. Membaliknya membuat
+ * dokumen tampak disahkan lebih dulu lalu disetujui belakangan.
+ *
+ * `PENGAMPU` sengaja di luar daftar: paraf anggota tim mendahului rantai ini,
+ * dan tempatnya kolom "Tanda Tangan" pada tabel tim, bukan blok pengesahan.
+ */
+export const RANTAI_PENGESAHAN = ["KOORDINATOR", "KAPRODI", "PENJAMINAN_MUTU"] as const;
+
+export type PeranPengesah = (typeof RANTAI_PENGESAHAN)[number];
+
+export interface SlotPengesah<T> {
+  peran: PeranPengesah;
+  /** `null` berarti belum ditandatangani — dan blok itu memang harus kosong. */
+  cap: T | null;
+}
+
+/**
+ * Ketiga cap rantai pengesahan pada satu ronde, selalu bertiga dan selalu
+ * berurutan.
+ *
+ * Selalu bertiga karena yang KOSONG justru bagian yang paling perlu terbaca:
+ * dokumen lama yang terbit sebelum rantai ini ada tidak diberi tanda tangan
+ * susulan (docs/14 §5), dan blok kosonglah yang mengatakannya — bukan daftar
+ * pendek yang menyamarkan ketiadaannya.
+ */
+export function rantaiPengesahan<T extends { versi: number; peran: PeranTtdRingkas }>(
+  tandaTangan: readonly T[],
+  versi: number,
+): SlotPengesah<T>[] {
+  return RANTAI_PENGESAHAN.map((peran) => ({
+    peran,
+    cap: capRonde(tandaTangan, versi, peran),
+  }));
+}

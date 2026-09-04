@@ -7,7 +7,14 @@ import {
   type KelengkapanSiap,
   type SlideSiap,
 } from "@/domain/bahan-ajar/keluaran";
+import {
+  rapikanDiagram,
+  type DiagramSiap,
+} from "@/domain/bahan-ajar/keluaran-diagram";
+import { JENIS_MERMAID } from "@/domain/bahan-ajar/mermaid-aman";
+import { PALET, TEBAL_GARIS, UKURAN_TEKS_MINIMAL } from "@/domain/bahan-ajar/gaya-svg";
 import type { BahasaBuku, TemuanBahanAjar } from "@/domain/bahan-ajar/tipe";
+import { GalatAi } from "./galat";
 import { jalankanTugasAi } from "./gerbang";
 import { pakaiKredensial } from "./kredensial";
 import {
@@ -17,6 +24,14 @@ import {
   SkemaSlideBab,
   type KeluaranKerangkaBuku,
 } from "./skema-buku";
+import { SkemaDiagram } from "./skema-diagram";
+import {
+  SkemaSinopsis,
+  SkemaSuntingBab,
+  SkemaTinjauNaskah,
+  type KeluaranSinopsis,
+} from "./skema-sunting";
+import { BATAS_KATA_KALIMAT, BATAS_KATA_PARAGRAF } from "@/domain/bahan-ajar/naskah";
 
 /**
  * Tugas AI: menyusun buku ajar dari RPKPS — docs/16 §3.
@@ -27,6 +42,7 @@ import {
  *   2. BUKU_BAB          per bab   uraian, studi kasus, ringkasan, latihan
  *   3. BUKU_SLIDE        per bab   slide beserta catatan pembicara
  *   4. BUKU_KELENGKAPAN  sekali    prakata, pendahuluan, glosarium, biografi
+ *   5. BUKU_DIAGRAM      per bab   diagram vektor sebagai KODE (docs/17)
  *
  * # Mengapa satu panggilan per bab
  *
@@ -200,6 +216,170 @@ kalimat hak cipta. Itu diisi dosen, dan nomor yang salah akan ikut beredar
 bersama bukunya.`;
 
 /**
+ * Tahap 5: diagram bab — docs/17.
+ *
+ * Panduan terpanjang di berkas ini, dan panjangnya disengaja. Permintaan
+ * dosennya berbunyi "gambarnya jangan terlihat seperti hasil AI", dan yang
+ * membuat sebuah gambar terbaca begitu dapat disebut satu per satu: gradien,
+ * bayangan, garis yang menebal-menipis, warna yang berganti-ganti, label
+ * sekecil apa pun asal muat. Semuanya disebut di sini — dan semuanya juga
+ * ditegakkan `periksaGayaSvg` di domain, karena panduan dapat dilanggar.
+ */
+const PANDUAN_DIAGRAM = `${PANDUAN_DASAR}
+
+# TAHAP 5 DARI 5 — DIAGRAM SATU BAB
+
+Isi bab sudah final dan diberikan kepada Anda. Susun 2-5 diagram yang
+BENAR-BENAR MENJELASKAN isinya. Bab yang tidak menuntut gambar boleh Anda
+kembalikan dengan daftar kosong — diagram yang dipaksakan lebih buruk daripada
+halaman tanpa gambar, dan tidak ada yang menilai Anda dari jumlahnya.
+
+Anda TIDAK menghasilkan gambar. Anda menulis KODE diagram, dan mesin yang
+menggambarnya. Karena itu label pada diagram Anda adalah teks sungguhan yang
+selalu terbaca — bukan bentuk yang menyerupai huruf.
+
+# Memilih bentuk
+
+Pakai MERMAID bila tata letaknya boleh dihitung mesin:
+alur dan percabangan keputusan, diagram urutan, diagram keadaan, relasi
+entitas, diagram kelas, garis waktu. Jenis yang boleh: ${JENIS_MERMAID.join(", ")}.
+
+Pakai SVG bila POSISI membawa arti dan karena itu tidak boleh dihitung mesin:
+struktur data berindeks (larik, tumpukan, antrean), pohon yang letak simpulnya
+bermakna, sumbu koordinat dan grafik fungsi, diagram blok berskala, skema
+teknis.
+
+Memaksakan Mermaid pada hal yang posisinya bermakna menghasilkan graf yang
+menjelaskan lebih sedikit daripada satu larik bernomor. Memaksakan SVG pada
+alur bercabang menghasilkan label yang bertumpuk.
+
+# Aturan Mermaid
+
+- Jangan menulis arahan konfigurasi (%%{init: ...}%%). Temanya dipasang buku.
+- Jangan menulis style, classDef, atau linkStyle. Warnanya milik buku.
+- Jangan menulis click maupun tautan. Diagram cetak tidak diklik siapa pun.
+- Jangan memakai markah HTML di dalam label. Ia tidak akan tampil sama sekali.
+
+# Aturan SVG - CETAKAN GAYA
+
+Setiap butir di bawah diperiksa mesin. Yang melanggar DIBUANG, bukan
+diperbaiki, dan babnya kehilangan gambar itu.
+
+- viewBox WAJIB, lebarnya 800 satuan. JANGAN menulis width maupun height pada
+  tag svg - lebar cetak yang menentukan, bukan gambarnya.
+- Tanpa gradien, tanpa filter, tanpa bayangan, tanpa transparansi. Ketiganya
+  adalah rupa gambar bikinan mesin dan tidak menjelaskan apa pun yang tidak
+  dapat dijelaskan garis serta isian rata.
+- Warna HANYA dari palet ini: ${[...PALET].filter((w) => w.startsWith("#")).join(", ")},
+  ditambah "none". Tidak ada warna lain, sedekat apa pun.
+- Ketebalan garis HANYA ${[...TEBAL_GARIS].join(" atau ")}.
+- Teks memakai font-family="Times New Roman, Liberation Serif, serif" dan
+  font-size sekurang-kurangnya ${UKURAN_TEKS_MINIMAL}.
+- Teks ditulis sebagai <text>, TIDAK PERNAH sebagai <foreignObject>. Label
+  foreignObject tidak dirender sama sekali pada berkas cetak.
+- Tidak ada <script>, <image>, <style>, animasi, maupun rujukan ke alamat luar.
+- Susun tata letaknya sendiri dengan hati-hati: hitung lebar teks kira-kira 0,5
+  kali font-size per aksara, dan pastikan tidak ada label yang bertumpuk atau
+  keluar dari viewBox.
+
+# Medan lain
+
+- judul: keterangan gambar, satu frasa. Tanpa kata "Gambar" dan tanpa nomor -
+  nomornya diberikan sistem.
+- alt: satu kalimat yang menjelaskan isi gambar bagi pembaca yang tidak dapat
+  melihatnya. Bukan pengulangan judul.
+- letak: judul subbab tempat gambar itu berada, DISALIN PERSIS dari uraian bab.
+  Yang tidak cocok akan jatuh ke akhir bab.`;
+
+/**
+ * Tahap penyuntingan naskah — docs/19.
+ *
+ * Model bekerja sebagai EDITOR, dan panduannya menyebut itu terang-terangan.
+ * Yang membedakannya dari tahap penulisan bukan nada melainkan BENTUK
+ * KELUARANNYA: skema hanya menerima pasangan kutipan–pengganti–alasan, jadi
+ * "bab yang sudah saya perbaiki" tidak punya tempat untuk dituliskan.
+ */
+const PANDUAN_SUNTING = `${PANDUAN_DASAR}
+
+# TAHAP PENYUNTINGAN — ANDA EDITOR, BUKAN PENULIS
+
+Naskah bab sudah ada. Anda TIDAK menulis ulang dan TIDAK menambah isi baru.
+Yang Anda lakukan persis pekerjaan editor naskah: menunjuk potongan tertentu,
+mengusulkan penggantinya, dan menyebut alasannya. Dosen yang memutuskan.
+
+Untuk tiap usulan:
+
+- kutipan: SALIN PERSIS potongan dari uraian bab, apa adanya, termasuk tanda
+  bacanya. Bila kutipan Anda tidak dapat ditemukan kembali di dalam naskah,
+  usulan itu tidak dapat diterapkan dan terbuang percuma. Salin satu kalimat
+  utuh, bukan sepotong frasa yang muncul di banyak tempat.
+- usul: penggantinya. Kosongkan HANYA bila potongan itu sebaiknya dihapus.
+- alasan: satu kalimat, menyebut APA yang diperbaiki. "Lebih baik" bukan
+  alasan; "kalimat 40 kata dipecah menjadi dua" adalah alasan.
+- jenis: BAHASA, ISTILAH, PENGULANGAN, TUJUAN, atau STRUKTUR.
+
+# Yang layak diusulkan
+
+- Kalimat yang membingungkan, berbelit, atau bermakna ganda.
+- Istilah yang berganti-ganti untuk satu konsep yang sama.
+- Penjelasan yang melompat: kesimpulan tanpa langkah yang menuju ke sana.
+- Bagian yang tidak menopang satu pun tujuan pembelajaran bab ini.
+- Kalimat lebih dari ${BATAS_KATA_KALIMAT} kata dan paragraf lebih dari
+  ${BATAS_KATA_PARAGRAF} kata — TETAPI hanya bila panjangnya memang
+  menyulitkan; panjang saja sudah dihitung mesin dan tidak perlu Anda laporkan.
+
+# Yang TIDAK layak diusulkan
+
+- Perubahan selera: sinonim yang sama baiknya, susunan kalimat yang sama
+  jelasnya. Setiap usulan menuntut waktu baca dosen; usulan yang tidak
+  memperbaiki apa pun membuatnya berhenti membaca sisanya.
+- Menambah pokok bahasan baru, contoh baru, atau sumber baru. Itu penulisan.
+- Mengubah rumusan tujuan pembelajaran. Tujuan berasal dari buku kurikulum.
+- Perbaikan yang sudah dikerjakan mesin: panjang kalimat, ejaan istilah yang
+  tidak seragam, dan kata kerja tujuan yang tidak muncul di uraian.
+
+Delapan usulan yang benar-benar memperbaiki lebih berguna daripada tiga puluh
+yang harus disaring sendiri oleh dosen. Bab yang memang sudah baik boleh Anda
+kembalikan dengan daftar kosong.`;
+
+/** Tinjauan lintas bab: pekerjaan yang tidak dapat dilihat dari satu bab. */
+const PANDUAN_TINJAU = `${PANDUAN_DASAR}
+
+# TAHAP TINJAUAN NASKAH — SELURUH BUKU SEKALIGUS
+
+Anda diberi judul dan RINGKASAN tiap bab beserta daftar istilah yang dipakai.
+Yang Anda cari hanya hal-hal yang MUSTAHIL terlihat dari satu bab saja:
+
+- Pengulangan: dua bab menjelaskan pokok yang sama dari awal.
+- Lompatan urutan: sebuah istilah dipakai jauh sebelum bab yang
+  mendefinisikannya.
+- Istilah yang sebaiknya diseragamkan di seluruh buku, beserta bentuk mana
+  yang sebaiknya dipakai.
+- Bab yang urutannya lebih masuk akal bila dipindahkan.
+
+Sebutkan nomor bab yang paling bersangkutan; isi 0 bila temuannya menyangkut
+seluruh buku. Anda TIDAK mengutip kalimat pada tahap ini — Anda hanya melihat
+ringkasan, dan mengarang kutipan berarti mengarang naskah.
+
+Jangan melaporkan hal yang hanya dapat dinilai dari naskah penuh, dan jangan
+mengulang temuan yang sama untuk beberapa bab sekaligus.`;
+
+/** Sinopsis sampul belakang dan kata kunci — bahan penerbit. */
+const PANDUAN_SINOPSIS = `${PANDUAN_DASAR}
+
+# SINOPSIS SAMPUL BELAKANG
+
+Susun satu paragraf 80-120 kata yang dibaca calon pembaca di belakang sampul:
+untuk siapa buku ini, apa yang dibahasnya, dan apa yang akan dikuasai
+pembacanya setelah menuntaskannya. Menjelaskan, bukan memuji — hindari kata
+seperti "komprehensif", "terlengkap", dan "wajib dimiliki".
+
+Tambahkan 5-8 kata kunci: istilah bidang yang benar-benar dibahas buku ini,
+yang akan dipakai orang untuk menemukannya di katalog perpustakaan.
+
+Anda TIDAK menuliskan penerbit, tahun terbit, ISBN, maupun harga.`;
+
+/**
  * Anggaran keluaran tiap tahap.
  *
  * Diturunkan dari kebutuhan nyata: satu bab 1.200–2.000 kata prosa Indonesia
@@ -211,6 +391,14 @@ const ANGGARAN = {
   bab: 12_000,
   slide: 5_000,
   kelengkapan: 8_000,
+  // Kode SVG boros token: satu diagram sedang berkisar 1.500 token, dan
+  // limanya sudah mendekati anggaran ini.
+  diagram: 10_000,
+  // Penyuntingan mengembalikan kutipan BESERTA penggantinya, jadi tiap usulan
+  // menghabiskan dua kali panjang potongannya.
+  sunting: 8_000,
+  tinjau: 6_000,
+  sinopsis: 2_000,
 } as const;
 
 const NAMA_BAHASA: Record<BahasaBuku, string> = {
@@ -397,6 +585,291 @@ export async function susunKelengkapan(opsi: {
 
   const { hasil, catatan } = rapikanKelengkapan(jawaban.data);
   return { hasil, catatan, penyedia: jawaban.penyedia, model: jawaban.model };
+}
+
+export async function susunDiagramBab(opsi: {
+  penggunaId: string;
+  bukuId: string;
+  bahasa: BahasaBuku;
+  bab: {
+    nomor: number;
+    judul: string;
+    tujuan: string[];
+    uraian: string;
+    /** Judul subbab yang ada di bab ini; `letak` harus salah satunya. */
+    subbab: string[];
+  };
+  kredensialId?: string | null;
+}): Promise<HasilTugasBuku<DiagramSiap[]>> {
+  const terpilih = await pakaiKredensial(opsi.penggunaId, opsi.kredensialId);
+
+  const jawaban = await jalankanTugasAi({
+    penggunaId: opsi.penggunaId,
+    entitasId: opsi.bukuId,
+    terpilih,
+    kodeTugas: "BUKU_DIAGRAM",
+    panduan: PANDUAN_DIAGRAM,
+    permintaan: [
+      `Susun diagram untuk bab ${opsi.bab.nomor}.`,
+      arahanBahasa(opsi.bahasa),
+      bungkus("bab", opsi.bab),
+    ].join("\n\n"),
+    skema: SkemaDiagram,
+    maxTokens: ANGGARAN.diagram,
+  });
+
+  /*
+   * Diagram yang tidak lolos DIBUANG di domain, tidak ditambal. Menambal SVG
+   * berarti menulis ulang gambar sampai ia lolos pemeriksaan, dan hasilnya
+   * gambar yang tidak pernah dilihat siapa pun sebelum tercetak.
+   */
+  const { hasil, catatan } = rapikanDiagram(jawaban.data.gambar, {
+    bab: opsi.bab.nomor,
+  });
+
+  return { hasil, catatan, penyedia: jawaban.penyedia, model: jawaban.model };
+}
+
+export interface UsulanSuntingAi {
+  /** Kutipan persis dari uraian; null untuk temuan lintas bab. */
+  kutipan: string | null;
+  usul: string;
+  alasan: string;
+  jenis: "BAHASA" | "ISTILAH" | "PENGULANGAN" | "TUJUAN" | "STRUKTUR";
+  /** Nomor bab; null bila menyangkut seluruh buku. */
+  bab: number | null;
+}
+
+/**
+ * Menyunting satu bab — docs/19 §2.2.
+ *
+ * Mengembalikan USULAN, tidak pernah naskah. Kutipan yang tidak dapat
+ * ditemukan kembali di dalam uraian DIBUANG di sini: usulan yang tidak dapat
+ * diterapkan hanya menghabiskan waktu baca dosen, dan yang paling sering
+ * menyebabkannya adalah model yang merapikan kutipannya sendiri sambil
+ * menyalin.
+ */
+export async function suntingBab(opsi: {
+  penggunaId: string;
+  bukuId: string;
+  bahasa: BahasaBuku;
+  bab: { nomor: number; judul: string; tujuan: string[]; uraian: string };
+  kredensialId?: string | null;
+}): Promise<HasilTugasBuku<UsulanSuntingAi[]>> {
+  const terpilih = await pakaiKredensial(opsi.penggunaId, opsi.kredensialId);
+
+  const jawaban = await jalankanTugasAi({
+    penggunaId: opsi.penggunaId,
+    entitasId: opsi.bukuId,
+    terpilih,
+    kodeTugas: "SUNTING_BAB",
+    panduan: PANDUAN_SUNTING,
+    permintaan: [
+      `Sunting bab ${opsi.bab.nomor}.`,
+      arahanBahasa(opsi.bahasa),
+      bungkus("bab", opsi.bab),
+    ].join("\n\n"),
+    skema: SkemaSuntingBab,
+    maxTokens: ANGGARAN.sunting,
+  });
+
+  const hasil: UsulanSuntingAi[] = [];
+  let takDitemukan = 0;
+
+  for (const u of jawaban.data.usulan) {
+    const kutipan = u.kutipan.trim();
+    const alasan = u.alasan.trim();
+    if (!kutipan || !alasan) continue;
+    if (!opsi.bab.uraian.includes(kutipan)) {
+      takDitemukan++;
+      continue;
+    }
+    hasil.push({ kutipan, usul: u.usul.trim(), alasan, jenis: u.jenis, bab: opsi.bab.nomor });
+  }
+
+  const catatan: TemuanBahanAjar[] =
+    takDitemukan > 0
+      ? [
+          {
+            kode: "SU-KUTIPAN-TAK-DITEMUKAN",
+            tingkat: "INFO",
+            params: { jumlah: takDitemukan },
+            bab: opsi.bab.nomor,
+          },
+        ]
+      : [];
+
+  return { hasil, catatan, penyedia: jawaban.penyedia, model: jawaban.model };
+}
+
+/** Tinjauan lintas bab, dari RINGKASAN — bukan naskah penuh (docs/19 §2.2). */
+export async function tinjauNaskah(opsi: {
+  penggunaId: string;
+  bukuId: string;
+  bahasa: BahasaBuku;
+  judulBuku: string;
+  bab: { nomor: number; judul: string; ringkasan: string; istilah: string[] }[];
+  kredensialId?: string | null;
+}): Promise<HasilTugasBuku<UsulanSuntingAi[]>> {
+  const terpilih = await pakaiKredensial(opsi.penggunaId, opsi.kredensialId);
+
+  const jawaban = await jalankanTugasAi({
+    penggunaId: opsi.penggunaId,
+    entitasId: opsi.bukuId,
+    terpilih,
+    kodeTugas: "TINJAU_NASKAH",
+    panduan: PANDUAN_TINJAU,
+    permintaan: [
+      `Tinjau naskah buku "${opsi.judulBuku}".`,
+      arahanBahasa(opsi.bahasa),
+      bungkus("bab", opsi.bab),
+    ].join("\n\n"),
+    skema: SkemaTinjauNaskah,
+    maxTokens: ANGGARAN.tinjau,
+  });
+
+  const nomorSah = new Set(opsi.bab.map((b) => b.nomor));
+  const hasil: UsulanSuntingAi[] = jawaban.data.temuan
+    .filter((t) => t.usul.trim() && t.alasan.trim())
+    .map((t) => ({
+      kutipan: null,
+      usul: t.usul.trim(),
+      alasan: t.alasan.trim(),
+      jenis: t.jenis,
+      // Nomor bab yang tidak ada di buku diperlakukan sebagai temuan
+      // seluruh buku, bukan dibuang: isinya tetap dapat berguna.
+      bab: nomorSah.has(t.bab) ? t.bab : null,
+    }));
+
+  return { hasil, catatan: [], penyedia: jawaban.penyedia, model: jawaban.model };
+}
+
+/** Sinopsis sampul belakang beserta kata kuncinya — docs/19 §4.1. */
+export async function susunSinopsis(opsi: {
+  penggunaId: string;
+  bukuId: string;
+  konteks: KonteksBuku;
+  ringkasanBab: { nomor: number; judul: string; ringkasan: string }[];
+  kredensialId?: string | null;
+}): Promise<HasilTugasBuku<KeluaranSinopsis>> {
+  const terpilih = await pakaiKredensial(opsi.penggunaId, opsi.kredensialId);
+
+  const jawaban = await jalankanTugasAi({
+    penggunaId: opsi.penggunaId,
+    entitasId: opsi.bukuId,
+    terpilih,
+    kodeTugas: "BUKU_SINOPSIS",
+    panduan: PANDUAN_SINOPSIS,
+    permintaan: [
+      "Susun sinopsis sampul belakang untuk buku berikut.",
+      arahanBahasa(opsi.konteks.bahasa),
+      bungkus("buku", ringkasBuku(opsi.konteks)),
+      bungkus("bab", opsi.ringkasanBab),
+    ].join("\n\n"),
+    skema: SkemaSinopsis,
+    maxTokens: ANGGARAN.sinopsis,
+  });
+
+  return {
+    hasil: {
+      sinopsis: jawaban.data.sinopsis.trim(),
+      kata_kunci: jawaban.data.kata_kunci
+        .map((x) => x.trim())
+        .filter(Boolean)
+        .slice(0, 8),
+    },
+    catatan: [],
+    penyedia: jawaban.penyedia,
+    model: jawaban.model,
+  };
+}
+
+/**
+ * Ilustrasi raster — docs/17 §6.
+ *
+ * Bukan jalur utama, dan syaratnya disebut terang-terangan:
+ *
+ * - **Hanya penyedia yang mendukung.** `gambar()` opsional pada antarmuka
+ *   `Penyedia`; ketiadaannya menghasilkan kalimat yang menyebut sebabnya,
+ *   BUKAN pergantian ke penyedia lain. Kunci milik dosen tidak boleh dipakai
+ *   membayar layanan yang tidak dipilihnya.
+ * - **Tidak untuk apa pun yang faktual.** Larangannya ada di perintah yang
+ *   dikirim, dan alasannya bukan kehati-hatian berlebihan: model penghasil
+ *   gambar tidak tahu apa-apa tentang alat yang digambarnya, dan buku ajar
+ *   yang menggambarkan alat secara keliru mengajarkan hal yang keliru.
+ * - **Selalu berketerangan.** Pemanggil menyimpannya dengan `sumber =
+ *   AI_RASTER`, dan pencetak membubuhkan keterangan asalnya di bawah gambar.
+ */
+export async function susunIlustrasiRaster(opsi: {
+  penggunaId: string;
+  bukuId: string;
+  bahasa: BahasaBuku;
+  /** Apa yang hendak digambarkan, ditulis dosen sendiri. */
+  perintah: string;
+  konteksBab: { nomor: number; judul: string };
+  kredensialId?: string | null;
+}): Promise<{ png: Uint8Array; penyedia: string; model: string }> {
+  const terpilih = await pakaiKredensial(opsi.penggunaId, opsi.kredensialId);
+
+  if (!terpilih.penyedia.gambar || !terpilih.penyedia.modelGambarBawaan) {
+    throw new GalatAi(
+      `Penyedia ${terpilih.penyedia.kode} tidak menghasilkan gambar. ` +
+        "Fitur ini hanya tersedia pada kunci Gemini; kunci Anda yang lain tetap " +
+        "dapat menyusun diagram, yang justru bentuk gambar yang dianjurkan untuk buku ajar.",
+    );
+  }
+
+  const model = terpilih.penyedia.modelGambarBawaan;
+  const mulai = Date.now();
+
+  const perintah = [
+    `Ilustrasi untuk buku ajar, bab ${opsi.konteksBab.nomor} "${opsi.konteksBab.judul}".`,
+    opsi.perintah.trim(),
+    "Gambar bergaya ilustrasi buku yang tenang: garis bersih, warna terbatas, tanpa teks apa pun di dalam gambar.",
+    "JANGAN menggambarkan diagram, grafik, peta, anatomi, skema alat, atau apa pun yang pembaca akan anggap sebagai keterangan teknis.",
+  ].join("\n\n");
+
+  const jawaban = await terpilih.penyedia.gambar({ model, perintah });
+
+  await catatPemakaianGambar(opsi.penggunaId, opsi.bukuId, terpilih, model, Date.now() - mulai);
+
+  return { png: jawaban.png, penyedia: terpilih.penyedia.kode, model };
+}
+
+/**
+ * Mencatat pemakaian gambar ke log audit.
+ *
+ * `jalankanTugasAi` tidak dapat dipakai: gerbang itu seluruhnya bertumpu pada
+ * keluaran terstruktur, sedangkan yang kembali di sini adalah bita. Yang
+ * dicatat tetap sama — siapa memanggil apa, dengan kunci dan penyedia mana.
+ */
+async function catatPemakaianGambar(
+  penggunaId: string,
+  bukuId: string,
+  terpilih: { penyedia: { kode: string }; kredensialId: string },
+  model: string,
+  latensiMs: number,
+) {
+  try {
+    const { prisma } = await import("@/lib/prisma");
+    await prisma.logAudit.create({
+      data: {
+        penggunaId,
+        aksi: "AI_BUKU_ILUSTRASI",
+        entitas: "ai",
+        entitasId: bukuId,
+        ringkasan: `${terpilih.penyedia.kode}/${model} · ${latensiMs} ms`,
+        data: {
+          penyedia: terpilih.penyedia.kode,
+          model,
+          kredensialId: terpilih.kredensialId,
+          latensiMs,
+        },
+      },
+    });
+  } catch (galat) {
+    console.error("[ai] gagal mencatat pemakaian gambar:", galat);
+  }
 }
 
 /**

@@ -41,6 +41,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { MIN_ALASAN_HAPUS_PAKSA } from "@/domain/rpkps/daur-hidup";
+import {
+  BAWAAN_HARI_BERBAGI,
+  MAKS_HARI_BERBAGI,
+  sisaHari,
+  statusTautan,
+} from "@/domain/rpkps/berbagi";
+import {
+  buatTautanBerbagi,
+  cabutTautanBerbagi,
+  type HasilBerbagi,
+} from "./aksi-berbagi";
 import { MIN_CATATAN_REVISI } from "@/domain/rpkps/tipe";
 import { cn } from "@/lib/utils";
 import {
@@ -246,15 +257,33 @@ function TombolSalinTeks({ teks, label }: { teks: string; label: string }) {
   );
 }
 
+export interface TautanPratinjau {
+  id: string;
+  token: string;
+  catatan: string | null;
+  kedaluwarsa: Date;
+  dicabutPada: Date | null;
+  jumlahAkses: number;
+  terakhirAkses: Date | null;
+}
+
 export function PanelBagikan({
   rpkpsId,
   urlPublik,
   statusLabel,
+  tautan,
+  bolehBerbagiDraf,
+  asalSitus,
 }: {
   rpkpsId: string;
   /** null bila RPKPS belum terbit — belum ada alamat publik yang sah. */
   urlPublik: string | null;
   statusLabel: string;
+  tautan: TautanPratinjau[];
+  /** Koordinator dan pengelola prodi saja (docs/06 §4.2). */
+  bolehBerbagiDraf: boolean;
+  /** Asal situs, dari server: `window.location` tidak ada saat dirender. */
+  asalSitus: string;
 }) {
   const { k } = useBahasa();
   return (
@@ -289,8 +318,146 @@ export function PanelBagikan({
             {k.rpkps.kelola.unduhDocx}
           </ButtonLink>
         </div>
+
+        {bolehBerbagiDraf ? (
+          <PratinjauBerbagi rpkpsId={rpkpsId} tautan={tautan} asalSitus={asalSitus} />
+        ) : null}
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * Tautan pratinjau untuk dokumen yang belum disahkan — docs/06 §4.2.
+ *
+ * Berdampingan dengan alamat publik, dan itu memang tempatnya: keduanya
+ * menjawab "bagaimana saya memperlihatkan dokumen ini kepada orang lain?".
+ * Yang membedakannya dinyatakan di layar — alamat publik adalah dokumen resmi,
+ * tautan ini adalah draf yang boleh dicabut kapan saja.
+ */
+function PratinjauBerbagi({
+  rpkpsId,
+  tautan,
+  asalSitus,
+}: {
+  rpkpsId: string;
+  tautan: TautanPratinjau[];
+  asalSitus: string;
+}) {
+  const { k, isi, bahasa } = useBahasa();
+  const [menunggu, mulai] = useTransition();
+  const router = useRouter();
+  const [catatan, setCatatan] = useState("");
+  const [hari, setHari] = useState(String(BAWAAN_HARI_BERBAGI));
+
+  const sekarang = new Date();
+  const jalankan = (fn: () => Promise<HasilBerbagi>) =>
+    mulai(async () => {
+      const hasil = await fn();
+      if (hasil.ok) toast.success(hasil.pesan);
+      else toast.error(hasil.pesan);
+      router.refresh();
+    });
+
+  return (
+    <div className="space-y-3 border-t pt-3">
+      <div>
+        <p className="text-sm font-medium">{k.rpkps.kelola.pratinjauJudul}</p>
+        <p className="text-xs text-muted-foreground">{k.rpkps.kelola.pratinjauKeterangan}</p>
+      </div>
+
+      <form
+        className="flex flex-wrap items-end gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          jalankan(async () => {
+            const hasil = await buatTautanBerbagi(rpkpsId, {
+              catatan: catatan.trim() || null,
+              hari: Number(hari),
+            });
+            if (hasil.ok) setCatatan("");
+            return hasil;
+          });
+        }}
+      >
+        <div className="min-w-52 flex-1 space-y-1.5">
+          <Label htmlFor="tautan-catatan">{k.rpkps.kelola.pratinjauCatatan}</Label>
+          <Input
+            id="tautan-catatan"
+            value={catatan}
+            maxLength={200}
+            placeholder={k.rpkps.kelola.pratinjauContohCatatan}
+            onChange={(e) => setCatatan(e.target.value)}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="tautan-hari">{k.rpkps.kelola.pratinjauHari}</Label>
+          <Input
+            id="tautan-hari"
+            type="number"
+            min={1}
+            max={MAKS_HARI_BERBAGI}
+            value={hari}
+            className="w-24 tabular-nums"
+            onChange={(e) => setHari(e.target.value)}
+          />
+        </div>
+        <Button type="submit" size="sm" variant="outline" disabled={menunggu}>
+          <Link2 />
+          {k.rpkps.kelola.pratinjauBuat}
+        </Button>
+      </form>
+
+      {tautan.length === 0 ? (
+        <p className="text-xs text-muted-foreground">{k.rpkps.kelola.pratinjauKosong}</p>
+      ) : (
+        <ul className="space-y-2">
+          {tautan.map((t) => {
+            const status = statusTautan(t, sekarang);
+            const url = `${asalSitus}/${bahasa}/pratinjau/${t.token}`;
+            return (
+              <li
+                key={t.id}
+                className="flex flex-wrap items-center gap-2 rounded-lg border p-2.5 text-xs"
+              >
+                <Badge
+                  variant={status === "AKTIF" ? "secondary" : "outline"}
+                  className="text-[10px]"
+                >
+                  {k.rpkps.kelola.statusTautan[status]}
+                </Badge>
+                <span className="min-w-0 flex-1 truncate">
+                  {t.catatan || k.rpkps.kelola.pratinjauTanpaCatatan}
+                </span>
+                <span className="text-muted-foreground">
+                  {status === "AKTIF"
+                    ? isi(k.rpkps.kelola.pratinjauSisa, {
+                        n: sisaHari(t.kedaluwarsa, sekarang),
+                      })
+                    : null}
+                  {t.jumlahAkses > 0
+                    ? ` · ${isi(k.rpkps.kelola.pratinjauAkses, { n: t.jumlahAkses })}`
+                    : null}
+                </span>
+                {status === "AKTIF" ? (
+                  <>
+                    <TombolSalinTeks teks={url} label={k.rpkps.kelola.salinTautan} />
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={menunggu}
+                      onClick={() => jalankan(() => cabutTautanBerbagi(t.id))}
+                    >
+                      {k.rpkps.kelola.pratinjauCabut}
+                    </Button>
+                  </>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
   );
 }
 

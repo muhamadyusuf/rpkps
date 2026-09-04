@@ -3,7 +3,11 @@ import { Badge } from "@/components/ui/badge";
 import { formatMenit } from "@/domain/beban-belajar/kalkulator";
 import { petaSubCpmk, pustakaPerJenis, type DokumenPublik } from "@/domain/rpkps/publik";
 import { cn } from "@/lib/utils";
-import { kamus } from "@/lib/bahasa/server";
+import { bahasaAktif, kamus } from "@/lib/bahasa/server";
+import { tanggal } from "@/lib/bahasa/format";
+import { sidikRingkas } from "@/domain/rpkps/sidik";
+import type { CapPublik } from "@/lib/publik/muat";
+import type { SlotPengesah } from "@/domain/rpkps/paraf";
 import { isi as sisip } from "@/lib/bahasa/teks";
 import type { JenisPertemuan, JenisPustaka, KategoriWaktu } from "@/generated/prisma";
 
@@ -759,6 +763,78 @@ export async function BagianPengampu({ dok }: { dok: DokumenPublik }) {
           </li>
         ) : null}
       </ul>
+    </Panel>
+  );
+}
+
+/**
+ * Blok pengesahan — tiga cap rantai, sama seperti Halaman Pengesahan cetak
+ * (docs/14 §5).
+ *
+ * Selalu tiga, termasuk yang kosong. Dokumen yang terbit sebelum rantai
+ * elektronik dipakai tidak diberi tanda tangan susulan: mengarang baris untuk
+ * orang yang tidak pernah menekan tombolnya adalah persis yang dicegah seluruh
+ * rancangan ini. Blok kosong yang berkata "belum ditandatangani" jauh lebih
+ * jujur daripada daftar pendek yang menyembunyikan ketiadaannya.
+ *
+ * Tiap cap menyebut SIDIK yang ditandatanganinya, bukan sekadar tanggal. Itulah
+ * yang membuat tanda tangan berarti: pembaca dapat membandingkannya dengan
+ * sidik dokumen di pita atas, dan melihat sendiri bahwa ketiganya mencap isi
+ * yang sama.
+ */
+export async function BagianPengesah({
+  pengesah,
+}: {
+  pengesah: SlotPengesah<CapPublik>[];
+}) {
+  const [k, b] = await Promise.all([kamus(), bahasaAktif()]);
+  const p = k.dokumenPublik.pengesah;
+
+  return (
+    <Panel>
+      <ol className="grid gap-4 sm:grid-cols-3">
+        {pengesah.map(({ peran, cap }) => (
+          <li
+            key={peran}
+            className={cn(
+              "rounded-xl border p-4",
+              cap ? "bg-card" : "border-dashed bg-muted/20",
+            )}
+          >
+            <p className="text-xs text-muted-foreground text-pretty">
+              {p.peranKeterangan[peran]}
+            </p>
+
+            {cap ? (
+              <>
+                <p className="mt-2 text-sm font-medium">{cap.nama}</p>
+                {cap.identitas ? (
+                  <p className="font-mono text-xs text-muted-foreground">
+                    {cap.identitas}
+                  </p>
+                ) : null}
+                <p className="mt-1 text-sm text-muted-foreground">{p[peran]}</p>
+                <p className="mt-3 font-mono text-xs tabular-nums text-muted-foreground">
+                  {tanggal(cap.ditandatanganiPada, b, "panjang")}
+                </p>
+                <p
+                  title={`${p.sidikYangDicap}: ${cap.sidik}`}
+                  className="mt-1 font-mono text-[11px] text-muted-foreground/80"
+                >
+                  {p.ditandatanganiElektronik} · {sidikRingkas(cap.sidik)}
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="mt-2 text-sm text-muted-foreground">{p[peran]}</p>
+                <p className="mt-3 text-xs text-muted-foreground/80 text-pretty">
+                  {p.belum}
+                </p>
+              </>
+            )}
+          </li>
+        ))}
+      </ol>
     </Panel>
   );
 }

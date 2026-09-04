@@ -2,7 +2,9 @@ import { Tautan } from "@/components/tautan";
 import { ArrowRight, CircleAlert, CircleCheck, Clock, TriangleAlert } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { WARNA_NADA } from "@/components/bagan";
-import { kamus } from "@/lib/bahasa/server";
+import { bahasaAktif, kamus } from "@/lib/bahasa/server";
+import { isi } from "@/lib/bahasa/teks";
+import { teksTenggat } from "@/lib/bahasa/tenggat";
 import type { ButirAntrian } from "@/domain/dasbor/antrian";
 
 /**
@@ -14,7 +16,21 @@ import type { ButirAntrian } from "@/domain/dasbor/antrian";
  * kabar, dan kabar itu pantas dibaca sekali lalu ditinggalkan.
  */
 export async function AntrianKerja({ butir }: { butir: readonly ButirAntrian[] }) {
-  const k = await kamus();
+  const [k, b] = await Promise.all([kamus(), bahasaAktif()]);
+
+  /**
+   * Kalimat butir datang dari kamus, bukan dari domain (docs/11 §4). Tenggat
+   * jalur ditempelkan hanya saat ia benar-benar mendesak: menyebut "tersisa 40
+   * hari" pada tiap baris melatih orang berhenti membaca barisnya.
+   */
+  const rincian = (x: ButirAntrian) => {
+    const dasar = k.dasbor.antrian.butir[x.kunci].rincian;
+    if (x.tenggat === null) return dasar;
+    if (x.tenggat.tingkat !== "LEWAT" && x.tenggat.tingkat !== "DEKAT") return dasar;
+    return `${dasar} ${isi(k.dasbor.antrian.tenggatJalur, {
+      tenggat: teksTenggat(x.tenggat, k, b),
+    })}`;
+  };
 
   if (butir.length === 0) {
     return (
@@ -53,7 +69,9 @@ export async function AntrianKerja({ butir }: { butir: readonly ButirAntrian[] }
 
                 <span className="min-w-0 flex-1">
                   <span className="flex flex-wrap items-baseline gap-x-2">
-                    <span className="text-sm font-medium">{b.judul}</span>
+                    <span className="text-sm font-medium">
+                      {k.dasbor.antrian.butir[b.kunci].judul}
+                    </span>
                     {b.jumlah > 1 ? (
                       <span className="font-mono text-xs tabular-nums text-muted-foreground">
                         ×{b.jumlah}
@@ -61,7 +79,7 @@ export async function AntrianKerja({ butir }: { butir: readonly ButirAntrian[] }
                     ) : null}
                   </span>
                   <span className="mt-0.5 block text-xs text-muted-foreground">
-                    {b.rincian}
+                    {rincian(b)}
                   </span>
                 </span>
 

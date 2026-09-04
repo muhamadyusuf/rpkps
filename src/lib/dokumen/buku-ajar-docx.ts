@@ -2,11 +2,13 @@ import {
   AlignmentType,
   Document,
   Footer,
+  ImageRun,
   PageNumber,
   Packer,
   Paragraph,
   TableOfContents,
   TextRun,
+  convertMillimetersToTwip,
 } from "docx";
 import {
   GAYA_BAWAAN,
@@ -21,6 +23,11 @@ import {
   FONT_BUKU,
 } from "./buku-gaya";
 import { labelDokumen, type LabelDokumen } from "./label";
+import {
+  tempatkanGambar,
+  urutanCetakGambar,
+  type GambarUntukLetak,
+} from "@/domain/bahan-ajar/letak-gambar";
 import { isi as sisip } from "@/lib/bahasa/teks";
 import type { Bahasa } from "@/kamus";
 
@@ -45,6 +52,18 @@ export interface LatihanCetak {
   kunci: string | null;
 }
 
+export interface GambarCetak extends GambarUntukLetak {
+  altTeks: string | null;
+  /** PNG — WAJIB. `docx` menerima SVG hanya bila disertai cadangan raster. */
+  png: Uint8Array;
+  /** SVG asli bila ada; Word memakainya bila mampu, sisanya jatuh ke PNG. */
+  svg: string | null;
+  lebarPx: number;
+  tinggiPx: number;
+  /** Gambar dari model penghasil gambar; wajib berketerangan (docs/17 I5). */
+  dariModelGambar: boolean;
+}
+
 export interface BabCetak {
   nomor: number;
   judul: string;
@@ -55,6 +74,7 @@ export interface BabCetak {
   latihan: LatihanCetak[];
   /** Bab masih murni keluaran model; dipakai memasang catatan naskah. */
   belumDisunting: boolean;
+  gambar: GambarCetak[];
 }
 
 export interface BukuUntukCetak {
@@ -73,6 +93,10 @@ export interface BukuUntukCetak {
   pendahuluan: string | null;
   glosarium: { istilah: string; arti: string }[];
   biografi: string | null;
+  sinopsis: string | null;
+  kataKunci: string[];
+  /** Taksiran tebal, dipakai blok KDT. Lihat `taksiranHalaman`. */
+  taksiranHalaman: number;
   mataKuliah: { kode: string; nama: string };
   prodi: string;
   bab: BabCetak[];
@@ -110,6 +134,7 @@ export async function buatBukuAjarDocx(
           ...halamanHakCipta(buku, L),
           ...(opsi.bab === undefined ? halamanPrakata(buku, L) : []),
           ...(opsi.bab === undefined ? daftarIsi(L) : []),
+          ...(opsi.bab === undefined ? daftarGambar(buku, L) : []),
         ],
       },
       {
@@ -121,6 +146,7 @@ export async function buatBukuAjarDocx(
           ...(opsi.bab === undefined ? bagianGlosarium(buku, L) : []),
           ...(opsi.bab === undefined ? bagianPustaka(buku, L) : []),
           ...(opsi.bab === undefined ? bagianBiografi(buku, L) : []),
+          ...(opsi.bab === undefined ? bagianSinopsis(buku, L) : []),
         ],
       },
     ],
@@ -214,6 +240,43 @@ function halamanHakCipta(buku: BukuUntukCetak, L: LabelDokumen): Paragraph[] {
     baris.push(paragrafBuku(L.buku.catatanDraf, { ukuran: 20, tebal: true }));
   }
 
+  /*
+   * Blok Katalog Dalam Terbitan — docs/19 §4.2.
+   *
+   * Hanya dicetak bila ISBN sudah ada. Halaman KDT pada buku yang belum
+   * didaftarkan adalah halaman yang menjanjikan sesuatu yang belum terjadi,
+   * dan penerbit yang menerimanya harus membuangnya sendiri.
+   */
+  if (buku.isbn?.trim()) {
+    baris.push(new Paragraph({ spacing: { before: 400 }, children: [] }));
+    baris.push(paragrafBuku(L.buku.kdt, { tebal: true, ukuran: 20 }));
+    baris.push(
+      paragrafBuku(
+        `${buku.penulis.join("; ")}\n${buku.judul}${buku.subjudul ? `: ${buku.subjudul}` : ""}`,
+        { ukuran: 20 },
+      ),
+    );
+    baris.push(
+      keterangan(
+        "",
+        `${buku.kotaTerbit ?? ""}${buku.kotaTerbit ? ": " : ""}${buku.penerbit ?? ""}, ` +
+          `${buku.tahunTerbit ?? ""}; ${buku.taksiranHalaman} ${L.buku.halaman}; ` +
+          `ISBN ${buku.isbn}`,
+      ),
+    );
+    if (buku.kataKunci.length > 0) {
+      baris.push(keterangan(`${L.buku.kataKunci}: `, buku.kataKunci.join("; ")));
+    }
+    baris.push(paragrafBuku(L.buku.kdtCatatan, { ukuran: 18, miring: true }));
+  }
+
+  // Pengungkapan asal ilustrasi (docs/17 I5). Satu gambar saja sudah cukup
+  // untuk memunculkannya: yang diungkap adalah bahwa buku ini memuat gambar
+  // bikinan model, bukan berapa banyak.
+  if (buku.bab.some((b) => b.gambar.some((g) => g.dariModelGambar))) {
+    baris.push(paragrafBuku(L.buku.pengungkapanAi, { ukuran: 20 }));
+  }
+
   return baris;
 }
 
@@ -241,6 +304,45 @@ function daftarIsi(L: LabelDokumen): Paragraph[] {
   ];
 }
 
+/**
+ * Daftar Gambar.
+ *
+ * TANPA nomor halaman, dan itu disebutkan apa adanya di docs/17 §7.1: nomor
+ * halaman baru ada setelah Word menata ulang seluruh dokumen, dan menebak
+ * angka yang akan salah lebih buruk daripada tidak mencantumkannya.
+ *
+ * Nomornya diambil dari urutan cetak tiap bab — perhitungan yang sama persis
+ * dengan yang dipakai saat gambarnya disisipkan, sehingga daftar ini tidak
+ * dapat berbeda dari isinya.
+ */
+function daftarGambar(buku: BukuUntukCetak, L: LabelDokumen): Paragraph[] {
+  const baris: Paragraph[] = [];
+
+  for (const bab of buku.bab) {
+    if (bab.gambar.length === 0) continue;
+    const letak = tempatkanGambar(subbabDari(bab.uraian), bab.gambar);
+    for (const { gambar, nomorCetak } of urutanCetakGambar(letak, bab.nomor)) {
+      baris.push(
+        paragrafBuku(`${L.buku.gambar} ${nomorCetak}  ${gambar.judul}`, {
+          rata: AlignmentType.LEFT,
+          spasiSesudah: 60,
+        }),
+      );
+    }
+  }
+
+  return baris.length === 0 ? [] : [judulBab(L.buku.daftarGambar), ...baris];
+}
+
+/** Judul subbab sebuah uraian — dasar penempatan gambar. */
+function subbabDari(uraian: string | null): string[] {
+  if (!uraian) return [];
+  return uraian
+    .split(/\r?\n/)
+    .map((b) => b.trim())
+    .filter((b) => b !== "" && adalahJudulSubbab(b));
+}
+
 function bagianPendahuluan(buku: BukuUntukCetak, L: LabelDokumen): Paragraph[] {
   if (!buku.pendahuluan?.trim()) return [];
   return [judulBab(L.buku.pendahuluan), ...alinea(buku.pendahuluan)];
@@ -258,7 +360,7 @@ function bagianBab(bab: BabCetak, L: LabelDokumen, kunci: boolean): Paragraph[] 
     baris.push(...tujuan.map((t) => butir(t)));
   }
 
-  if (bab.uraian?.trim()) baris.push(...uraianBab(bab.uraian));
+  if (bab.uraian?.trim()) baris.push(...uraianBab(bab.uraian, bab, L));
 
   if (bab.studiKasus?.trim()) {
     baris.push(judulBagianBuku(L.buku.studiKasus));
@@ -322,6 +424,25 @@ function bagianBiografi(buku: BukuUntukCetak, L: LabelDokumen): Paragraph[] {
   return [judulBab(L.buku.tentangPenulis), ...alinea(buku.biografi)];
 }
 
+/**
+ * Halaman sinopsis — bahan sampul belakang dan pendaftaran ISBN.
+ *
+ * Dicetak sebagai halaman terakhir, bukan di depan: ia bukan bagian naskah
+ * yang dibaca mahasiswa, melainkan lampiran untuk penerbit.
+ */
+function bagianSinopsis(buku: BukuUntukCetak, L: LabelDokumen): Paragraph[] {
+  if (!buku.sinopsis?.trim() && buku.kataKunci.length === 0) return [];
+
+  const baris: Paragraph[] = [judulBab(L.buku.sinopsis)];
+  if (buku.sinopsis?.trim()) baris.push(...alinea(buku.sinopsis));
+  if (buku.kataKunci.length > 0) {
+    baris.push(
+      keterangan(`${L.buku.kataKunci}: `, buku.kataKunci.join("; ")),
+    );
+  }
+  return baris;
+}
+
 // ─────────────────────────────────────────────────────────────
 
 /**
@@ -333,15 +454,122 @@ function bagianBiografi(buku: BukuUntukCetak, L: LabelDokumen): Paragraph[] {
  * memuat nama bab — dan bila modelnya tidak menurut, yang terjadi hanyalah
  * paragraf biasa, bukan berkas yang rusak.
  */
-function uraianBab(teks: string): Paragraph[] {
-  const hasil: Paragraph[] = [];
+function uraianBab(teks: string, bab: BabCetak, L: LabelDokumen): Paragraph[] {
+  const subbab: string[] = [];
+  const potongan: { judul: boolean; isi: string }[] = [];
+
   for (const baris of teks.split(/\r?\n/)) {
     const isi = baris.trim();
     if (!isi) continue;
-    if (adalahJudulSubbab(isi)) hasil.push(judulBagianBuku(isi));
-    else hasil.push(paragrafBuku(isi, { menjorok: true }));
+    const judul = adalahJudulSubbab(isi);
+    if (judul) subbab.push(isi);
+    potongan.push({ judul, isi });
   }
+
+  /*
+   * Penempatan dikerjakan domain (`tempatkanGambar`), termasuk aturannya yang
+   * paling penting: gambar yang `letak`-nya tidak dikenali JATUH KE AKHIR BAB
+   * dan tidak pernah hilang. Nomor cetaknya juga dari sana, sehingga runtut
+   * menurut urutan cetak — bukan menurut nomor tersimpannya.
+   */
+  const letak = tempatkanGambar(subbab, bab.gambar);
+  const bernomor = new Map(
+    urutanCetakGambar(letak, bab.nomor).map((x) => [x.gambar.nomor, x.nomorCetak]),
+  );
+  const setelah = new Map<number, GambarCetak[]>();
+  for (const p of letak.penempatan) {
+    if (p.indeksSubbab !== null) setelah.set(p.indeksSubbab, p.gambar);
+  }
+
+  const hasil: Paragraph[] = [];
+  let indeksSubbab = -1;
+  let berikut: GambarCetak[] | null = null;
+
+  const bilas = () => {
+    if (!berikut) return;
+    for (const g of berikut) hasil.push(...gambarBerketerangan(g, bernomor.get(g.nomor)!, L));
+    berikut = null;
+  };
+
+  for (const p of potongan) {
+    if (p.judul) {
+      // Gambar milik subbab SEBELUMNYA dicetak sebelum judul berikutnya.
+      bilas();
+      indeksSubbab++;
+      hasil.push(judulBagianBuku(p.isi));
+      berikut = setelah.get(indeksSubbab) ?? null;
+      continue;
+    }
+    hasil.push(paragrafBuku(p.isi, { menjorok: true }));
+  }
+  bilas();
+
+  const akhir = letak.penempatan.find((p) => p.indeksSubbab === null);
+  for (const g of akhir?.gambar ?? []) {
+    hasil.push(...gambarBerketerangan(g, bernomor.get(g.nomor)!, L));
+  }
+
   return hasil;
+}
+
+/**
+ * Satu gambar beserta keterangannya.
+ *
+ * SVG dipasang dengan cadangan PNG — bentuk yang DIWAJIBKAN `docx`, bukan
+ * pilihan kita. Word memakai SVG-nya bila mampu; pembaca lama jatuh ke PNG.
+ */
+function gambarBerketerangan(
+  g: GambarCetak,
+  nomorCetak: string,
+  L: LabelDokumen,
+): Paragraph[] {
+  // Lebar cetak B5 setelah tepi kiri-kanan, dalam poin (1 pt = 20 twip).
+  const lebarPt = (convertMillimetersToTwip(182 - 25 - 20) / 20) * 0.98;
+  const lebar = Math.round(Math.min(lebarPt, g.lebarPx));
+  const tinggi = Math.round((lebar * g.tinggiPx) / Math.max(1, g.lebarPx));
+
+  const ukuran = { width: lebar, height: tinggi };
+  const isiGambar =
+    g.svg !== null
+      ? new ImageRun({
+          type: "svg",
+          // Bita, bukan string: `docx` memperlakukan `data` bertipe string
+          // sebagai base64 dan menolaknya sebagai "Invalid character".
+          data: new TextEncoder().encode(g.svg),
+          transformation: ukuran,
+          fallback: { type: "png", data: g.png },
+          altText: { name: g.judul, description: g.altTeks ?? g.judul, title: g.judul },
+        })
+      : new ImageRun({
+          type: "png",
+          data: g.png,
+          transformation: ukuran,
+          altText: { name: g.judul, description: g.altTeks ?? g.judul, title: g.judul },
+        });
+
+  const keteranganGambar = `${L.buku.gambar} ${nomorCetak} ${g.judul}`;
+
+  return [
+    new Paragraph({
+      children: [isiGambar],
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 200, after: 60 },
+    }),
+    new Paragraph({
+      children: [
+        teksBuku(keteranganGambar, { ukuran: 20 }),
+        // Pengungkapan asal, tercetak DI DALAM buku (docs/17 I5). Buku ini
+        // beredar dengan nama dosen sebagai penulis; menyembunyikan asal
+        // sebuah gambar bukan keputusan yang boleh diambil aplikasi atas
+        // namanya.
+        ...(g.dariModelGambar
+          ? [teksBuku(` ${L.buku.gambarAi}`, { ukuran: 20, miring: true })]
+          : []),
+      ],
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 200 },
+    }),
+  ];
 }
 
 /** Baris pendek berawalan nomor bertitik, tanpa titik penutup kalimat. */

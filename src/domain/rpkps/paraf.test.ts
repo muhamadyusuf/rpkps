@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { capRonde, statusParaf, type BarisTtd, type PengampuParaf } from "./paraf";
+import {
+  capRonde,
+  rantaiPengesahan,
+  RANTAI_PENGESAHAN,
+  statusParaf,
+  type BarisTtd,
+  type PengampuParaf,
+} from "./paraf";
 
 const tim: PengampuParaf[] = [
   { penggunaId: "u1", nama: "Andi", koordinator: true },
@@ -120,5 +127,43 @@ describe("paraf gugur saat isinya berubah", () => {
       sidikSekarang: "sidik-b",
     });
     assert.deepEqual(s.belum.map((p) => p.nama), ["Cita"]);
+  });
+});
+
+describe("rantai pengesahan", () => {
+  const lengkap: BarisTtd[] = [
+    ttd(2, "PENJAMINAN_MUTU", "u9"),
+    ttd(2, "KOORDINATOR", "u1"),
+    ttd(2, "KAPRODI", "u7"),
+  ];
+
+  it("selalu bertiga dan selalu berurutan, apa pun urutan barisnya", () => {
+    const r = rantaiPengesahan(lengkap, 2);
+    assert.deepEqual(r.map((s) => s.peran), [...RANTAI_PENGESAHAN]);
+    assert.deepEqual(r.map((s) => s.cap?.penggunaId), ["u1", "u7", "u9"]);
+  });
+
+  it("blok yang belum ditandatangani tetap ada, dan kosong", () => {
+    /*
+     * Yang kosong justru bagian yang paling perlu terbaca: dokumen yang terbit
+     * sebelum rantai ini ada tidak diberi tanda tangan susulan (docs/14 §5).
+     */
+    const r = rantaiPengesahan([ttd(1, "KOORDINATOR", "u1")], 1);
+    assert.equal(r.length, 3);
+    assert.deepEqual(r.map((s) => s.cap === null), [false, true, true]);
+  });
+
+  it("paraf pengampu bukan bagian rantai", () => {
+    const r = rantaiPengesahan([ttd(1, "PENGAMPU", "u1"), ttd(1, "PENGAMPU", "u2")], 1);
+    assert.deepEqual(r.map((s) => s.cap), [null, null, null]);
+  });
+
+  it("cap ronde lain tidak ikut terbawa", () => {
+    // Pengembalian untuk revisi menaikkan versi, dan kenaikan itulah yang
+    // menggugurkan ronde sebelumnya — barisnya tidak pernah dihapus.
+    assert.deepEqual(
+      rantaiPengesahan(lengkap, 3).map((s) => s.cap),
+      [null, null, null],
+    );
   });
 });

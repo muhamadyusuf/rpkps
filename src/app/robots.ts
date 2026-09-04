@@ -25,6 +25,14 @@ const TERTUTUP = [
   "/masuk",
   "/setup",
   "/menunggu-verifikasi",
+  /**
+   * Tautan pratinjau (docs/06 §4.2). Berbeda dari yang lain di daftar ini, ia
+   * TIDAK dijaga sesi — tokenlah penjaganya — sehingga baris ini benar-benar
+   * pengaman, bukan penghemat jatah perayapan. Satu tautan yang terindeks
+   * menjadikan draf itu publik selamanya, jauh setelah kedaluwarsanya lewat.
+   * Halamannya sendiri tetap memasang `noindex` sendiri; keduanya perlu.
+   */
+  "/pratinjau",
 ];
 
 export default function robots(): MetadataRoute.Robots {

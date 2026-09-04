@@ -9,6 +9,7 @@ import {
   TENGGAT_KOSONG,
   type TenggatSemester,
 } from "./tenggat";
+import { teksTenggatId } from "@/lib/bahasa/tenggat";
 
 const sekarang = new Date("2026-08-30T09:00:00Z");
 const hari = (n: number) => new Date(sekarang.getTime() + n * 86_400_000);
@@ -37,21 +38,30 @@ describe("nilai tenggat", () => {
     const n = penyusunan(hari(-3));
     assert.equal(n.tingkat, "LEWAT");
     assert.equal(n.hari, -3);
-    assert.match(n.label, /terlambat 3 hari/);
+    assert.match(teksTenggatId(n), /terlambat 3 hari/);
   });
 
   it("terlambat beberapa jam disebut lewat hari ini, bukan terlambat 0 hari", () => {
     const n = penyusunan(new Date(sekarang.getTime() - 3 * 3_600_000));
     assert.equal(n.tingkat, "LEWAT");
-    assert.match(n.label, /hari ini/);
+    assert.match(teksTenggatId(n), /hari ini/);
   });
 
-  it("label menyebut tahapnya, supaya tidak perlu membuka dokumen", () => {
-    assert.match(nilaiTenggat({ batas: hari(-2), sekarang, tahap: "REVIEW" }).label, /^review /);
+  it("kalimatnya menyebut tahap, supaya tidak perlu membuka dokumen", () => {
     assert.match(
-      nilaiTenggat({ batas: hari(3), sekarang, tahap: "PENGESAHAN" }).label,
+      teksTenggatId(nilaiTenggat({ batas: hari(-2), sekarang, tahap: "REVIEW" })),
+      /^review /,
+    );
+    assert.match(
+      teksTenggatId(nilaiTenggat({ batas: hari(3), sekarang, tahap: "PENGESAHAN" })),
       /^pengesahan /,
     );
+  });
+
+  it("penilaiannya tidak membawa kalimat sama sekali", () => {
+    // Penjaga docs/11 §4: begitu sebuah medan kalimat ada di sini, akan selalu
+    // ada satu tempat yang mengisinya dengan bahasa penulis validator.
+    assert.deepEqual(Object.keys(penyusunan(hari(3))).sort(), ["hari", "tahap", "tingkat"]);
   });
 });
 

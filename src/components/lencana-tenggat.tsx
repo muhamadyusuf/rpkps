@@ -1,5 +1,7 @@
 import { CalendarClock, TriangleAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { bahasaAktif, kamus } from "@/lib/bahasa/server";
+import { teksTenggat } from "@/lib/bahasa/tenggat";
 import type { NilaiTenggat } from "@/domain/rpkps/tenggat";
 
 /**
@@ -8,7 +10,7 @@ import type { NilaiTenggat } from "@/domain/rpkps/tenggat";
  * apa pun. Penanda yang selalu muncul berhenti dibaca, dan yang berhenti
  * dibaca tidak menolong siapa pun saat tenggatnya benar-benar dekat.
  */
-export function LencanaTenggat({
+export async function LencanaTenggat({
   nilai,
   className,
 }: {
@@ -16,6 +18,11 @@ export function LencanaTenggat({
   className?: string;
 }) {
   if (nilai.tingkat !== "DEKAT" && nilai.tingkat !== "LEWAT") return null;
+
+  // Kalimatnya dirakit di sini, bukan diterima sebagai prop: penanda tenggat
+  // dipasang di banyak halaman, dan prop bertipe `string` adalah undangan bagi
+  // salah satunya untuk mengirim kalimat Indonesia ke layar berbahasa Inggris.
+  const [kam, b] = await Promise.all([kamus(), bahasaAktif()]);
 
   const lewat = nilai.tingkat === "LEWAT";
   const Ikon = lewat ? TriangleAlert : CalendarClock;
@@ -31,7 +38,7 @@ export function LencanaTenggat({
       )}
     >
       <Ikon className="size-3 shrink-0" />
-      {nilai.label}
+      {teksTenggat(nilai, kam, b)}
     </span>
   );
 }

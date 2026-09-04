@@ -267,7 +267,7 @@ riwayat revisi di halaman MK — bahan siap pakai untuk asesor yang bertanya
 |---|---|---|
 | **U1** | Model data, `domain/kurikulum/usulan.ts` + uji, alur usulan **manual** ujung ke ujung (buat → ajukan → putuskan per butir) | ✅ terpasang |
 | **U2** | Penerapan: ledger revisi, pensiun berbasis TA, pratinjau dampak, penandaan RPKPS terdampak | ✅ terpasang |
-| **U3** | Draf AI (`USULAN_REVISI` lewat gerbang yang ada), dari temuan validator & catatan dosen | belum |
+| **U3** | Draf AI (`USULAN_REVISI` lewat gerbang yang ada), dari temuan validator, temuan evaluasi & catatan dosen | ✅ terpasang |
 | **U4** | Pemicu relevansi: usulan lahir dari sinyal industri / masukan DUDI / tracer | belum, bergantung AI-2b |
 
 ### Berkas yang menyusun U1–U2
@@ -310,8 +310,9 @@ Ditetapkan 22 Agustus 2026:
 
 ## BAGIAN 9 — U3: Draf AI
 
-> Status: **U3a terpasang (30 Agustus 2026); U3b–U3d menyusul.**
-> Keputusan §9.4 (cakupan jenis butir) dan urutan §9.8 disetujui 30 Agustus 2026.
+> Status: **TERPASANG SELURUHNYA (U3a–U3d).** Keputusan §9.4 (cakupan jenis
+> butir) dan urutan §9.8 disetujui 30 Agustus 2026; U3b–U3d menyusul 4
+> September 2026. U4 (pemicu relevansi) tetap menunggu sumber datanya ada.
 
 ### 9.1 Apa yang sebenarnya lambat
 
@@ -437,21 +438,48 @@ benar-benar tertutup: evaluasi → tindak lanjut → revisi kurikulum.
 
 | Berkas | Perubahan |
 |---|---|
-| `src/lib/ai/draf-usulan.ts` (baru) | Panduan + skema keluaran + `susunDrafUsulan()`, meniru `perbaikan-kurikulum.ts` |
-| `src/domain/kurikulum/draf-usulan.ts` (baru) | **Penyaring murni**: mencocokkan keluaran model dengan himpunan dasar & kode yang sah, mengembalikan butir sah + alasan pembuangan. Diuji tanpa AI dan tanpa Prisma |
-| `src/lib/kurikulum/bahan-draf.ts` (baru) | Merakit konteks: MK, CPMK/Sub-CPMK, CPL dibebankan, temuan validator, temuan evaluasi |
-| `src/app/(app)/usulan/[id]/aksi-draf.ts` (baru) | `periksaKesiapanDraf`, `susunDrafUsulan`, `terapkanDrafUsulan` |
-| `src/app/(app)/usulan/[id]/panel-draf.tsx` (baru) | Panel pratinjau + pemilih kredensial, meniru panel draf RPKPS |
-| `uji/integrasi.ts` | §10: draf → saring → terapkan, termasuk bukti butir berdasar palsu ditolak |
+| `src/lib/ai/skema-draf-usulan.ts` | Skema keluaran. `jenis` MENGAMBIL daftarnya dari `JENIS_BOLEH_AI`; tidak ada satu pun medan untuk menulis teks dasar |
+| `src/lib/ai/draf-usulan.ts` | Panduan + `susunDrafUsulan()`, meniru `perbaikan-kurikulum.ts` |
+| `src/domain/kurikulum/draf-usulan.ts` | **Penyaring murni**: mencocokkan keluaran model dengan himpunan dasar & kode yang sah, mengembalikan butir sah + alasan pembuangan. Ditambah `keBentukMentah` untuk penyaringan ulang saat penerapan |
+| `src/lib/kurikulum/draf-inti.ts` | Merakit katalog dasar (MK, CPMK/Sub-CPMK, CPL dibebankan, temuan validator, temuan evaluasi) dan menulis butir + penautan temuan. Klien Prisma sebagai parameter agar dapat diuji integrasi |
+| `src/lib/kurikulum/bahan-draf.ts` | Pembungkus `server-only` yang mengikatnya ke klien aplikasi |
+| `src/app/[bahasa]/(app)/usulan/[id]/aksi-draf.ts` | `periksaKesiapanDraf`, `susunDrafAi`, `terapkanDrafAi` |
+| `src/app/[bahasa]/(app)/usulan/[id]/panel-draf.tsx` | Panel pratinjau + pemilih kredensial; butir dicentang SATU PER SATU |
+| `src/lib/ai/skema-draf-usulan.test.ts` | Penjaga bentuk skema dan jalur penerapan |
+| `uji/integrasi.ts` §16 | draf → saring → terapkan, termasuk bukti butir berdasar palsu ditolak dan kutipan katalog mengalahkan kutipan model |
 
 ### 9.8 Fase kerja
 
 | Fase | Isi |
 |---|---|
 | **U3a** | ✅ `src/domain/kurikulum/draf-usulan.ts` + 36 uji. Tidak memanggil AI sama sekali; keluaran model disimulasikan sebagai fixture, termasuk yang dikarang |
-| **U3b** | Perakit konteks + tugas AI + gerbang |
-| **U3c** | Panel pratinjau, penerapan, penautan `TemuanEvaluasi.usulanId` |
-| **U3d** | Uji integrasi, dokumentasi, pembaruan status |
+| **U3b** | ✅ Perakit katalog dasar + tugas AI + gerbang |
+| **U3c** | ✅ Panel pratinjau, penerapan, penautan `TemuanEvaluasi.usulanId` |
+| **U3d** | ✅ Uji integrasi §16, uji penjaga skema, dokumentasi |
 
 U3a lebih dulu, dan sengaja: aturan yang melindungi §2.3 harus ada dan teruji
 **sebelum** ada satu pun jalan bagi keluaran model masuk ke basis data.
+
+### 9.9 Yang ditemukan saat memasangnya: pratinjau bukan otorisasi
+
+Rancangan di atas menyaring keluaran model sekali, sebelum pratinjau. Itu tidak
+cukup. Yang dikirim balik peramban saat dosen menekan "terapkan" adalah butir
+lengkap **beserta kutipan dasarnya**, dan kiriman peramban dapat dibuat tangan.
+Tanpa langkah kedua, seluruh penjagaan §9.2 dapat dilewati dengan satu
+permintaan: butir apa pun, ref apa pun, kutipan apa pun.
+
+Karena itu penerapan **membuang kutipan yang dikirim peramban** dan menyaring
+ulang terhadap katalog yang dirakit saat itu juga (`keBentukMentah` →
+`saringDrafUsulan`). Kutipannya disalin lagi dari katalog. Dua akibat yang
+memang diinginkan:
+
+1. Dasar yang lenyap di antara pratinjau dan penerapan — temuan evaluasi yang
+   sudah diteruskan orang lain, atau kurikulum yang sudah disunting —
+   menggugurkan butirnya, bukan tersimpan diam-diam.
+2. Kutipan catatan dosen diuji verbatim **terhadap catatan saat itu**. Dosen
+   yang menyunting catatannya setelah pratinjau tidak mendapati kutipan lama
+   ikut tersimpan.
+
+Penautan `TemuanEvaluasi.usulanId` juga bersyarat `usulanId: null`: bila dua
+dosen meneruskan temuan yang sama, yang menang adalah usulan pertama — bukan
+yang terakhir menekan tombol.

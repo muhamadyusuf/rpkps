@@ -261,6 +261,126 @@ export const temuanId = {
   "I-TANPA-SUB-CPMK": {
     pesan: "{label} belum dikaitkan ke Sub-CPMK mana pun.",
   },
+  "IL-BERKAS-BUKAN-GAMBAR": {
+    pesan: "Berkas ini bukan PNG maupun JPEG.",
+    saran: "Yang diperiksa adalah isi berkasnya, bukan namanya — berkas bernama .png yang isinya lain tetap tertolak.",
+  },
+  "IL-BERKAS-RUSAK": {
+    pesan: "Ukuran gambar tidak dapat dibaca dari berkasnya.",
+  },
+  "IL-BERKAS-TERLALU-BESAR": {
+    pesan: "Berkas gambar kosong atau melebihi {n} MB.",
+  },
+  "IL-BERKAS-TERLALU-LEBAR": {
+    pesan: "Sisi gambar melebihi {n} piksel.",
+    saran: "Itu sudah di atas 300 dpi pada lebar cetak B5; selebihnya hanya memperbesar berkas.",
+  },
+  "IL-DIAGRAM-DITOLAK": {
+    pesan: "{jumlah} diagram dibuang karena tidak lolos pemeriksaan: {daftar}.",
+    saran: "Diagram tidak pernah ditambal supaya lolos — yang tercetak harus gambar yang benar-benar dimaksudkan. Minta AI menyusunnya ulang.",
+  },
+  "IL-DIAGRAM-TERLALU-BANYAK": {
+    pesan: "{jumlah} diagram melebihi batas {n} per bab dan tidak diambil.",
+  },
+  "IL-GAYA-FONT-ASING": {
+    pesan: "Font diagram {daftar} tidak berujung pada keluarga serif.",
+    saran:
+      "Gambar dirender di dalam <img>, tempat font halaman tidak ikut. Tanpa keluarga generik di ujung daftar, mesin pembaca mengganti fontnya diam-diam.",
+  },
+  "IL-GAYA-GARIS": {
+    pesan: "Ketebalan garis {daftar} di luar ketentuan.",
+    saran: "Buku ini memakai dua ketebalan saja: 1.5 untuk garis biasa, 2.5 untuk garis penekan.",
+  },
+  "IL-GAYA-GRADIEN": {
+    pesan: "Diagram memakai gradien.",
+    saran:
+      "Gradien adalah tanda rupa gambar bikinan mesin dan tidak menjelaskan apa pun yang tidak dapat dijelaskan garis serta isian rata.",
+  },
+  "IL-GAYA-TEKS-KECIL": {
+    pesan: "Ada label berukuran di bawah {n}.",
+    saran: "Label yang lebih kecil dari itu tidak terbaca pada cetakan B5.",
+  },
+  "IL-GAYA-TEMBUS": {
+    pesan: "{jumlah} unsur memakai transparansi.",
+    saran: "Diagram buku ajar memakai isian rata; transparansi bertumpuk menjadi warna yang tidak dapat dicetak konsisten.",
+  },
+  "IL-GAYA-UKURAN-TETAP": {
+    pesan: "Diagram memaksakan lebar dan tingginya sendiri.",
+    saran: "Hapus width dan height pada tag svg; viewBox yang menentukan, sehingga gambar menyesuaikan lebar cetak.",
+  },
+  "IL-GAYA-WARNA-ASING": {
+    pesan: "{jumlah} warna di luar palet buku: {daftar}.",
+    saran: "Palet diagram tertutup: #111827, #6B7280, aksen #1D4ED8, isian #F3F4F6 atau putih.",
+  },
+  "IL-LETAK-ASING": {
+    pesan: "{jumlah} gambar menyebut subbab yang tidak ada di bab ini.",
+    saran: "Gambarnya tetap dicetak di akhir bab — tidak ada yang hilang. Perbaiki letaknya bila ingin ia menyusul subbab tertentu.",
+  },
+  "IL-MMD-ARAHAN": {
+    pesan: "Kode Mermaid memuat arahan konfigurasi: {daftar}.",
+    saran: "Arahan init dapat mematikan setelan yang justru menjadi penjaga — termasuk securityLevel dan htmlLabels.",
+  },
+  "IL-MMD-GAYA-SENDIRI": {
+    pesan: "Kode Mermaid memberi diagram warnanya sendiri lewat {daftar}.",
+    saran: "Tema diagram milik buku, bukan milik model. Hapus baris itu; palet dipasang saat dirender.",
+  },
+  "IL-MMD-HTML": {
+    pesan: "Label Mermaid memuat markah HTML.",
+    saran: "Label HTML tidak dirender di dalam <img>, jadi diagramnya akan tercetak berisi kotak kosong.",
+  },
+  "IL-MMD-JENIS-ASING": {
+    pesan: "Jenis diagram Mermaid {daftar} tidak dipakai buku ini.",
+    saran: "Yang dipakai: flowchart, graph, sequenceDiagram, stateDiagram-v2, erDiagram, classDiagram, timeline, gantt.",
+  },
+  "IL-MMD-KOSONG": {
+    pesan: "Kode Mermaid kosong.",
+  },
+  "IL-MMD-TAUTAN": {
+    pesan: "Kode Mermaid memuat {jumlah} tautan atau perintah click.",
+    saran: "Diagram di buku ajar tidak diklik siapa pun; yang tersisa hanyalah kemampuannya membuka alamat yang tidak pernah diperiksa.",
+  },
+  "IL-MMD-TERLALU-BESAR": {
+    pesan: "Kode Mermaid melebihi {n} aksara.",
+  },
+  "IL-SVG-ATRIBUT-TERLARANG": {
+    pesan: "{jumlah} atribut tidak diizinkan: {daftar}.",
+    saran: "Diagram hanya boleh memakai atribut gambar. Penangan peristiwa dan style tidak pernah diizinkan.",
+  },
+  "IL-SVG-BUKAN-SVG": {
+    pesan: "Berkas ini bukan SVG.",
+  },
+  "IL-SVG-DOCTYPE": {
+    pesan: "Berkas memuat DOCTYPE, deklarasi entitas, atau blok CDATA.",
+    saran: "Ketiganya jalan masuk pembacaan berkas server dan berkas yang berlipat ganda sampai memori habis. Tidak ada gunanya pada sebuah diagram.",
+  },
+  "IL-SVG-ELEMEN-TERLARANG": {
+    pesan: "{jumlah} elemen tidak diizinkan: {daftar}.",
+    saran: "Yang diizinkan hanya unsur gambar. script, style, image, filter, dan foreignObject tidak termasuk.",
+  },
+  "IL-SVG-ENTITAS": {
+    pesan: "Berkas memuat entitas yang tidak dikenal.",
+  },
+  "IL-SVG-INSTRUKSI": {
+    pesan: "Berkas memuat instruksi pemrosesan di luar deklarasi XML.",
+  },
+  "IL-SVG-RUJUKAN-LUAR": {
+    pesan: "{jumlah} rujukan menunjuk ke luar berkas: {daftar}.",
+    saran: "Rujukan luar membocorkan siapa membuka dokumen, dan isinya dapat berganti setelah Anda menyetujuinya.",
+  },
+  "IL-SVG-RUSAK": {
+    pesan: "Berkas SVG tidak dapat diurai sampai selesai.",
+  },
+  "IL-SVG-TANPA-VIEWBOX": {
+    pesan: "Tag svg tidak punya viewBox.",
+    saran: "Tanpa viewBox, gambar tidak dapat menyesuaikan lebar cetak.",
+  },
+  "IL-SVG-TERLALU-BESAR": {
+    pesan: "Berkas SVG kosong atau melebihi {n} aksara.",
+  },
+  "IL-SVG-TERLALU-RUMIT": {
+    pesan: "Diagram melebihi {n} elemen.",
+    saran: "Yang lebih rumit dari ini bukan lagi diagram yang menjelaskan; pecah menjadi beberapa gambar.",
+  },
   "K-CPL-KODE-GANDA": {
     pesan: "Kode CPL berulang: {daftar}.",
   },
@@ -400,6 +520,73 @@ export const temuanId = {
     pesan:
       "Total skor butir {label} berjumlah {total}, seharusnya {seharusnya}.",
   },
+  "KT-BAB-KOSONG": {
+    pesan: "{jumlah} bab masih tanpa uraian: {daftar}.",
+  },
+  "KT-BELUM-DISUNTING": {
+    pesan: "{jumlah} bab belum pernah tersentuh manusia: {daftar}.",
+    saran: "Nama Anda yang tercetak di sampul; naskah yang belum dibaca penulisnya belum siap diserahkan.",
+  },
+  "KT-HALAMAN": {
+    pesan: "Taksiran tebal naskah {taksiran} halaman, di bawah {n}.",
+    saran:
+      "Empat puluh sembilan halaman adalah batas yang lazim memisahkan buku dari pamflet dalam praktik penerbitan.",
+  },
+  "KT-ISBN": {
+    pesan: "ISBN belum terisi atau tidak sah.",
+    saran: "Ajukan ISBN ke Perpustakaan Nasional lebih dulu, lalu isikan nomornya di sini.",
+  },
+  "KT-METADATA": {
+    pesan: "{jumlah} keterangan terbitan belum diisi.",
+    saran: "Judul, penulis, penerbit, kota, dan tahun terbit diperlukan halaman hak cipta.",
+  },
+  "KT-TANPA-GLOSARIUM": {
+    pesan: "Glosarium kosong.",
+  },
+  "KT-TANPA-PRAKATA": {
+    pesan: "Prakata belum ditulis.",
+  },
+  "KT-TANPA-PUSTAKA": {
+    pesan: "Daftar pustaka kosong.",
+  },
+  "KT-TANPA-SINOPSIS": {
+    pesan: "Sinopsis atau kata kunci belum ada.",
+    saran: "Keduanya diminta penerbit dan pendaftaran ISBN.",
+  },
+  "KT-USULAN-TERBUKA": {
+    pesan: "{jumlah} usulan penyuntingan belum diputus.",
+    saran: "Terima atau tolak lebih dulu; usulan yang menggantung berarti ada bagian naskah yang belum Anda putuskan.",
+  },
+  "NS-BAB-TANPA-SITIRAN": {
+    pesan: "Bab ini tidak merujuk satu pustaka pun.",
+  },
+  "NS-BAB-TIMPANG": {
+    pesan: "Panjang bab {daftar} jauh berbeda dari bab lainnya.",
+    saran: "Bab yang jauh lebih tipis biasanya belum selesai; yang jauh lebih tebal biasanya memuat dua pokok.",
+  },
+  "NS-GLOSARIUM-TAK-DIPAKAI": {
+    pesan: "{jumlah} istilah glosarium tidak muncul di bab mana pun: {daftar}.",
+  },
+  "NS-ISTILAH-TAK-SERAGAM": {
+    pesan: "{jumlah} istilah ditulis dengan beberapa cara: {daftar}.",
+    saran: "Satu konsep sebaiknya satu ejaan di seluruh buku.",
+  },
+  "NS-KALIMAT-PANJANG": {
+    pesan: "Ada kalimat melebihi {n} kata: {daftar}",
+    saran: "Kalimat sepanjang itu menuntut pembaca semester tiga membacanya dua kali.",
+  },
+  "NS-PARAGRAF-PANJANG": {
+    pesan: "{jumlah} paragraf melebihi {n} kata.",
+  },
+  "NS-PUSTAKA-TAK-DISITIR": {
+    pesan: "{jumlah} pustaka tidak pernah dirujuk bab mana pun: {daftar}.",
+    saran: "Daftar pustaka yang memuat sumber yang tidak dipakai melemahkan yang dipakai.",
+  },
+  "NS-TUJUAN-TAK-TERSENTUH": {
+    pesan: "{jumlah} kata kerja tujuan pembelajaran tidak muncul di uraian bab: {daftar}.",
+    saran:
+      "Bab yang menjanjikan sebuah kemampuan tetapi tidak pernah melatihkannya gagal mengajar apa yang dijanjikannya.",
+  },
   "L1-KELEBIHAN": {
     pesan: "Beban melebihi pagu {persen}% ({terpakai} dari pagu {pagu}).",
   },
@@ -521,6 +708,15 @@ export const temuanId = {
       "Bobot {kode} dibagi rata ke {jumlah} Sub-CPMK karena kisi-kisinya belum diisi.",
     saran:
       "Kisi-kisi membuat porsi tiap Sub-CPMK mengikuti skor butir, bukan tebakan rata.",
+  },
+  "SU-KUTIPAN-TAK-DITEMUKAN": {
+    pesan: "{jumlah} usulan dibuang karena kutipannya tidak ada di naskah.",
+    saran:
+      "Usulan yang kutipannya tidak dapat ditemukan tidak dapat diterapkan; biasanya model merapikan kutipannya sendiri sambil menyalin.",
+  },
+  "SU-KUTIPAN-BERUBAH": {
+    pesan: "Kutipan usulan ini sudah tidak ada di naskah.",
+    saran: "Anda menyuntingnya lebih dulu. Menerapkannya berarti menimpa suntingan Anda dengan usulan atas naskah lama.",
   },
   "TL-AKAR-PENDEK": {
     pesan: "Akar masalah {kode} terlalu pendek (minimal {minimal} karakter).",

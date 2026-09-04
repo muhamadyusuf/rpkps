@@ -1,6 +1,6 @@
 # Notifikasi dan Tenggat Semester
 
-> Status: **TERPASANG (30 Agustus 2026). N1–N4 selesai; N5 (surel) ditunda.**
+> Status: **TERPASANG (N1–N4 30 Agustus 2026; N5 surel 4 September 2026).**
 > Menjawab temuan: seluruh alur kerja aplikasi ini bersifat *tarik*. Kaprodi
 > baru tahu ada RPKPS menunggu keputusan bila ia membuka dasbor; dosen yang
 > dokumennya dikembalikan baru tahu saat masuk berikutnya. Untuk aplikasi yang
@@ -71,12 +71,81 @@ pernah dihapus, dan dibaca saat menelusuri kejadian. `notifikasi` dialamatkan,
 boleh basi, dan ditandai terbaca. Keduanya tetap ditulis untuk peristiwa yang
 sama, dan itu bukan duplikasi.
 
-### 2.5 Yang ditunda — N5, surel
+### 2.5 N5 — surel, di atas tabel `notifikasi` yang sama
 
-Tidak ada surel, tidak ada WhatsApp. Keduanya menuntut kredensial layanan luar,
-antrian kirim, dan penanganan gagal-kirim yang berumur panjang — tiga hal yang
-belum ada di aplikasi ini. Notifikasi dalam aplikasi lebih dulu; kanal luar
-menyusul di atas tabel `notifikasi` yang sama.
+**Terpasang 4 September 2026.** Ketiga syarat yang dulu menundanya —
+kredensial layanan luar, antrian kirim, dan penanganan gagal-kirim yang
+berumur panjang — sekarang ada. WhatsApp tetap tidak ada.
+
+Kanalnya **SMTP Gmail**, karena surel kampus ITTS berjalan di Google. Yang
+dibutuhkan hanya satu akun pengirim beserta App Password-nya; bila kuota
+harian kelak tidak cukup, host diganti ke `smtp-relay.gmail.com` tanpa satu
+baris kode pun berubah. Rinciannya di `.env.example`.
+
+#### Antriannya menumpang, bukan tabel tersendiri
+
+Sesuai janji paragraf lama: "kanal luar menyusul di atas tabel `notifikasi`
+yang sama". Lima kolom bertambah pada `notifikasi` (`surel_status`,
+`surel_percobaan`, `surel_kirim_setelah`, `surel_terkirim_pada`,
+`surel_galat`), bukan tabel outbox baru. Dua tabel yang harus tetap sejalan
+hanya menambah satu tempat lagi untuk menyimpang — dan yang dikirim memang
+notifikasi yang sama.
+
+Kolomnya berbawaan `DILEWATI`, bukan `MENUNGGU`. Seluruh baris yang sudah ada
+ditulis sebelum kanal ini ada, dan menyalakan migrasinya tidak boleh
+mengirimkan surel untuk peristiwa berbulan-bulan lalu.
+
+#### Kalimatnya dirakit saat DIKIRIM
+
+Bukan saat ditulis. Sebuah notifikasi ditulis sekali dan dikirim beberapa menit
+kemudian, kepada orang yang boleh berbahasa lain dari pelakunya — jadi bahasa
+yang berlaku adalah bahasa PENERIMA (`pengguna.bahasa`), persis seperti saat
+dibaca di layar (docs/11 §4.2). Sampulnya (`kamus.surel`) hanya sapaan, ajakan
+membuka, dan cara berhenti; isinya tetap `pesanNotifikasi` yang sama.
+
+#### Kelayakan diputuskan dua kali
+
+Saat menulis, dan sekali lagi saat menguras. Yang pertama menghormati
+preferensi orang **pada saat peristiwa terjadi**; yang kedua menangkap orang
+yang mematikan surelnya atau dinonaktifkan di antara keduanya. Syaratnya empat
+dan tidak satu pun boleh dilewati: kanal menyala, orangnya belum menolak,
+alamatnya berbentuk alamat, dan akunnya masih `AKTIF`.
+
+#### Gagal kirim tidak menghilangkan kabarnya
+
+Lima percobaan dengan jeda menaik — 1 menit, 5, 25, 2 jam, 10 jam — lalu
+`GAGAL`. **Notifikasi dalam aplikasinya tetap ada apa pun yang terjadi**;
+surel adalah lapisan tambahan di atasnya, bukan penggantinya. Jeda yang menaik
+tajam melayani dua bentuk kegagalan SMTP sekaligus: gangguan sesaat yang pulih
+dalam hitungan menit, dan kredensial atau kuota yang tidak akan pulih sampai
+ada manusia yang menyentuhnya.
+
+#### Yang menguras adalah penjadwal, bukan pengguna
+
+`POST /api/surel/kirim`, dijaga `SUREL_CRON_RAHASIA` dengan perbandingan
+`timingSafeEqual`. Mengirim surel di dalam jalur aksi berarti dosen menunggu
+jabat tangan SMTP sebelum tombolnya merespons, dan satu gangguan pada penyedia
+surel menggagalkan pengajuan RPKPS yang sebenarnya sudah tersimpan.
+
+Rutenya melayani dua cara pemasangan tanpa perubahan kode: cron platform, atau
+satu baris `curl` di crontab server kampus. Tanpa rahasia yang disetel, rute
+itu menolak SEMUA permintaan — rute penguras tanpa penjaga dapat dipakai siapa
+pun untuk menghabiskan kuota kirim harian.
+
+#### Kredensialnya hidup di satu berkas
+
+`src/lib/surel/pengirim.ts`, dan tidak boleh dibaca dari tempat lain — alasan
+yang sama dengan `src/lib/ai/kredensial.ts`. Sandi tidak pernah masuk log
+maupun kolom `surel_galat`: pesan bawaan beberapa server SMTP menyertakan nama
+akun pengirim, jadi `ringkasGalat` menyamarkannya lebih dulu. Sekali sebuah
+sandi tertulis ke basis data, ia ada di cadangannya selamanya. Penjaganya
+`src/lib/surel/rahasia.test.ts`.
+
+#### Yang TIDAK dikerjakan
+
+Tetap tidak ada notifikasi tenggat lewat surel. Tenggat adalah keadaan, bukan
+peristiwa (§1), dan surel harian "masih terlambat" adalah cara tercepat melatih
+orang memasang penyaring.
 
 ## BAGIAN 3 — Tenggat
 
@@ -120,4 +189,4 @@ menurunkannya (`karenaTenggat` di `src/domain/dasbor/antrian.ts`).
 | **N2** | Kalimat notifikasi & penilaian tenggat (murni + teruji) | `src/domain/notifikasi/pesan.ts`, `src/domain/rpkps/tenggat.ts` |
 | **N3** | Pengiriman, penerima, pembacaan | `src/lib/notifikasi/{kirim,muat}.ts` |
 | **N4** | Halaman `/notifikasi`, lencana pada rel menu, kolom tenggat di master, isyarat di dasbor dan daftar RPKPS | `src/app/(app)/notifikasi/`, `src/components/lencana-tenggat.tsx` |
-| **N5** | Kanal surel | **ditunda** |
+| **N5** ✅ | Kanal surel (SMTP Gmail, antrian di atas tabel `notifikasi`, penguras berjadwal) | 4 September 2026 |

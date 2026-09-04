@@ -21,7 +21,7 @@ Konsep lengkap ada di `docs/` — **baca sebelum menambah fitur**:
 | `docs/01-konsep-ai-byok.md` | Lapisan AI, kunci API milik pengguna (BYOK) |
 | `docs/02-template-itts-dan-penyelarasan-industri.md` | Template ITTS asli, aturan validator, fitur penyelarasan industri |
 | `docs/03-kebijakan-beban-belajar.md` | Spesifikasi mesin hitung beban belajar |
-| `docs/04-usulan-revisi-kurikulum.md` | Pintu resmi mengubah CPMK/Sub-CPMK: usulan → Kaprodi → pengesahan. U1–U2 terpasang; draf AI (U3) belum. |
+| `docs/04-usulan-revisi-kurikulum.md` | Pintu resmi mengubah CPMK/Sub-CPMK: usulan → Kaprodi → pengesahan. U1–U3 terpasang (draf AI butir usulan dari temuan validator/evaluasi/catatan dosen); U4 menunggu sumber datanya ada. |
 | `docs/05-evaluasi-ketercapaian-mk.md` | Evaluasi ketercapaian CPMK/CPL per MK + tindak lanjut (PPEPP). E1–E6 terpasang: peta asesmen, impor nilai, ketercapaian, tindak lanjut, agregasi prodi, analisis butir. |
 | `docs/07-dasbor-peran.md` | Dasbor per peran: antrian kerja, panel Kaprodi/GPM/Dosen/Admin/Asesor/Mahasiswa, bagan SVG server. D1–D3 terpasang. |
 | `docs/06-daur-hidup-dan-berbagi-rpkps.md` | Hapus/arsip RPKPS, tim pengampu, serah terima, salin, panel bagikan. B1–B4 terpasang beserta hapus paksa admin (§2.6); tautan pratinjau bertoken (B5) ditunda. |
@@ -31,9 +31,12 @@ Konsep lengkap ada di `docs/` — **baca sebelum menambah fitur**:
 | `docs/11-dwibahasa.md` | Dwibahasa Indonesia–Inggris: rute `[bahasa]`, kamus antarmuka, kolom `*En` isi RPKPS, ruang sidik kedua, ekspor dua bahasa, terjemahan BYOK. L1–L7 terpasang. |
 | `docs/12-draf-ai-tertutup.md` | Draf AI menutup peta asesmennya sendiri: komponen per baris mingguan, bobot ujian, rekonsiliasi `alokasikanAsesmen`. Terpasang. |
 | `docs/13-penugasan-koordinator-mk.md` | Penugasan dosen koordinator per mata kuliah dan tahun akademik: papan penugasan Kaprodi, aliran ke RPKPS. K1–K4 terpasang. |
-| `docs/14-tenggat-dan-rantai-pengesahan.md` | Tiga tenggat (penyusunan/review/pengesahan) + rantai tanda tangan Koordinator → Kaprodi → Kepala PMI. P1–P4 terpasang; P5–P7 belum. |
+| `docs/14-tenggat-dan-rantai-pengesahan.md` | Tiga tenggat (penyusunan/review/pengesahan) + rantai tanda tangan Koordinator → Kaprodi → Kepala PMI. P1–P7 terpasang. |
 | `docs/15-penyuntingan-kurikulum-langsung.md` | CRUD CPL/MK/CPMK/Sub-CPMK langsung di `/kurikulum`, hanya pada kurikulum DRAF. Gerbang dua lapis, kurikulum kosong, validator hidup. C1–C6 terpasang. |
 | `docs/16-bahan-ajar.md` | Menu Bahan Ajar: buku ajar per bab disusun AI dari baris mingguan RPKPS, luaran `.docx` siap ISBN + slide `.pptx`. BA1–BA6 terpasang: skema, domain, empat tahap AI, halaman, cetak .docx (`?kunci=0` untuk berkas mahasiswa) dan slide .pptx. |
+| `docs/17-ilustrasi-bahan-ajar.md` | Gambar dan diagram dalam buku ajar: diagram vektor ditulis AI sebagai kode (Mermaid/SVG), unggahan dosen, ilustrasi raster (Gemini saja). Sanitasi SVG, rasterisasi di peramban. IL1–IL7 terpasang: skema, domain murni, tahap AI diagram, antarmuka gambar, cetak .docx/.pptx, ilustrasi raster. |
+| `docs/18-penyuntingan-gambar-visual.md` | Penyunting diagram visual: lapisan pegangan di atas `<img>`, suntingan menulis ulang KODE (bukan piksel), pembekuan Mermaid ke SVG, potong/putar raster. V1–V5 terpasang. |
+| `docs/19-penyuntingan-naskah-dan-kesiapan-terbit.md` | AI sebagai EDITOR: usulan kutipan→pengganti yang disetujui dosen satu per satu, tinjauan lintas bab, pemeriksaan naskah mekanis, kesiapan terbit + sinopsis/kata kunci + blok KDT. E1–E6 terpasang. |
 
 ## Aturan yang mengikat
 
@@ -162,6 +165,19 @@ Konsep lengkap ada di `docs/` — **baca sebelum menambah fitur**:
 - **Serah terima koordinator tidak menyentuh salinan beku.** Nama pengampu di
   `rpkps_snapshot` adalah nama saat pengesahan; memperbaruinya menggeser sidik
   seluruh dokumen terbit.
+- **Kredensial SMTP hidup di `src/lib/surel/pengirim.ts` saja, dan surel tidak
+  pernah dikirim di dalam jalur aksi.** Alasan yang pertama sama dengan kunci
+  AI: kredensial yang boleh dibaca dari banyak tempat cepat atau lambat
+  tercetak di salah satunya, dan sandi yang sekali masuk log atau kolom
+  `surel_galat` ada di cadangan basis data selamanya — karena itu `ringkasGalat`
+  menyamarkannya lebih dulu (pesan bawaan SMTP kadang menyertakan nama akun).
+  Yang kedua: mengirim di dalam aksi membuat dosen menunggu jabat tangan SMTP
+  sebelum tombolnya merespons, dan satu gangguan penyedia surel menggagalkan
+  pengajuan yang sebenarnya sudah tersimpan. Antriannya menumpang tabel
+  `notifikasi` dan dikuras `POST /api/surel/kirim` yang dijaga
+  `SUREL_CRON_RAHASIA`. Kanal luar yang gagal TIDAK boleh menghilangkan
+  kabarnya: notifikasi dalam aplikasi tetap ada apa pun yang terjadi
+  (docs/10 §2.5). Penjaganya `src/lib/surel/rahasia.test.ts`.
 - **Fitur AI memakai kunci milik dosen, bukan kunci institusi.** Resolusinya
   hanya di `pakaiKredensial()` (`src/lib/ai/kredensial.ts`), tanpa cadangan ke
   env, ke kunci pengguna lain, atau ke penyedia lain. Kunci dibuka SEKALI per
@@ -172,6 +188,15 @@ Konsep lengkap ada di `docs/` — **baca sebelum menambah fitur**:
   `kredensial.ts` adalah adapter `Penyedia` yang sudah jadi, bukan string
   kunci. Ke log, pesan galat, dan `log_audit` hanya masuk penyedia, model,
   id kredensial, dan empat karakter terakhir.
+- **Ada DUA pintu tanpa login, dan keduanya tertutup rapat pada berkasnya
+  masing-masing** (docs/06 §4.3). `src/lib/publik/muat.ts` melayani katalog:
+  hanya `TERBIT`, hanya salinan beku, terindeks. `src/lib/berbagi/muat.ts`
+  melayani tautan pratinjau: hanya lewat token yang sah dan belum kedaluwarsa,
+  membaca data LANGSUNG, selalu bertanda draf, tidak pernah terindeks, dan
+  tanpa sidik — sidik hanya milik salinan beku. **Berkas yang satu tidak boleh
+  memanggil berkas yang lain**, dan halaman pratinjau tidak boleh menyentuh
+  kelas, nilai, maupun evaluasi: nilai mahasiswa tidak punya jalur tanpa login.
+  Penjaganya `src/lib/berbagi/pintu.test.ts`.
 - **Halaman publik hanya membaca salinan beku, dan hanya status `TERBIT`.**
   Semua kueri lewat `src/lib/publik/muat.ts`; isi dokumen selalu lewat
   `dokumenPublik()` yang dibangun di atas `proyeksiIsi` — jangan mengirim baris
@@ -293,6 +318,58 @@ Konsep lengkap ada di `docs/` — **baca sebelum menambah fitur**:
   — itu jejak audit (docs/11 §4.2, §4.2c).
   terjemahan; jangan melonggarkan tipenya untuk membungkam galat kompilasi —
   galat itu memang pesan bahwa ada kunci yang belum diterjemahkan.
+- **SVG adalah data tidak tepercaya, dan dirender HANYA di dalam `<img>`.**
+  Ia dapat memuat `<script>`, `onload`, `<foreignObject>`, dan rujukan ke
+  alamat luar. Sanitasinya di `src/domain/bahan-ajar/svg-aman.ts` dengan daftar
+  PUTIH, berjalan DI SERVER sebelum disimpan, dan MENOLAK — tidak pernah
+  menambal, supaya tidak ada celah antara yang diperiksa dan yang disimpan.
+  Lapis kedua: peramban hanya merender lewat `data:` URI di dalam `<img>`;
+  `innerHTML` dan `dangerouslySetInnerHTML` tidak boleh menyentuh isi gambar
+  mana pun, dan penjaganya `src/lib/bahan-ajar/gambar-aman.test.ts`.
+- **Penyuntingan naskah oleh AI menghasilkan USULAN, tidak pernah naskah.**
+  Skema `SUNTING_BAB` hanya menerima pasangan kutipan–pengganti–alasan; medan
+  bernama `uraian`/`naskah` di sana akan membuka kembali jalur yang tahap ini
+  ada untuk menutupnya. Satu-satunya tempat yang menulis `bab.uraian` adalah
+  `putuskanUsulan`, dan **tidak boleh ada aksi "terima semua"** — begitu
+  tombol itu ada, ia yang dipakai, dan penandaan "menerima usulan dihitung
+  sebagai suntingan manusia" (docs/19 E3) kehilangan dasarnya. Usulan yang
+  kutipannya sudah tidak ada di naskah menjadi `KEDALUWARSA`, tidak
+  dipaksakan: menerapkannya berarti menimpa suntingan dosen dengan usulan atas
+  naskah lama. Penjaganya `src/lib/ai/skema-sunting.test.ts`.
+- **Yang dapat dihitung mesin tidak dikirim ke model.** Panjang kalimat dan
+  paragraf, ejaan istilah yang tidak seragam, kata kerja tujuan pembelajaran
+  yang tidak muncul di uraian, dan seluruh daftar periksa kesiapan terbit ada
+  di `src/domain/bahan-ajar/naskah.ts` dan `kesiapan-terbit.ts` — deterministik,
+  gratis, dan tidak disimpan karena menghitung ulang lebih murah daripada
+  menjaga baris basi tetap sejalan.
+- **Penyunting visual menyunting KODE, dan lewat lapisannya sendiri.** Setiap
+  geseran menulis ulang SVG lewat `src/domain/bahan-ajar/svg-model.ts` —
+  penggantian potongan teks pada offset yang diketahui, bukan penyusunan ulang
+  pohon, supaya komentar dan format berkas dosen tidak lenyap tiap kali sebuah
+  kotak digeser. Pegangan seleksi adalah `<div>` milik kita di ATAS `<img>`,
+  bukan penangan klik pada elemen SVG: `<img>` buram bagi DOM, dan itulah
+  harga yang dibayar demi docs/17 I2. Penyunting visual juga tidak boleh
+  menjadi pintu belakang cetakan gaya — warnanya terbatas pada palet, dan
+  ukuran huruf tidak pernah turun di bawah ambang.
+- **Diagram disimpan sebagai kode; PNG hanyalah turunannya.** Sumber
+  kebenarannya Mermaid atau SVG. PNG wajib ada karena `docx` menerima SVG hanya
+  bila disertai cadangan raster — bukan karena ia dokumennya. PNG dirasterkan
+  PERAMBAN saat dosen menyetujui: server tidak punya Times New Roman, dan
+  labelnya akan bergeser tanpa satu galat pun.
+- **Mermaid dirender dengan `htmlLabels: false`, dan kodenya diperiksa
+  `mermaid-aman.ts`.** Label `foreignObject` tidak dirender di dalam `<img>` —
+  diagramnya tercetak berisi kotak kosong tanpa pesan galat. `click`,
+  `%%{init}%%`, dan `style`/`classDef` ditolak: yang pertama membuka alamat,
+  yang kedua mematikan penjaganya sendiri, yang ketiga merebut tema dari buku.
+- **Cetakan gaya diagram ditegakkan kode, bukan panduan.** Gradien,
+  transparansi, warna di luar palet, ketebalan garis selain 1.5/2.5, label di
+  bawah 12pt, dan font tanpa keluarga generik DITOLAK `gaya-svg.ts` — itulah
+  yang membuat diagram tidak berupa "gambar AI". Panduan tahap `BUKU_DIAGRAM`
+  MENGAMBIL angka-angka itu dari konstanta domain; menuliskannya ulang membuat
+  keduanya menyimpang diam-diam.
+- **Ilustrasi raster AI selalu berketerangan asal, dan tidak pernah untuk apa
+  pun yang faktual.** `gambar?()` bersifat OPSIONAL pada antarmuka `Penyedia`;
+  ketiadaannya tidak boleh menjadi alasan jatuh ke penyedia atau kunci lain.
 - **Basis datanya jauh, dan itu mengubah cara kode dibaca.** Postgres terkelola
   di kawasan lain: satu perjalanan pulang-pergi ~25 ms, membuka SATU koneksi
   baru ~500 ms. Tiga hal menjaganya, dan ketiganya mudah dibatalkan tanpa
@@ -314,6 +391,20 @@ Konsep lengkap ada di `docs/` — **baca sebelum menambah fitur**:
   di basis data, sehingga penonaktifan LEWAT APLIKASI INI tetap seketika.
   Mengembalikan `true` tanpa syarat berarti mengembalikan lantai waktu tunggu
   yang tidak dapat ditembus optimasi kueri mana pun.
+- **Draf AI usulan revisi boleh menyusun butir, tidak pernah menerbitkan
+  dasar.** Aturan "setiap butir wajib membawa dasar" (docs/04 §2.3) adalah
+  satu-satunya yang memisahkan kurikulum yang direvisi dari kurikulum karangan
+  model, dan runtuhnya tidak terlihat — hasilnya justru lebih rapi daripada
+  tulisan tangan dosen. Karena itu skema keluaran `SkemaDrafUsulan` TIDAK punya
+  satu pun medan untuk teks dasar: model hanya menyebut `dasar_ref` ke katalog
+  yang dirakit server (`rakitBahanDraf`), dan kutipannya DISALIN server dari
+  katalog itu. Satu-satunya teks dasar dari model adalah kutipan catatan dosen,
+  dan keverbatimannya diuji `saringDrafUsulan`, tidak dipercaya. Penyaringan
+  terjadi DUA KALI — sekali sebelum pratinjau, sekali lagi saat penerapan atas
+  butir yang dikirim balik peramban, dengan kutipannya dibuang lebih dulu:
+  pratinjau bukan otorisasi (docs/04 §9.9). `CPMK_PENSIUN` dan `SUB_PENSIUN`
+  di luar `JENIS_BOLEH_AI` selamanya. Penjaganya
+  `src/lib/ai/skema-draf-usulan.test.ts` dan `uji/integrasi.ts` §16.
 - Domain `src/domain/` harus murni: tanpa Prisma, tanpa React, agar dapat diuji.
 - Bahasa antarmuka dan penamaan domain: Indonesia. Tabel database snake_case
   lewat `@@map`/`@map`.

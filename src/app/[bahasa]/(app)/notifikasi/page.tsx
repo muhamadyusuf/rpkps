@@ -6,6 +6,9 @@ import { bahasaAktif, kamus } from "@/lib/bahasa/server";
 import { tanggal } from "@/lib/bahasa/format";
 import { bukaNotifikasi, tandaiSemuaDibaca } from "./aksi";
 import { teksNotifikasi } from "@/lib/bahasa/notifikasi";
+import { kanalSurelMenyala } from "@/lib/surel/pengirim";
+import { prisma } from "@/lib/prisma";
+import { SakelarSurel } from "./sakelar-surel";
 
 export const dynamic = "force-dynamic";
 export async function generateMetadata() {
@@ -17,7 +20,17 @@ const BATAS = 50;
 
 export default async function HalamanNotifikasi() {
   const sesi = await wajibAktif();
-  const daftar = await muatNotifikasi(sesi.id, BATAS);
+  /*
+   * Preferensi surel dibaca berdampingan dengan daftarnya, bukan sesudahnya:
+   * keduanya saling bebas, dan basis datanya jauh.
+   */
+  const [daftar, akun] = await Promise.all([
+    muatNotifikasi(sesi.id, BATAS),
+    prisma.pengguna.findUnique({
+      where: { id: sesi.id },
+      select: { surelNotifikasi: true },
+    }),
+  ]);
   const belum = daftar.filter((n) => n.dibacaPada === null).length;
   const k = await kamus();
   const b = await bahasaAktif();
@@ -45,6 +58,15 @@ export default async function HalamanNotifikasi() {
           </form>
         ) : null}
       </header>
+
+      {/*
+        Sakelar kanal surel hanya tampil bila kanalnya memang menyala di
+        server: sakelar yang tidak dapat ditepati aplikasi lebih buruk daripada
+        tidak ada sakelar sama sekali (docs/10 §2.5).
+      */}
+      {kanalSurelMenyala() ? (
+        <SakelarSurel nyala={akun?.surelNotifikasi ?? true} />
+      ) : null}
 
       {daftar.length === 0 ? (
         <Card>

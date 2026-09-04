@@ -25,6 +25,21 @@ export type DataKelola = {
     taTerpakai: string[];
   }[];
   tahun: { id: string; kode: string }[];
+  /**
+   * Tautan pratinjau dokumen ini (docs/06 §4.2), terbaru dulu. Yang DICABUT
+   * dan yang KEDALUWARSA ikut terbawa: daftar yang hanya menampilkan tautan
+   * hidup menyembunyikan justru pertanyaan yang paling sering muncul — "tautan
+   * yang saya kirim bulan lalu itu masih terbuka atau tidak?".
+   */
+  tautan: {
+    id: string;
+    token: string;
+    catatan: string | null;
+    kedaluwarsa: Date;
+    dicabutPada: Date | null;
+    jumlahAkses: number;
+    terakhirAkses: Date | null;
+  }[];
   /** Kosong berarti RPKPS memenuhi syarat penghapusan. */
   alasanTakDapatDihapus: string[];
   /**
@@ -45,7 +60,7 @@ export async function muatDataKelola(
   const cakupan = cakupanProdi(sesi);
   const filterProdi = cakupan === null ? {} : { prodiId: { in: cakupan } };
 
-  const [calonMentah, mk, tahun, sensus] = await Promise.all([
+  const [calonMentah, mk, tahun, sensus, tautan] = await Promise.all([
     /**
      * Calon pengampu TIDAK disaring per prodi: sejak docs/06 §3.4 kepengampuan
      * adalah jalur akses tersendiri, dan team teaching lintas prodi memang
@@ -96,6 +111,19 @@ export async function muatDataKelola(
         },
       },
     }),
+    prisma.tautanBerbagi.findMany({
+      where: { rpkpsId },
+      orderBy: { dibuatPada: "desc" },
+      select: {
+        id: true,
+        token: true,
+        catatan: true,
+        kedaluwarsa: true,
+        dicabutPada: true,
+        jumlahAkses: true,
+        terakhirAkses: true,
+      },
+    }),
   ]);
 
   const ringkasSensus = sensus
@@ -133,6 +161,7 @@ export async function muatDataKelola(
       taTerpakai: m.rpkps.map((r) => r.tahunAkademikId),
     })),
     tahun,
+    tautan,
     alasanTakDapatDihapus: kelayakan.alasan,
     akibatHapusPaksa: akibat,
     bolehHapusPaksa: adalahAdmin(sesi),

@@ -49,9 +49,39 @@ export interface JawabanPenyedia<T> {
   pemakaian: PemakaianToken | null;
 }
 
+/** Permintaan gambar raster — docs/17 §6. */
+export interface PermintaanGambar {
+  model: string;
+  /** Uraian gambar yang diminta. */
+  perintah: string;
+}
+
+export interface JawabanGambar {
+  /** PNG mentah. Tidak ada bentuk lain yang diterima pemanggil. */
+  png: Uint8Array;
+}
+
 export interface Penyedia {
   readonly kode: string;
   readonly modelBawaan: string;
   /** Melempar GalatAi bila panggilan gagal; kegagalan skema dikembalikan sebagai jawaban. */
   chat<T>(permintaan: PermintaanPenyedia<T>): Promise<JawabanPenyedia<T>>;
+
+  /**
+   * Menghasilkan gambar raster. OPSIONAL, dan ketiadaannya bermakna.
+   *
+   * Dari tiga penyedia yang didukung, hanya Gemini yang punya. Adapter yang
+   * tidak mengimplementasikannya membuat tombolnya padam beserta kalimat
+   * alasannya — dan itu SATU-SATUNYA perilaku yang benar. Jatuh ke penyedia
+   * lain berarti memakai kunci milik dosen untuk membayar layanan yang tidak
+   * dipilihnya, dan aturan `pakaiKredensial` (docs/08) tidak dilonggarkan
+   * sedikit pun untuk fitur ini.
+   *
+   * Model gambar biasanya BERBEDA dari model percakapan pada penyedia yang
+   * sama, jadi `model` di sini bukan `model` pada `chat`.
+   */
+  gambar?(permintaan: PermintaanGambar): Promise<JawabanGambar>;
+
+  /** Model gambar bawaan; hanya berarti bila `gambar` ada. */
+  readonly modelGambarBawaan?: string;
 }

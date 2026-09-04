@@ -75,7 +75,28 @@ export async function siapkanUnduhanRpkps(
     });
   }
 
-  const buffer = await buatDokumenRpkps(sumberEn ?? sumber, riwayat, sidik, bahasa);
+  /**
+   * Tanda tangan ronde yang dicetak, dibaca dari tabelnya sendiri — bukan dari
+   * salinan beku. Barisnya memang tidak pernah berubah (nama dan identitas
+   * dibekukan saat menandatangani), jadi membekukannya untuk kedua kalinya
+   * hanya menambah satu tempat lagi yang harus tetap sejalan. Dan ia TIDAK
+   * boleh masuk `proyeksiIsi`: menambah apa pun ke sana menggeser sidik
+   * seluruh dokumen terbit.
+   */
+  const ttd = await prisma.tandaTanganRpkps.findMany({
+    where: { rpkpsId: id, versi: rpkps.versi },
+    orderBy: { ditandatanganiPada: "asc" },
+    select: {
+      peran: true,
+      penggunaId: true,
+      nama: true,
+      identitas: true,
+      sidik: true,
+      ditandatanganiPada: true,
+    },
+  });
+
+  const buffer = await buatDokumenRpkps(sumberEn ?? sumber, riwayat, ttd, sidik, bahasa);
   const namaBerkas =
     `RPKPS ${rpkps.mataKuliah.kode} ${rpkps.mataKuliah.nama} - ${rpkps.tahunAkademik.kode}${sidik ? " (terbit)" : " (draf)"}.docx`.replace(
       /[/\\?%*:|"<>]/g,

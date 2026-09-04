@@ -15,6 +15,7 @@
  */
 
 export type JenisNotifikasi =
+  | "RPKPS_MINTA_PARAF"
   | "RPKPS_DIAJUKAN"
   | "RPKPS_DISETUJUI"
   | "RPKPS_MENUNGGU_PENGESAHAN"
@@ -26,6 +27,12 @@ export type JenisNotifikasi =
   | "USULAN_DIPUTUSKAN";
 
 export type Peristiwa =
+  /**
+   * Diminta, bukan terjadi. Koordinator menekan "Minta paraf" ketika tim belum
+   * lengkap memaraf — dan tanpa itu satu-satunya cara mereka tahu adalah
+   * membuka dasbor sendiri.
+   */
+  | { jenis: "RPKPS_MINTA_PARAF"; rpkpsId: string; mk: string; ta: string; oleh: string }
   | { jenis: "RPKPS_DIAJUKAN"; rpkpsId: string; mk: string; ta: string; oleh: string }
   | { jenis: "RPKPS_DISETUJUI"; rpkpsId: string; mk: string; ta: string; oleh: string }
   | {
@@ -82,6 +89,7 @@ export type Peristiwa =
  * menandai peristiwanya; kunci menandai kalimatnya.
  */
 export type KunciNotifikasi =
+  | "RPKPS_MINTA_PARAF"
   | "RPKPS_DIAJUKAN"
   | "RPKPS_DISETUJUI"
   | "RPKPS_MENUNGGU_PENGESAHAN"
@@ -116,6 +124,7 @@ export function ringkasCatatan(catatan: string, batas = BATAS_CATATAN): string {
 
 export function susunNotifikasi(p: Peristiwa): IsiNotifikasi {
   switch (p.jenis) {
+    case "RPKPS_MINTA_PARAF":
     case "RPKPS_DIAJUKAN":
     case "RPKPS_DISETUJUI":
     case "RPKPS_DISAHKAN":

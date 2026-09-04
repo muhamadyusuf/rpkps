@@ -102,7 +102,7 @@ export interface HasilSaring {
  * `CATATAN_CPL` justru DIIZINKAN: di situlah temuan "ini sebenarnya soal CPL"
  * seharusnya mendarat, dan ia memang tidak pernah diterapkan otomatis (§2.2).
  */
-export const JENIS_BOLEH_AI: readonly JenisButir[] = [
+export const JENIS_BOLEH_AI = [
   "CPMK_BARU",
   "CPMK_RUMUSAN",
   "CPMK_PETA_CPL",
@@ -110,7 +110,7 @@ export const JENIS_BOLEH_AI: readonly JenisButir[] = [
   "SUB_RUMUSAN",
   "SUB_MINGGU",
   "CATATAN_CPL",
-];
+] as const satisfies readonly JenisButir[];
 
 const JENIS_PERLU_RUMUSAN: readonly JenisButir[] = [
   "CPMK_BARU",
@@ -170,7 +170,10 @@ export function saringDrafUsulan(bahan: BahanDraf, draf: ButirDraf[]): HasilSari
 
     // ── 1 · Jenis harus termasuk yang diizinkan ────────────────────────
     const jenis = d.jenis?.trim().toUpperCase() as JenisButir;
-    if (!JENIS_BOLEH_AI.includes(jenis)) {
+    // Pelebaran tipe disengaja: daftarnya sebuah tuple harfiah supaya skema
+    // keluaran AI dapat memakainya sebagai enum tanpa menuliskannya ulang, dan
+    // tuple itu justru menolak `includes` atas jenis yang lebih luas.
+    if (!(JENIS_BOLEH_AI as readonly JenisButir[]).includes(jenis)) {
       buang(
         "D-JENIS-TERLARANG",
         `Jenis butir "${d.jenis}" tidak boleh disusun AI.`,
@@ -430,4 +433,37 @@ export function ringkasSaringan(hasil: HasilSaring): string {
 /** Butir jenis ini tidak pernah dapat diterapkan otomatis — dipakai panel untuk menandainya. */
 export function hanyaCatatan(butir: ButirInput): boolean {
   return JENIS_TAK_DITERAPKAN.includes(butir.jenis);
+}
+
+/**
+ * Mengubah butir hasil pratinjau kembali ke bentuk mentah, supaya penyaring
+ * yang sama dapat menilainya sekali lagi terhadap katalog yang baru dirakit.
+ *
+ * Kutipan dasarnya sengaja TIDAK ikut: yang diteruskan hanya `ref`, dan
+ * kutipannya disalin ulang dari katalog oleh `saringDrafUsulan`. Kiriman
+ * peramban dengan demikian tidak dapat menempelkan kode temuan yang asli pada
+ * kalimat karangannya — bentuk penyelewengan yang paling sulit dilihat Kaprodi
+ * (§9.3), dan yang tidak dapat dicegah pemeriksaan mana pun bila kutipannya
+ * dipercaya apa adanya.
+ *
+ * Satu-satunya kutipan yang ikut adalah kutipan CATATAN_DOSEN, karena ia
+ * memang tidak punya `ref` — dan keverbatimannya diperiksa ulang penyaring
+ * terhadap catatan yang diketik dosen saat itu juga.
+ */
+export function keBentukMentah(b: ButirInput): ButirDraf {
+  return {
+    jenis: b.jenis,
+    cpmkKode: b.cpmkKode,
+    subCpmkKode: b.subCpmkKode ?? null,
+    rumusan: b.rumusan ?? null,
+    levelBloom: b.levelBloom ?? null,
+    cplKode: b.cplKode ?? [],
+    mingguDisarankan: b.mingguDisarankan ?? [],
+    alasan: b.alasan,
+    dasarRef: b.dasar
+      .filter((d) => d.jenis !== "CATATAN_DOSEN")
+      .map((d) => d.ref ?? "")
+      .filter(Boolean),
+    kutipanCatatan: b.dasar.find((d) => d.jenis === "CATATAN_DOSEN")?.kutipan ?? null,
+  };
 }

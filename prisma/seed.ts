@@ -20,6 +20,9 @@ async function main() {
     create: {
       id: "itts",
       nama: "Institut Teknologi Tangerang Selatan",
+      // Nama Inggris ikut sejak awal supaya `/en` tidak menampilkan kerangka
+      // Inggris berisi nama Indonesia pada pemasangan yang baru (docs/11 §5.4).
+      namaEn: "Tangerang Selatan Institute of Technology",
       namaSingkat: "ITTS",
       situs: "https://itts.ac.id",
     },
@@ -32,6 +35,7 @@ async function main() {
     create: {
       kode: "FTI",
       nama: "Fakultas Teknologi Industri",
+      namaEn: "Faculty of Industrial Technology",
       institusiId: institusi.id,
     },
   });
@@ -43,6 +47,7 @@ async function main() {
     create: {
       kode: "TI",
       nama: "Teknologi Informasi",
+      namaEn: "Information Technology",
       jenjang: "S1",
       gelar: "S.Kom.",
       fakultasId: fakultas.id,

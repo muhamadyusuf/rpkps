@@ -32,6 +32,8 @@ const PILIH_BUKU = {
   pendahuluan: true,
   glosarium: true,
   biografi: true,
+  sinopsis: true,
+  kataKunci: true,
   sumber: true,
   diubahPada: true,
   bab: {
@@ -59,6 +61,46 @@ const PILIH_BUKU = {
         select: { id: true, nomor: true, judul: true, butir: true, catatan: true },
       },
       pustaka: { select: { pustakaId: true } },
+      /**
+       * Bita PNG SENGAJA tidak ikut dimuat. Satu bab dapat memuat dua belas
+       * gambar berukuran megabyte; menariknya ke setiap halaman berarti
+       * mengirimkan belasan megabyte lewat muatan render hanya untuk
+       * menampilkan daftar berjudul. Gambarnya diambil terpisah lewat
+       * `/api/bahan-ajar/[id]/gambar/[gambarId]`.
+       */
+      gambar: {
+        orderBy: { nomor: "asc" },
+        select: {
+          id: true,
+          nomor: true,
+          judul: true,
+          altTeks: true,
+          sumber: true,
+          bentuk: true,
+          kode: true,
+          letak: true,
+          lebarPx: true,
+          tinggiPx: true,
+        },
+      },
+    },
+  },
+  /**
+   * Usulan penyuntingan yang masih TERBUKA. Yang sudah diputus tidak dimuat:
+   * ia hanya berguna sebagai penjaga agar tinjauan ulang tidak menghidupkan
+   * kembali usulan yang sudah ditolak, dan penjagaan itu terjadi di aksi —
+   * bukan di layar.
+   */
+  usulan: {
+    where: { status: "TERBUKA" as const },
+    orderBy: [{ babId: "asc" as const }, { dibuatPada: "asc" as const }],
+    select: {
+      id: true,
+      babId: true,
+      jenis: true,
+      kutipan: true,
+      usul: true,
+      alasan: true,
     },
   },
   rpkps: {

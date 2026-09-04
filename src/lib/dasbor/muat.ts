@@ -20,6 +20,7 @@ import {
 } from "@/domain/dasbor/ringkasan";
 import {
   susunAntrian,
+  type TenggatJalur,
   SUMBER_KOSONG,
   type ButirAntrian,
   type SumberAntrian,
@@ -247,23 +248,41 @@ export async function muatDasbor(sesi: PenggunaSesi): Promise<DataDasbor> {
       cacahAntrianKerja(sesi, { cakupan, adalahAdmin }),
     ]);
 
-  // Dinilai dengan status DRAF: yang diukur di sini adalah petak DOSEN —
-  // pekerjaan yang belum diajukan. Petak Kaprodi (review) dan Penjaminan Mutu
-  // (pengesahan) menyusul bersama antrian per jalur, docs/14 §4.1.
-  const tenggat = tahunAktif
-    ? nilaiTenggatDokumen({
-        status: "DRAF",
-        tenggat: {
-          penyusunan: tahunAktif.tenggatPenyusunan,
-          review: tahunAktif.tenggatReview,
-          pengesahan: tahunAktif.tenggatPengesahan,
-        },
-        diajukanPada: null,
-        disetujuiPada: null,
-        jaminanHari: tahunAktif.jaminanHariPutusan,
-        sekarang: new Date(),
-      })
-    : null;
+  /**
+   * Tiga jalur, tiga penilaian (docs/14 §4.1). Satu angka tunggal akan membuat
+   * keterlambatan dosen menyusun mewarnai merah butir milik Kaprodi — dan
+   * sebaliknya. Tiap jalur dinilai dengan status yang mewakilinya, dan dua
+   * jalur pemutus memakai cap dokumen terlama sebagai titik mulai jaminan N
+   * hari.
+   */
+  const sekarang = new Date();
+  const nilaiJalur = (
+    status: "DRAF" | "DIAJUKAN" | "DISETUJUI",
+    sejak: Date | null,
+  ): NilaiTenggat | null =>
+    tahunAktif
+      ? nilaiTenggatDokumen({
+          status,
+          tenggat: {
+            penyusunan: tahunAktif.tenggatPenyusunan,
+            review: tahunAktif.tenggatReview,
+            pengesahan: tahunAktif.tenggatPengesahan,
+          },
+          diajukanPada: sejak,
+          disetujuiPada: sejak,
+          jaminanHari: tahunAktif.jaminanHariPutusan,
+          sekarang,
+        })
+      : null;
+
+  const tenggatJalur: TenggatJalur = {
+    penyusunan: nilaiJalur("DRAF", null),
+    review: nilaiJalur("DIAJUKAN", cacahAntrian.sejakReview),
+    pengesahan: nilaiJalur("DISETUJUI", cacahAntrian.sejakPengesahan),
+  };
+  // Lencana di kepala dasbor tetap menunjukkan petak penyusunan: ia berdiri di
+  // sebelah tahun akademik, bukan di sebelah butir antrian mana pun.
+  const tenggat = tenggatJalur.penyusunan;
 
   const antrian = susunAntrian(
     rakitSumberAntrian(cacahAntrian, {
@@ -271,7 +290,7 @@ export async function muatDasbor(sesi: PenggunaSesi): Promise<DataDasbor> {
       adalahMutu,
       kebijakanDraf: kebijakan?.status === "DRAF",
       dosen,
-      tenggat,
+      tenggat: tenggatJalur,
     }),
   );
 
@@ -305,8 +324,16 @@ interface CacahAntrian {
   usulanMenunggu: number;
   rpkpsMenunggu: number;
   rpkpsPengesahan: number;
+  rpkpsParaf: number;
   penggunaMenunggu: number;
   temuanSaya: number;
+  /**
+   * Kapan dokumen TERLAMA di jalur itu sampai ke meja pemutusnya — dasar
+   * jaminan N hari (docs/14 §3.2). Yang terlama menentukan karena antrian
+   * menampilkan keadaan terparah jalur, bukan rata-ratanya.
+   */
+  sejakReview: Date | null;
+  sejakPengesahan: Date | null;
 }
 
 /**
@@ -336,37 +363,97 @@ async function cacahAntrianKerja(
   const filterProdi =
     opsi.cakupan === null ? {} : { prodiId: { in: opsi.cakupan } };
 
-  const [usulanMenunggu, rpkpsMenunggu, rpkpsPengesahan, penggunaMenunggu, temuanSaya] =
-    await Promise.all([
-      bolehMemutus
-        ? prisma.usulanRevisi.count({
-            where: { status: "DIAJUKAN", kurikulum: filterProdi },
-          })
-        : 0,
-      adalahKaprodi
-        ? prisma.rpkps.count({
-            where: { status: "DIAJUKAN", mataKuliah: { kurikulum: filterProdi } },
-          })
-        : 0,
-      adalahPengesah
-        ? prisma.rpkps.count({
-            where: { status: "DISETUJUI", mataKuliah: { kurikulum: filterProdi } },
-          })
-        : 0,
-      opsi.adalahAdmin
-        ? prisma.pengguna.count({ where: { status: "MENUNGGU_VERIFIKASI" } })
-        : 0,
-      prisma.temuanEvaluasi.count({
-        where: { penanggungJawabId: sesi.id, statusVerifikasi: "BELUM" },
-      }),
-    ]);
+  /**
+   * Kapan dokumen terlama di sebuah jalur sampai ke pemutusnya.
+   *
+   * Dikelompokkan di BASIS DATA, satu baris per dokumen yang menunggu — bukan
+   * dengan memuat dokumennya. Yang diambil per dokumen adalah cap TERBARU:
+   * tanda tangan ronde sebelumnya tetap tersimpan (ia riwayat, docs/14 §2.5),
+   * dan memakai yang terlama akan mencabut jaminan N hari dari dokumen yang
+   * baru saja diajukan ulang — menyalahkan pemutus atas ronde yang lalu.
+   */
+  const sejakTerlama = async (
+    status: "DIAJUKAN" | "DISETUJUI",
+    peran: "KOORDINATOR" | "KAPRODI",
+  ): Promise<Date | null> => {
+    const per = await prisma.tandaTanganRpkps.groupBy({
+      by: ["rpkpsId"],
+      where: { peran, rpkps: { status, mataKuliah: { kurikulum: filterProdi } } },
+      _max: { ditandatanganiPada: true },
+    });
+    const cap = per
+      .map((x) => x._max.ditandatanganiPada)
+      .filter((d): d is Date => d !== null);
+    return cap.length === 0 ? null : new Date(Math.min(...cap.map((d) => d.getTime())));
+  };
+
+  const [
+    usulanMenunggu,
+    rpkpsMenunggu,
+    rpkpsPengesahan,
+    parafSaya,
+    penggunaMenunggu,
+    temuanSaya,
+    sejakReview,
+    sejakPengesahan,
+  ] = await Promise.all([
+    bolehMemutus
+      ? prisma.usulanRevisi.count({
+          where: { status: "DIAJUKAN", kurikulum: filterProdi },
+        })
+      : 0,
+    adalahKaprodi
+      ? prisma.rpkps.count({
+          where: { status: "DIAJUKAN", mataKuliah: { kurikulum: filterProdi } },
+        })
+      : 0,
+    adalahPengesah
+      ? prisma.rpkps.count({
+          where: { status: "DISETUJUI", mataKuliah: { kurikulum: filterProdi } },
+        })
+      : 0,
+    /**
+     * Paraf yang menunggu SAYA. Dicacah dari dokumen yang saya ampu saja —
+     * segelintir baris per dosen — karena syaratnya membandingkan `versi`
+     * tanda tangan dengan `versi` dokumennya, dan perbandingan antar-tabel
+     * seperti itu tidak dapat dituliskan sebagai penyaring Prisma.
+     *
+     * Sidik isi sengaja TIDAK ikut diperiksa di sini: itu penilaian per
+     * dokumen yang menuntut proyeksi tiap barisnya. Antrian adalah alat bantu
+     * perhatian; aturan yang mengikat tetap di validator (docs/14 §2.2).
+     */
+    prisma.rpkps.findMany({
+      where: {
+        status: { in: ["DRAF", "DIREVISI"] },
+        pengampu: { some: { penggunaId: sesi.id } },
+      },
+      select: {
+        versi: true,
+        tandaTangan: {
+          where: { penggunaId: sesi.id, peran: "PENGAMPU" },
+          select: { versi: true },
+        },
+      },
+    }),
+    opsi.adalahAdmin
+      ? prisma.pengguna.count({ where: { status: "MENUNGGU_VERIFIKASI" } })
+      : 0,
+    prisma.temuanEvaluasi.count({
+      where: { penanggungJawabId: sesi.id, statusVerifikasi: "BELUM" },
+    }),
+    adalahKaprodi ? sejakTerlama("DIAJUKAN", "KOORDINATOR") : null,
+    adalahPengesah ? sejakTerlama("DISETUJUI", "KAPRODI") : null,
+  ]);
 
   return {
     usulanMenunggu,
     rpkpsMenunggu,
     rpkpsPengesahan,
+    rpkpsParaf: parafSaya.filter((r) => !r.tandaTangan.some((t) => t.versi === r.versi)).length,
     penggunaMenunggu,
     temuanSaya,
+    sejakReview,
+    sejakPengesahan,
   };
 }
 
@@ -381,7 +468,7 @@ function rakitSumberAntrian(
     adalahMutu: boolean;
     kebijakanDraf: boolean;
     dosen: DataDosen | null;
-    tenggat: NilaiTenggat | null;
+    tenggat: TenggatJalur;
   },
 ): SumberAntrian {
   return {
@@ -389,6 +476,7 @@ function rakitSumberAntrian(
     usulanMenungguKeputusan: cacah.usulanMenunggu,
     rpkpsMenungguKeputusan: cacah.rpkpsMenunggu,
     rpkpsMenungguPengesahan: cacah.rpkpsPengesahan,
+    rpkpsMenungguParaf: cacah.rpkpsParaf,
     rpkpsDikembalikan:
       opsi.dosen?.rpkps.filter((r) => r.status === "DIREVISI").length ?? 0,
     rpkpsDraf: opsi.dosen?.rpkps.filter((r) => r.status === "DRAF").length ?? 0,

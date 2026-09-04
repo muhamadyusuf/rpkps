@@ -11,6 +11,8 @@ import {
   type DekUntukSlide,
   type OpsiSlide,
 } from "@/lib/dokumen/slide-pptx";
+import { prisma } from "@/lib/prisma";
+import { hitungKata, taksiranHalaman } from "@/domain/bahan-ajar/naskah";
 import { muatBuku, type BukuLengkap } from "./muat";
 
 /**
@@ -42,7 +44,42 @@ export function bacaGlosarium(nilai: unknown): { istilah: string; arti: string }
   });
 }
 
-export function keBukuCetak(buku: BukuLengkap): BukuUntukCetak {
+/**
+ * Bita PNG seluruh gambar sebuah buku.
+ *
+ * Kueri TERSENDIRI, dan hanya dijalankan saat mencetak: `muatBuku` sengaja
+ * tidak memuat bita gambar, karena satu bab dapat memuat dua belas gambar
+ * berukuran megabyte dan setiap halaman yang menampilkan daftar bab akan ikut
+ * menariknya.
+ */
+async function bitaGambar(
+  buku: BukuLengkap,
+): Promise<Map<string, { png: Uint8Array; svg: string | null }>> {
+  const babId = buku.bab.map((b) => b.id);
+  if (babId.length === 0) return new Map();
+
+  const baris = await prisma.gambarBab.findMany({
+    where: { babId: { in: babId } },
+    select: { id: true, png: true, bentuk: true, kode: true },
+  });
+
+  return new Map(
+    baris.map((g) => [
+      g.id,
+      {
+        png: new Uint8Array(g.png),
+        // Hanya SVG yang dapat disematkan sebagai vektor. Mermaid disimpan
+        // sebagai kodenya, dan kode itu bukan gambar — yang tercetak PNG-nya.
+        svg: g.bentuk === "SVG" ? g.kode : null,
+      },
+    ]),
+  );
+}
+
+export function keBukuCetak(
+  buku: BukuLengkap,
+  bita: Map<string, { png: Uint8Array; svg: string | null }> = new Map(),
+): BukuUntukCetak {
   return {
     bahasa: buku.bahasa,
     judul: buku.judul,
@@ -59,6 +96,14 @@ export function keBukuCetak(buku: BukuLengkap): BukuUntukCetak {
     pendahuluan: buku.pendahuluan,
     glosarium: bacaGlosarium(buku.glosarium),
     biografi: buku.biografi,
+    sinopsis: buku.sinopsis,
+    kataKunci: buku.kataKunci,
+    // Taksiran yang sama dengan yang ditampilkan panel kesiapan terbit,
+    // dihitung dari sumber yang sama — dua angka berbeda untuk satu buku
+    // akan membuat dosen mempertanyakan keduanya.
+    taksiranHalaman: taksiranHalaman(
+      buku.bab.reduce((jumlah, b) => jumlah + hitungKata(b.uraian ?? ""), 0),
+    ),
     mataKuliah: {
       kode: buku.rpkps.mataKuliah.kode,
       // Nama Inggris dipakai bila bukunya berbahasa Inggris DAN nama itu ada;
@@ -77,6 +122,27 @@ export function keBukuCetak(buku: BukuLengkap): BukuUntukCetak {
       ringkasan: b.ringkasan,
       belumDisunting: b.disuntingPada === null,
       latihan: b.latihan.map((l) => ({ nomor: l.nomor, soal: l.soal, kunci: l.kunci })),
+      /*
+       * Gambar yang bitanya belum dimuat DILEWATI, bukan dicetak sebagai
+       * bingkai kosong: `keBukuCetak` juga dipakai jalur yang tidak mencetak
+       * gambar (dek slide), dan halaman berbingkai kosong lebih buruk
+       * daripada halaman tanpa gambar.
+       */
+      gambar: b.gambar.flatMap((g) => {
+        const isi = bita.get(g.id);
+        if (!isi) return [];
+        return [{
+          nomor: g.nomor,
+          judul: g.judul,
+          altTeks: g.altTeks,
+          letak: g.letak,
+          png: isi.png,
+          svg: isi.svg,
+          lebarPx: g.lebarPx,
+          tinggiPx: g.tinggiPx,
+          dariModelGambar: g.sumber === "AI_RASTER",
+        }];
+      }),
     })),
     /*
      * Daftar pustaka buku adalah daftar pustaka RPKPS, apa adanya — bukan
@@ -98,7 +164,7 @@ export async function siapkanUnduhanBuku(
   const baris = await muatBuku(bukuId);
   if (!baris) return null;
 
-  const buku = keBukuCetak(baris);
+  const buku = keBukuCetak(baris, await bitaGambar(baris));
   if (opsi.bab !== undefined && !buku.bab.some((b) => b.nomor === opsi.bab)) return null;
 
   return {
@@ -118,8 +184,9 @@ export async function siapkanUnduhanBuku(
  * memang tidak punya medan kunci — slide ditayangkan di depan kelas, dan
  * jawaban yang tersorot di layar tidak dapat ditarik kembali.
  */
-export function keDekSlide(buku: BukuLengkap): DekUntukSlide {
+export async function keDekSlide(buku: BukuLengkap): Promise<DekUntukSlide> {
   const cetak = keBukuCetak(buku);
+  const bita = await bitaGambar(buku);
   return {
     bahasa: cetak.bahasa,
     judulBuku: cetak.judul,
@@ -136,6 +203,21 @@ export function keDekSlide(buku: BukuLengkap): DekUntukSlide {
         catatan: s.catatan,
       })),
       latihan: b.latihan.map((l) => ({ nomor: l.nomor, soal: l.soal })),
+      /*
+       * Selalu PNG. Slide tidak mengenal vektor dengan cadangan seperti .docx,
+       * dan PNG-nya sudah dirasterkan peramban pada resolusi cetak.
+       */
+      gambar: b.gambar.flatMap((g) => {
+        const isi = bita.get(g.id);
+        if (!isi) return [];
+        return [{
+          nomor: g.nomor,
+          judul: g.judul,
+          dataUri: `data:image/png;base64,${Buffer.from(isi.png).toString("base64")}`,
+          lebarPx: g.lebarPx,
+          tinggiPx: g.tinggiPx,
+        }];
+      }),
     })),
   };
 }
@@ -147,7 +229,7 @@ export async function siapkanSlideBuku(
   const baris = await muatBuku(bukuId);
   if (!baris) return null;
 
-  const dek = keDekSlide(baris);
+  const dek = await keDekSlide(baris);
   if (opsi.bab !== undefined && !dek.bab.some((b) => b.nomor === opsi.bab)) return null;
 
   return {

@@ -94,9 +94,17 @@ describe("panduan tugas buku ajar", () => {
   });
 
   it("tiap tahap membuka kredensial dosen sendiri, tanpa klien modul", () => {
-    const tahap = sumber.match(/export async function susun\w+/g) ?? [];
-    assert.equal(tahap.length, 4);
-    assert.equal((sumber.match(/await pakaiKredensial\(/g) ?? []).length, 4);
+    /*
+     * Angkanya dipasang di sini dengan sengaja: tahap baru yang lupa membuka
+     * kredensialnya sendiri akan memakai kunci yang salah, dan tagihannya
+     * salah alamat. Yang dihitung SETIAP tugas AI, bukan hanya yang bernama
+     * `susun*` — `suntingBab` dan `tinjauNaskah` (docs/19) juga membuka kunci
+     * dosen, dan justru penamaan yang berbeda itulah yang membuat pemindai
+     * berbasis nama mudah kebobolan.
+     */
+    const tahap = sumber.match(/^export async function (susun|sunting|tinjau)\w+/gm) ?? [];
+    assert.equal(tahap.length, 9, tahap.join(", "));
+    assert.equal((sumber.match(/await pakaiKredensial\(/g) ?? []).length, 9);
     // Klien SDK pada variabel modul akan mengabaikan kunci dosen berikutnya
     // dan menagihkannya ke alamat yang salah.
     assert.ok(!/^const \w+ = buatPenyedia\(/m.test(sumber));

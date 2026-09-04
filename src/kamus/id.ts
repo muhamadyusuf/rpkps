@@ -70,6 +70,11 @@ export const id = {
       "Disalin dari {asal}; pemetaan Sub-CPMK dan kisi-kisi tidak ikut karena mata kuliahnya berbeda",
   },
   pesanNotifikasi: {
+    RPKPS_MINTA_PARAF: {
+      judul: "Paraf Anda ditunggu pada RPKPS {mk}",
+      ringkasan:
+        "{oleh} meminta paraf tim pengampu RPKPS {mk} ({ta}). Dokumen tidak dapat diajukan sebelum seluruh paraf masuk.",
+    },
     RPKPS_DIAJUKAN: {
       judul: "RPKPS {mk} menunggu pengesahan",
       ringkasan: "{oleh} mengajukan RPKPS {mk} ({ta}) untuk disahkan.",
@@ -121,6 +126,37 @@ export const id = {
     USULAN_DIPUTUSKAN_TANPA_CATATAN: {
       judul: "Usulan \"{judul}\" {keputusan}",
       ringkasan: "{oleh} {keputusan} usulan Anda.",
+    },
+  },
+  /**
+   * Tenggat: kalimatnya dirakit dari `NilaiTenggat` saat dibaca, bukan disimpan
+   * di domain (docs/11 §4.1, docs/14 §3.5). Tiap tahap punya kalimatnya sendiri
+   * karena penanda yang tidak menyebut tenggat apa memaksa pembacanya membuka
+   * dokumen hanya untuk tahu itu urusan siapa.
+   */
+  tenggat: {
+    tanpa: "tanpa tenggat",
+    selesai: "sudah selesai",
+    penyusunan: {
+      lewatHariIni: "lewat tenggat hari ini",
+      terlambat: { satu: "terlambat {n} hari", banyak: "terlambat {n} hari" },
+      hariIni: "tenggat hari ini",
+      tersisa: { satu: "tersisa {n} hari", banyak: "tersisa {n} hari" },
+    },
+    review: {
+      lewatHariIni: "lewat tenggat review hari ini",
+      terlambat: { satu: "review terlambat {n} hari", banyak: "review terlambat {n} hari" },
+      hariIni: "tenggat review hari ini",
+      tersisa: { satu: "review tersisa {n} hari", banyak: "review tersisa {n} hari" },
+    },
+    pengesahan: {
+      lewatHariIni: "lewat tenggat pengesahan hari ini",
+      terlambat: {
+        satu: "pengesahan terlambat {n} hari",
+        banyak: "pengesahan terlambat {n} hari",
+      },
+      hariIni: "tenggat pengesahan hari ini",
+      tersisa: { satu: "pengesahan tersisa {n} hari", banyak: "pengesahan tersisa {n} hari" },
     },
   },
   /** Kata keputusan usulan, sebagaimana dibaca di dalam kalimat notifikasi. */
@@ -379,7 +415,55 @@ export const id = {
       isi: "Administrator perlu mengisi NIDN/NIP, peran, dan program studi sebelum modul kurikulum, RPKPS, dan evaluasi terbuka untuk Anda.",
     },
 
-    antrian: { kosong: "Tidak ada yang menunggu tindakan Anda." },
+    antrian: {
+      kosong: "Tidak ada yang menunggu tindakan Anda.",
+      /** Ditempelkan pada rincian butir bila jalurnya sedang dekat atau lewat. */
+      tenggatJalur: "Tenggat semester {tenggat}.",
+      butir: {
+        "kebijakan-draf": {
+          judul: "Kebijakan beban belajar belum diberlakukan",
+          rincian:
+            "Angkanya masih bawaan SN-Dikti. Memperbaikinya setelah ada RPKPS terbit berarti menghitung ulang semuanya.",
+        },
+        "usulan-menunggu": {
+          judul: "Usulan revisi menunggu keputusan Anda",
+          rincian: "Pengusul tidak dapat melanjutkan sebelum tiap butir diputuskan.",
+        },
+        "rpkps-menunggu": {
+          judul: "RPKPS menunggu putusan Anda",
+          rincian: "Selama belum disetujui, dokumen ini tidak sampai ke Penjaminan Mutu.",
+        },
+        "rpkps-pengesahan": {
+          judul: "RPKPS menunggu pengesahan Anda",
+          rincian:
+            "Sudah ditandatangani Kaprodi. Tinggal pemeriksaan kesesuaian standar sebelum terbit.",
+        },
+        "rpkps-paraf": {
+          judul: "RPKPS menunggu paraf Anda",
+          rincian: "Koordinator belum dapat mengajukan sebelum seluruh pengampu memaraf.",
+        },
+        "rpkps-dikembalikan": {
+          judul: "RPKPS dikembalikan untuk direvisi",
+          rincian: "Catatan pemutus menunggu ditindaklanjuti.",
+        },
+        "pengguna-verifikasi": {
+          judul: "Pengguna menunggu verifikasi",
+          rincian: "Belum punya peran, sehingga belum dapat mengakses apa pun.",
+        },
+        "kelas-siap-tutup": {
+          judul: "Kelas siap ditutup evaluasinya",
+          rincian: "Nilai sudah lengkap; capaian belum masuk agregasi prodi.",
+        },
+        "temuan-belum-verifikasi": {
+          judul: "Temuan yang Anda tanggung belum diverifikasi",
+          rincian: "Tindak lanjut tanpa verifikasi memutus siklus PPEPP.",
+        },
+        "rpkps-draf": {
+          judul: "RPKPS Anda masih draf",
+          rincian: "Belum diajukan untuk diputuskan.",
+        },
+      },
+    },
 
     prodi: {
       judul: "Program Studi {nama}",
@@ -658,6 +742,13 @@ export const id = {
   },
 
   notifikasi: {
+      surelJudul: "Notifikasi lewat surel",
+      surelNyala: "Kabar yang menuntut tindakan Anda ikut dikirim ke surel kampus.",
+      surelMati: "Notifikasi hanya muncul di aplikasi ini.",
+      surelNyalakan: "Nyalakan",
+      surelMatikan: "Matikan",
+      surelDinyalakan: "Notifikasi surel dinyalakan.",
+      surelDimatikan: "Notifikasi surel dimatikan. Kabarnya tetap muncul di sini.",
     judul: "Notifikasi",
     keterangan: "Kabar tentang dokumen yang Anda ampu dan usulan yang Anda ajukan. Yang belum dibaca berada di atas.",
     tandaiSemua: "Tandai semua dibaca",
@@ -764,6 +855,31 @@ export const id = {
     },
   },
 
+  /**
+   * Tautan pratinjau bertoken (docs/06 §4.2). Kalimatnya sengaja menyebut
+   * "belum disahkan" dua kali — di pita dan di keterangannya — karena pembaca
+   * halaman ini tidak punya konteks lain untuk menilainya.
+   */
+  pratinjau: {
+    metaJudul: "Pratinjau draf RPKPS",
+    metaTidakBerlaku: "Tautan tidak berlaku",
+    pita: "DRAF — BELUM DISAHKAN",
+    pitaKeterangan:
+      "Dokumen ini dibagikan lewat tautan pratinjau dan belum melewati rantai pengesahan. Isinya masih dapat berubah, dan ia tidak memiliki sidik dokumen resmi.",
+    kedaluwarsa: "Tautan pratinjau ini berlaku sampai {tanggal}.",
+  },
+  /**
+   * Kerangka surel notifikasi (docs/10 §2.5). Isinya sendiri datang dari
+   * `pesanNotifikasi` — yang di sini hanya sampul: sapaan, ajakan membuka, dan
+   * cara berhenti menerimanya.
+   */
+  surel: {
+    salam: "Halo {nama},",
+    buka: "Buka di aplikasi: {tautan}",
+    hentikan:
+      "Anda menerima surel ini karena notifikasi surel menyala pada akun Anda. Matikan kapan saja di {pengaturan}.",
+    kaki: "RPKPS ITTS — surel ini dikirim otomatis, mohon tidak dibalas.",
+  },
   dokumenPublik: {
     komponenNilai: "Komponen nilai",
     versiInggris: {
@@ -788,6 +904,21 @@ export const id = {
     metaKurikulum: "Kurikulum",
     unduh: "Unduh dokumen resmi",
     tahunLain: "Tahun akademik lain",
+    pengesah: {
+      KOORDINATOR: "Koordinator Mata Kuliah",
+      KAPRODI: "Ketua Program Studi",
+      PENJAMINAN_MUTU: "Kepala Penjaminan Mutu Internal",
+      peranKeterangan: {
+        KOORDINATOR: "a.n Tim penyusun RPKPS",
+        KAPRODI: "Disetujui oleh",
+        PENJAMINAN_MUTU: "Telah diperiksa dan dinyatakan sesuai dengan standar ITTS",
+      },
+      belum: "Belum ditandatangani",
+      belumKeterangan:
+        "Dokumen ini terbit sebelum rantai pengesahan elektronik dipakai; tanda tangannya ada pada berkas cetak.",
+      ditandatanganiElektronik: "Ditandatangani secara elektronik",
+      sidikYangDicap: "Sidik isi yang ditandatangani",
+    },
     disahkan: "Disahkan {tanggal}",
     disahkanVersi: " — versi {versi}, isinya dibekukan pada tanggal itu.",
     daftarIsi: {
@@ -798,6 +929,7 @@ export const id = {
       penilaian: "Penilaian",
       pustaka: "Referensi",
       pengampu: "Tim pengampu",
+      pengesahan: "Pengesahan",
       riwayat: "Riwayat dokumen",
     },
     isi: {
@@ -857,6 +989,9 @@ export const id = {
       penilaianKeterangan: "Bobot tiap komponen dan ambang yang dipakai untuk menyatakan kelulusan.",
       pustakaJudul: "Referensi dan sumber",
       pengampuJudul: "Tim pengampu",
+      pengesahanJudul: "Pengesahan",
+      pengesahanKeterangan:
+        "Tiga cap berurutan pada ronde yang diterbitkan. Tiap cap menyebut sidik isi yang ditandatanganinya.",
       riwayatJudul: "Riwayat dokumen",
       riwayatKeterangan: "Jejak penyusunan hingga pengesahan.",
     },
@@ -1330,6 +1465,51 @@ export const id = {
     riwayatJudul: "Riwayat",
     ralat: "Ralat",
     revisiKe: "Revisi {nomor}",
+    draf: {
+      judul: "Draf butir dengan AI",
+      keterangan:
+        "AI menyalin temuan yang sudah ada menjadi butir usulan yang rapi. Ia tidak menilai kurikulum, dan tidak pernah menyusun dasarnya sendiri — dasar dipilih dari temuan validator, temuan evaluasi, dan catatan yang Anda ketik.",
+      catatan: "Catatan Anda",
+      catatanPetunjuk:
+        "Opsional. Yang Anda tulis di sini boleh dijadikan dasar butir, tetapi hanya sebagai kutipan verbatim — AI tidak boleh merangkumnya menjadi kalimat lain.",
+      catatanContoh:
+        "Sub-CPMK pekan 5 terlalu tinggi levelnya dibanding waktu praktikum yang tersedia.",
+      susun: "Susun draf",
+      menyusun: "Menyusun…",
+      terapkan: "Terapkan {jumlah} butir",
+      pilihSemua: "Pilih semua",
+      kosongkan: "Kosongkan pilihan",
+      bahan: "{validator} temuan validator · {evaluasi} temuan evaluasi",
+      hasilKosong: "AI tidak menyusun satu butir pun yang dapat ditelusuri dasarnya.",
+      dibuangJudul: "{jumlah} butir dibuang",
+      dibuangKeterangan:
+        "Dibuang server sebelum sampai ke sini. Disebutkan apa adanya: draf yang separuhnya dibuang tanpa keterangan terbaca seperti draf yang baik.",
+      dasarJudul: "Dasar",
+      tanpaKunciTebal: "Belum ada kunci AI.",
+      tanpaKunciIsi: "Fitur ini memakai kunci API milik Anda sendiri.",
+      daftarkanKunci: "Daftarkan kunci",
+      kunciDipakai: "Kunci yang dipakai",
+      pilihKunci: "Pilih kunci",
+      kunciBawaan: " · bawaan",
+      sumberAi: "Disusun AI",
+      sebab: {
+        "D-JENIS-TERLARANG": "Jenis butirnya tidak boleh disusun AI.",
+        "D-TANPA-SASARAN": "Tidak menyebut capaian sasaran.",
+        "D-KODE-TIDAK-DIKENAL": "Kodenya tidak ada pada mata kuliah ini.",
+        "D-KODE-BENTROK": "Kode barunya sudah dipakai capaian yang ada.",
+        "D-RUMUSAN-KOSONG": "Tidak membawa rumusan.",
+        "D-ALASAN-PENDEK": "Alasannya terlalu ringkas untuk dinilai.",
+        "D-LEVEL-ASING": "Level Bloom-nya tidak dikenal.",
+        "D-CPL-ASING": "Menyebut CPL yang tidak dibebankan pada mata kuliah ini.",
+        "D-PETA-KOSONG": "Peta CPL tanpa satu pun CPL.",
+        "D-DASAR-KARANGAN": "Dasarnya tidak ada pada bahan yang diberikan.",
+        "D-DASAR-BEDA-SASARAN": "Dasarnya menyangkut capaian lain.",
+        "D-CATATAN-TIDAK-ADA": "Mengutip catatan dosen yang tidak pernah ditulis.",
+        "D-KUTIPAN-PENDEK": "Kutipan catatannya terlalu pendek.",
+        "D-KUTIPAN-KARANGAN": "Kutipannya tidak ada pada catatan yang Anda tulis.",
+        "D-SASARAN-GANDA": "Sudah ada butir sejenis untuk sasaran yang sama.",
+      },
+    },
     baru: {
       metaJudul: "Usulan revisi baru",
       kembali: "Usulan Revisi",
@@ -1636,12 +1816,109 @@ export const id = {
     slideCatatan: "Catatan pembicara",
     susunBabIni: "Susun bab ini dengan AI",
     susunSlideIni: "Susun slide bab ini",
+    gambarJudul: "Gambar ({jumlah})",
+    gambarKeterangan:
+      "Diagram ditulis AI sebagai kode lalu digambar mesin — bukan gambar bikinan model. Labelnya teks sungguhan, dan tajam pada cetakan berapa pun.",
+    gambarKosong: "Belum ada gambar pada bab ini.",
+    susunDiagram: "Susun diagram dengan AI",
+    susunIlustrasi: "Buat ilustrasi",
+    ilustrasiKeterangan:
+      "Ilustrasi suasana atau metafora pembuka bab. Hanya tersedia pada kunci Gemini, dan tidak boleh dipakai untuk diagram, grafik, peta, maupun skema alat — model penghasil gambar tidak tahu apa-apa tentang alat yang digambarnya.",
+    ilustrasiPlaceholder: "Jelaskan gambar yang Anda inginkan…",
+    ilustrasiPeringatan:
+      "Gambar ini akan tercetak dengan keterangan bahwa ia dihasilkan AI, dan buku yang memuatnya membawa satu paragraf pengungkapan di halaman hak cipta.",
+    unggahGambar: "Unggah gambar",
+    usulJudul: "Usulan yang belum disimpan ({jumlah})",
+    setujuiGambar: "Setujui",
+    tolakGambar: "Buang",
+    gambarGagalRender: "Diagram ini tidak dapat digambar.",
+    hapusGambarKonfirmasi: "Hapus gambar ini dari bab?",
+    labelKeteranganGambar: "Keterangan gambar",
+    labelLetak: "Letak (judul subbab)",
+    pratinjau: "Pratinjau",
+    tab: { visual: "Visual", kode: "Kode", raster: "Gambar" },
+    batal: "Batal",
+    ulang: "Ulang",
+    terapkan: "Terapkan",
+    petunjukSeret: "Klik sebuah elemen untuk memilihnya, seret untuk memindahkan, tarik pegangan sudut untuk mengubah ukuran.",
+    pilihElemen: "Belum ada elemen yang dipilih.",
+    elemenTerpilih: "Terpilih: {tag}",
+    elemenTakDisunting: "jenis ini tidak dapat digeser",
+    isiTeks: "Isi teks",
+    warnaIsian: "Warna isian",
+    warnaGaris: "Warna garis",
+    hapusElemen: "Hapus elemen",
+    tanpaViewBox: "Gambar ini tidak punya viewBox, sehingga tidak dapat disunting visual.",
+    bekukan: "Bekukan ke SVG",
+    bekukanKonfirmasi:
+      "Bekukan diagram ini menjadi SVG? Tata letak otomatis Mermaid hilang untuk selamanya, dan menyusunnya ulang dari kode Mermaid akan membuang suntingan visual Anda.",
+    bekukanBerhasil: "Diagram dibekukan menjadi SVG dan siap disunting visual. Belum tersimpan.",
+    potong: "Potong",
+    putar: "Putar 90°",
+    petunjukPotong: "Seret pada gambar untuk memilih bagian yang dipertahankan.",
+    peringatanPotong:
+      "Memotong membuang piksel dan tidak dapat dibatalkan setelah disimpan — aslinya tidak ikut disimpan.",
+    usulanJudul: "Usulan penyuntingan ({jumlah})",
+    usulanKeterangan:
+      "AI bekerja sebagai editor: ia menunjuk kalimat, mengusulkan penggantinya, dan menyebut alasannya. Anda yang memutuskan — dan membaca sambil memutuskan itulah yang membuat naskah ini layak membawa nama Anda.",
+    usulanKosong: "Belum ada usulan yang menunggu keputusan.",
+    suntingBab: "Sunting bab ini dengan AI",
+    tinjauNaskah: "Tinjau seluruh naskah",
+    naskahSekarang: "Naskah sekarang",
+    usulanPengganti: "Usulan",
+    usulHapus: "(potongan ini dihapus)",
+    terapkanUsulan: "Terapkan",
+    tandaiDibaca: "Tandai sudah dibaca",
+    tolakUsulan: "Tolak",
+    seluruhBuku: "Seluruh buku",
+    jenisUsulan: {
+      BAHASA: "Bahasa",
+      ISTILAH: "Istilah",
+      PENGULANGAN: "Pengulangan",
+      TUJUAN: "Tujuan",
+      STRUKTUR: "Struktur",
+    },
+    terbitJudul: "Kesiapan terbit",
+    terbitRingkas: "Taksiran {halaman} halaman · {berisi} dari {total} bab berisi",
+    terbitSiap: "Siap diserahkan",
+    terbitBelum: "Belum siap",
+    terbitLengkap: "Seluruh syarat penyerahan sudah terpenuhi.",
+    sinopsisJudul: "Sinopsis sampul belakang",
+    sinopsisKeterangan:
+      "Diminta penerbit dan pendaftaran ISBN. Berbeda dari ISBN dan penerbit, sinopsis adalah tulisan — jadi AI boleh mendrafnya, dan Anda menyuntingnya.",
+    susunSinopsis: "Draf dengan AI",
+    kataKunci: "Kata kunci",
+    kataKunciPetunjuk: "Dipisah koma, mis. struktur data, algoritma, rekursi",
+    naskahJudul: "Pemeriksaan naskah",
+    naskahKeterangan:
+      "Dihitung mesin, tanpa memakai kuota AI Anda: panjang kalimat dan paragraf, ejaan istilah, keselarasan tujuan pembelajaran, dan sitiran.",
+    naskahBersih: "Tidak ada temuan mekanis pada naskah ini.",
+    sumberGambar: {
+      DIAGRAM_AI: "Diagram AI",
+      UNGGAHAN: "Unggahan",
+      AI_RASTER: "Ilustrasi AI",
+    },
     sumberMinggu: "Minggu {minggu} · {subCpmk}",
     tanpaSubCpmk: "tanpa Sub-CPMK",
   },
 
   rpkps: {
     tabelKosong: "Tabel kosong",
+    /** Kalimat pada tombol rantai pengesahan (docs/14 §2, tahap P4 & P6). */
+    tombol: {
+      buat: "Buat RPKPS",
+      menyiapkan: "Menyiapkan…",
+      paraf: "Paraf halaman pengesahan",
+      parafUlang: "Paraf ulang",
+      menandatangani: "Menandatangani…",
+      mintaParaf: "Minta paraf",
+      mintaParafPetunjuk: "Mengingatkan {jumlah} pengampu yang belum memaraf ronde ini.",
+      mengirim: "Mengirim…",
+      ajukan: "Tanda tangani & ajukan",
+      mengajukan: "Mengajukan…",
+      setujui: "Setujui & tanda tangani",
+      sahkan: "Sahkan & terbitkan",
+    },
     tabelKosongPetunjuk:
       "Membuat RPKPS tanpa kerangka; tabel mingguan disusun sendiri",
     metaJudul: "RPKPS",
@@ -2112,6 +2389,24 @@ export const id = {
     },
 
     kelola: {
+      /** Tautan pratinjau draf — docs/06 §4.2. */
+      pratinjauJudul: "Tautan pratinjau draf",
+      pratinjauKeterangan:
+        "Untuk memperlihatkan dokumen yang belum disahkan kepada orang tanpa akun — mitra industri atau asesor. Selalu bertanda draf, selalu kedaluwarsa, dan dapat dicabut kapan saja.",
+      pratinjauCatatan: "Untuk siapa",
+      pratinjauContohCatatan: "Pak Andi, PT Pertamina",
+      pratinjauHari: "Berlaku (hari)",
+      pratinjauBuat: "Buat tautan",
+      pratinjauKosong: "Belum ada tautan pratinjau.",
+      pratinjauTanpaCatatan: "(tanpa catatan)",
+      pratinjauSisa: "sisa {n} hari",
+      pratinjauAkses: "{n} kali dibuka",
+      pratinjauCabut: "Cabut",
+      statusTautan: {
+        AKTIF: "Aktif",
+        KEDALUWARSA: "Kedaluwarsa",
+        DICABUT: "Dicabut",
+      },
       timJudul: "Tim pengampu",
       timKeterangan: "Ditunjuk sebagai pengampu berarti boleh menyunting RPKPS ini — dan hanya RPKPS ini, termasuk bila dosennya berasal dari program studi lain.",
       nidn: "NIDN {nomor}",
@@ -2269,8 +2564,11 @@ export const id = {
       subCpmk: "Sub-CPMK tidak ditemukan.",
       cpl: "CPL tidak ditemukan.",
       rpkps: "RPKPS tidak ditemukan.",
+      tautan: "Tautan pratinjau tidak ditemukan.",
       bukuAjar: "Buku ajar tidak ditemukan.",
       babBukuAjar: "Bab buku ajar tidak ditemukan.",
+      gambar: "Gambar tidak ditemukan pada buku ini.",
+      usulanSunting: "Usulan penyuntingan tidak ditemukan.",
       rpkpsAsal: "RPKPS asal tidak ditemukan.",
       kurikulum: "Kurikulum tidak ditemukan.",
       kelas: "Kelas tidak ditemukan.",
@@ -2329,9 +2627,13 @@ export const id = {
      * dan `pesanZod` menerjemahkannya saat pesan itu benar-benar dilaporkan.
      */
     periksa: {
+      catatanTautanPanjang: "Catatan tautan maksimal {n} karakter.",
+      hariTautanMinimal: "Tautan berlaku paling singkat {n} hari.",
+      hariTautanMaksimal: "Tautan berlaku paling lama {n} hari.",
       alasanArsip: "Alasan pengarsipan wajib diisi, minimal {n} karakter.",
       judulBukuPendek: "Judul buku minimal {n} karakter.",
       judulBabPendek: "Judul bab minimal {n} karakter.",
+      judulGambarPendek: "Keterangan gambar minimal {n} karakter.",
       alasanHapusPaksa:
         "Alasan penghapusan wajib diisi, minimal {n} karakter — kalimat inilah satu-satunya yang tersisa di log audit setelah dokumennya lenyap.",
       kodeCplWajib: "Kode CPL wajib diisi.",
@@ -2422,6 +2724,23 @@ export const id = {
       babTersimpan: "Bab {nomor} tersimpan.",
       gagalSimpanBab: "Gagal menyimpan bab. Periksa log server.",
       sebutanBab: "Bab {nomor}",
+      diagramTersusun: "{jumlah} diagram diusulkan. Tinjau sebelum disimpan.",
+      gagalDiagram: "Gagal menyusun diagram. Periksa log server.",
+      gambarTersimpan: "Gambar tersimpan.",
+      gambarDihapus: "Gambar dihapus.",
+      gambarDitolak: "Gambar tidak lolos pemeriksaan dan tidak disimpan.",
+      gambarPenuh: "Bab ini sudah memuat {n} gambar, batas maksimalnya.",
+      ilustrasiTersusun: "Ilustrasi tersusun. Tinjau sebelum disimpan.",
+      perintahPendek: "Jelaskan lebih dulu gambar apa yang Anda inginkan, minimal satu kalimat.",
+      usulanTersimpan: "{jumlah} usulan baru tersimpan.",
+      usulanDiterima: "Usulan diterapkan.",
+      usulanDitolak: "Usulan ditolak.",
+      usulanSudahDiputus: "Usulan ini sudah diputus sebelumnya.",
+      usulanKedaluwarsa:
+        "Kutipan usulan ini sudah tidak ada di naskah — Anda menyuntingnya lebih dulu, jadi ia tidak diterapkan.",
+      gagalSunting: "Gagal menjalankan penyuntingan. Periksa log server.",
+      tinjauButuhDuaBab: "Tinjauan naskah menilai hubungan antarbab; isi sekurang-kurangnya dua bab lebih dulu.",
+      sinopsisTersusun: "Sinopsis dan kata kunci tersusun. Sunting sebelum diserahkan ke penerbit.",
     },
     umum: {
       dataTidakValid: "Data tidak valid.",
@@ -2443,6 +2762,15 @@ export const id = {
       disahkan: "RPKPS disahkan dan terbit.",
       dikembalikan: "Dikembalikan untuk revisi. Seluruh tanda tangan ronde ini gugur.",
       parafTercatat: "Paraf Anda tercatat pada halaman pengesahan.",
+      hanyaPemegangBerbagi:
+        "Hanya koordinator mata kuliah dan pengelola prodi yang dapat membagikan draf ke luar aplikasi.",
+      tautanDibuat: "Tautan pratinjau dibuat.",
+      tautanDicabut: "Tautan pratinjau dicabut.",
+      tautanSudahDicabut: "Tautan itu sudah dicabut sebelumnya.",
+      hanyaKoordinatorMinta: "Hanya koordinator mata kuliah yang dapat meminta paraf tim.",
+      parafSudahLengkap:
+        "Seluruh pengampu sudah memaraf isi yang berlaku sekarang — tidak ada yang perlu diingatkan.",
+      parafDiminta: "Permintaan paraf dikirim ke {jumlah} pengampu.",
       dihapus: "RPKPS {label} dihapus.",
       dihapusPaksa: "RPKPS {label} dihapus paksa. Tercatat di log audit beserta sidik seluruh salinan bekunya.",
       hanyaAdminHapusPaksa:
@@ -2507,6 +2835,14 @@ export const id = {
       butirDisimpan: "Keputusan butir disimpan.",
       tanpaTaBerikutnya: "Belum ada tahun akademik berikutnya untuk menampung revisi ini. Tambahkan lebih dulu di menu Tahun Akademik.",
       drafDibuat: "Draf usulan revisi dibuat. Lengkapi butir perubahannya di halaman usulan.",
+      drafTanpaMk:
+        "Usulan ini tidak menunjuk mata kuliah, sehingga draf AI tidak punya batas kode untuk bekerja.",
+      drafTanpaDasar:
+        "Belum ada temuan validator maupun temuan evaluasi pada mata kuliah ini. Draf AI hanya boleh bersandar pada dasar yang nyata.",
+      drafTanpaPilihan: "Belum ada butir yang dicentang untuk diterapkan.",
+      drafTakLolos:
+        "Tidak satu pun butir yang dicentang masih dapat ditelusuri dasarnya. Susun ulang drafnya.",
+      drafDiterapkan: "{jumlah} butir ditambahkan ke usulan ini. Baca dan sunting sebelum diajukan.",
     },
     kurikulum: {
       dihapus: "Kurikulum dihapus.",

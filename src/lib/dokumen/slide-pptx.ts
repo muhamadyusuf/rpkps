@@ -41,12 +41,23 @@ export interface LatihanSlide {
   soal: string;
 }
 
+/** Gambar bab, sudah sebagai PNG. Slide tidak mengenal vektor. */
+export interface GambarSlide {
+  nomor: number;
+  judul: string;
+  /** `data:image/png;base64,…` — bentuk yang diterima pptxgenjs. */
+  dataUri: string;
+  lebarPx: number;
+  tinggiPx: number;
+}
+
 export interface BabUntukSlide {
   nomor: number;
   judul: string;
   tujuan: string[];
   slide: SlideCetak[];
   latihan: LatihanSlide[];
+  gambar: GambarSlide[];
 }
 
 export interface DekUntukSlide {
@@ -85,6 +96,18 @@ export async function buatSlidePptx(
 
     for (const s of b.slide) {
       slideButir(pptx, s.judul, s.butir, s.catatan, kaki(dek, b, L));
+    }
+
+    /*
+     * Gambar bab menjadi slidenya sendiri, sesudah slide isi.
+     *
+     * Menyisipkannya di tengah menuntut pengetahuan tentang subbab mana yang
+     * menjadi slide mana — dan slide TIDAK punya subbab; ia sudah merupakan
+     * ringkasan bab. Satu slide satu gambar juga cara diagram ditayangkan di
+     * kelas: penuh layar, bukan terselip di samping butir.
+     */
+    for (const g of b.gambar) {
+      slideGambar(pptx, g, `${L.buku.gambar} ${b.nomor}.${g.nomor} ${g.judul}`, kaki(dek, b, L));
     }
 
     // Slide latihan menutup tiap bab — SOALNYA saja. Kuncinya tidak dapat
@@ -216,6 +239,51 @@ function slideButir(
   // Catatan pembicara. Tidak pernah menjadi teks di atas slide — itu beda
   // antara bahan mengajar dan slide yang dibacakan.
   if (catatan?.trim()) slide.addNotes(catatan.trim());
+}
+
+/** Satu gambar memenuhi slidenya, dengan keterangan di bawahnya. */
+function slideGambar(
+  pptx: PptxGenJS,
+  gambar: GambarSlide,
+  keterangan: string,
+  kakiTeks: string,
+) {
+  const slide = pptx.addSlide();
+
+  // Kotak yang tersedia setelah keterangan dan kaki halaman. Gambar
+  // diperkecil agar MUAT seluruhnya — dipotong berarti kehilangan label.
+  const kotakLebar = LEBAR - 2;
+  const kotakTinggi = TINGGI - 2.2;
+  const rasio = gambar.lebarPx / Math.max(1, gambar.tinggiPx);
+  const lebar = Math.min(kotakLebar, kotakTinggi * rasio);
+  const tinggi = lebar / rasio;
+
+  slide.addImage({
+    data: gambar.dataUri,
+    x: (LEBAR - lebar) / 2,
+    y: 0.6,
+    w: lebar,
+    h: tinggi,
+  });
+
+  slide.addText(keterangan, {
+    x: 0.7,
+    y: TINGGI - 1.3,
+    w: LEBAR - 1.4,
+    h: 0.5,
+    fontSize: 14,
+    color: WARNA_ISI,
+    align: "center",
+  });
+
+  slide.addText(kakiTeks, {
+    x: 0.7,
+    y: TINGGI - 0.7,
+    w: LEBAR - 1.4,
+    h: 0.4,
+    fontSize: 10,
+    color: WARNA_REDUP,
+  });
 }
 
 export function namaBerkasSlide(dek: DekUntukSlide, opsi: OpsiSlide = {}): string {

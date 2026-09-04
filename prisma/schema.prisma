@@ -171,6 +171,11 @@ model Pengguna {
   /// Preferensi bahasa antarmuka. Mengikuti ORANGNYA lintas perangkat;
   /// cookie `bahasa` hanya menyimpan yang terakhir dipakai di peramban ini.
   bahasa        BahasaAntarmuka @default(id)
+  /// Ikut menerima notifikasi lewat surel (docs/10 §2.5). Menyala secara
+  /// bawaan: kanal ini ada justru karena alur kerja aplikasi bersifat tarik,
+  /// dan yang tidak pernah membuka dasbor adalah yang paling perlu dikabari.
+  /// Mematikannya TIDAK mematikan notifikasi dalam aplikasi.
+  surelNotifikasi Boolean       @default(true) @map("surel_notifikasi")
   terakhirMasuk DateTime?       @map("terakhir_masuk")
   dibuatPada    DateTime        @default(now()) @map("dibuat_pada")
   diubahPada    DateTime        @updatedAt @map("diubah_pada")
@@ -188,6 +193,7 @@ model Pengguna {
   temuanDiverifikasi TemuanEvaluasi[]   @relation("TemuanDiverifikasi")
   kredensialAi       KredensialAi[]
   notifikasi         Notifikasi[]
+  tautanBerbagi      TautanBerbagi[]
   koordinatorMk      KoordinatorMk[]    @relation("KoordinatorMkDosen")
   koordinatorMkSet   KoordinatorMk[]    @relation("KoordinatorMkPenetap")
   tandaTanganRpkps   TandaTanganRpkps[]
@@ -336,6 +342,10 @@ model LogAudit {
 /// terlalu sering dikirim berhenti dibaca, dan yang berhenti dibaca sama saja
 /// dengan tidak ada.
 enum JenisNotifikasi {
+  /// Koordinator meminta paraf tim sebelum mengajukan (docs/14 §4.2). Satu-
+  /// satunya notifikasi di daftar ini yang lahir dari permintaan, bukan dari
+  /// perbuatan — dan justru karena itu ia menuntut perbuatan penerimanya.
+  RPKPS_MINTA_PARAF
   RPKPS_DIAJUKAN
   RPKPS_DISETUJUI
   RPKPS_MENUNGGU_PENGESAHAN
@@ -352,6 +362,25 @@ enum JenisNotifikasi {
 ///
 /// Bukan `log_audit`: yang di sana adalah catatan resmi yang tidak pernah
 /// dihapus dan tidak dialamatkan kepada siapa pun. Yang di sini boleh basi.
+/// Keadaan kanal surel untuk SATU baris notifikasi (docs/10 §2.5, tahap N5).
+///
+/// Antriannya menumpang tabel `notifikasi`, bukan tabel tersendiri: yang
+/// dikirim adalah notifikasi yang sama, dan dua tabel yang harus tetap sejalan
+/// hanya menambah satu tempat lagi untuk menyimpang. Kalimatnya pun tidak
+/// disimpan di sini — ia dirakit saat DIKIRIM, dalam bahasa penerimanya
+/// (`pengguna.bahasa`), persis seperti saat dibaca di layar.
+enum StatusSurel {
+  /// Menunggu giliran kirim.
+  MENUNGGU
+  TERKIRIM
+  /// Menyerah setelah percobaan habis. Notifikasi dalam aplikasi TETAP ada —
+  /// kanal luar yang gagal tidak boleh menghilangkan kabarnya.
+  GAGAL
+  /// Sengaja tidak dikirim: penerima menolak surel, tidak punya alamat, atau
+  /// kanalnya memang belum dinyalakan. Bukan kegagalan, dan tidak dicoba ulang.
+  DILEWATI
+}
+
 model Notifikasi {
   id         String          @id @default(cuid())
   penggunaId String          @map("pengguna_id")
@@ -371,10 +400,24 @@ model Notifikasi {
   dibacaPada DateTime?       @map("dibaca_pada")
   dibuatPada DateTime        @default(now()) @map("dibuat_pada")
 
+  /// Kanal surel (N5). Keadaannya diputuskan saat notifikasi DITULIS —
+  /// preferensi penerima dibaca sekali di sana — lalu dikuras belakangan.
+  surelStatus       StatusSurel @default(DILEWATI) @map("surel_status")
+  surelPercobaan    Int         @default(0) @map("surel_percobaan")
+  /// Jeda mundur setelah gagal. Null berarti boleh dikirim sekarang.
+  surelKirimSetelah DateTime?   @map("surel_kirim_setelah")
+  surelTerkirimPada DateTime?   @map("surel_terkirim_pada")
+  /// Pesan galat TERAKHIR, dipendekkan. Tidak pernah memuat kredensial:
+  /// yang disimpan hanya `error.message`, dan pengirimnya sudah membersihkan
+  /// pesan bawaan SMTP yang kadang menyertakan nama pengguna.
+  surelGalat        String?     @map("surel_galat")
+
   pengguna Pengguna @relation(fields: [penggunaId], references: [id], onDelete: Cascade)
 
   @@index([penggunaId, dibacaPada])
   @@index([penggunaId, dibuatPada])
+  /// Kuras antrian menyapa indeks ini, bukan seluruh tabel notifikasi.
+  @@index([surelStatus, surelKirimSetelah])
   @@map("notifikasi")
 }
 
@@ -789,6 +832,7 @@ model Rpkps {
   kelas         Kelas[]
   tandaTangan   TandaTanganRpkps[]
   bukuAjar      BukuAjar[]
+  tautanBerbagi TautanBerbagi[]
 
   @@unique([mataKuliahId, tahunAkademikId])
   @@index([status])
@@ -1192,6 +1236,48 @@ model RpkpsSnapshot {
   @@unique([rpkpsId, versi])
   @@index([rpkpsId])
   @@map("rpkps_snapshot")
+}
+
+/// Tautan pratinjau bertoken — docs/06 §4.2 (tahap B5).
+///
+/// Pintu KEDUA tanpa login, dan sengaja berdiri sendiri. Katalog publik hanya
+/// melayani dokumen TERBIT dari salinan beku; tautan ini justru untuk yang
+/// BELUM disahkan — mitra industri yang diminta menilai penyelarasan, atau
+/// asesor sebelum visitasi. Karena itu ia membaca data langsung, selalu
+/// bertanda draf, dan tidak pernah terindeks (§4.3).
+///
+/// Empat pagar yang membuatnya layak ada, dan tanpa keempatnya fitur ini lebih
+/// baik tidak ada: selalu kedaluwarsa, selalu bertanda draf, tidak pernah
+/// terindeks, dan hanya-baca atas RPKPS saja — tanpa nilai, kelas, maupun
+/// evaluasi. Nilai mahasiswa tidak boleh punya jalur tanpa login.
+model TautanBerbagi {
+  id      String @id @default(cuid())
+  rpkpsId String @map("rpkps_id")
+  /// 32 bita acak base64url. Panjangnya bukan selera: tautan ini adalah
+  /// satu-satunya penjaga, jadi menebaknya harus mustahil.
+  token   String @unique
+  /// "Untuk Pak Andi, PT Pertamina". Supaya yang mencabut tahu ia mencabut apa.
+  catatan String?
+
+  /// Selalu ada. Tanpa tanggal, satu tautan yang bocor berlaku selamanya.
+  kedaluwarsa DateTime
+  /// Pencabutan tidak menghapus barisnya: siapa membagikan apa kepada siapa
+  /// adalah jejak yang justru paling berguna saat ada pertanyaan.
+  dicabutPada DateTime? @map("dicabut_pada")
+
+  jumlahAkses   Int       @default(0) @map("jumlah_akses")
+  terakhirAkses DateTime? @map("terakhir_akses")
+
+  /// Pembuatnya boleh hilang tanpa melenyapkan tautannya (SetNull) — yang
+  /// penting di sini adalah tautan mana yang masih hidup.
+  dibuatOlehId String?  @map("dibuat_oleh_id")
+  dibuatPada   DateTime @default(now()) @map("dibuat_pada")
+
+  rpkps      Rpkps     @relation(fields: [rpkpsId], references: [id], onDelete: Cascade)
+  dibuatOleh Pengguna? @relation(fields: [dibuatOlehId], references: [id], onDelete: SetNull)
+
+  @@index([rpkpsId])
+  @@map("tautan_berbagi")
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1768,6 +1854,11 @@ model BukuAjar {
   /// Kelengkapan yang boleh didraf AI lalu disunting dosen.
   prakata     String?
   pendahuluan String?
+  /// Sinopsis sampul belakang dan kata kuncinya — diminta penerbit dan
+  /// pendaftaran ISBN. Keduanya TULISAN, bukan metadata terbitan, sehingga
+  /// boleh didraf AI (docs/19 §4.1) — tidak seperti ISBN dan penerbit.
+  sinopsis    String?
+  kataKunci   String[] @map("kata_kunci")
   /// [{ istilah, arti }] — daftar, bukan kalimat, supaya dapat diurutkan dan
   /// dicetak sebagai glosarium tanpa mengurai teks bebas.
   glosarium   Json?
@@ -1777,8 +1868,9 @@ model BukuAjar {
   dibuatPada DateTime  @default(now()) @map("dibuat_pada")
   diubahPada DateTime  @updatedAt @map("diubah_pada")
 
-  rpkps Rpkps         @relation(fields: [rpkpsId], references: [id], onDelete: Cascade)
-  bab   BabBukuAjar[]
+  rpkps  Rpkps           @relation(fields: [rpkpsId], references: [id], onDelete: Cascade)
+  bab    BabBukuAjar[]
+  usulan UsulanSunting[]
 
   @@unique([rpkpsId, bahasa])
   @@index([rpkpsId])
@@ -1822,11 +1914,13 @@ model BabBukuAjar {
   /// tanpa gejala — aturan yang sama dengan `simpanPertemuan`.
   diubahPada    DateTime  @updatedAt @map("diubah_pada")
 
-  buku      BukuAjar     @relation(fields: [bukuAjarId], references: [id], onDelete: Cascade)
-  pertemuan Pertemuan?   @relation(fields: [pertemuanId], references: [id], onDelete: SetNull)
+  buku      BukuAjar        @relation(fields: [bukuAjarId], references: [id], onDelete: Cascade)
+  pertemuan Pertemuan?      @relation(fields: [pertemuanId], references: [id], onDelete: SetNull)
   latihan   LatihanBab[]
   slide     SlideBab[]
   pustaka   BabPustaka[]
+  gambar    GambarBab[]
+  usulan    UsulanSunting[]
 
   @@unique([bukuAjarId, nomor])
   @@index([bukuAjarId])
@@ -1881,4 +1975,130 @@ model BabPustaka {
 
   @@id([babId, pustakaId])
   @@map("bab_pustaka")
+}
+
+// ─────────────────────────────────────────────────────────────
+// GAMBAR DAN DIAGRAM — docs/17
+//
+// Diagram disimpan sebagai KODE; PNG hanyalah turunannya. Yang membuat sebuah
+// gambar terbaca "seperti hasil AI" adalah piksel yang ditebak — label yang
+// menyerupai huruf tetapi tidak terbaca, gradien plastik, garis yang menebal
+// tanpa alasan. Karena itu jalur utamanya adalah gambar vektor yang ditulis
+// model sebagai kode dan digambar mesin (docs/17 I1).
+//
+// PNG tetap WAJIB, dan itu bukan pilihan kita: `docx` menerima SVG hanya bila
+// disertai cadangan raster, dan PowerPoint sama saja.
+// ─────────────────────────────────────────────────────────────
+
+enum SumberGambar {
+  /// Mermaid atau SVG yang ditulis model.
+  DIAGRAM_AI
+  /// Berkas dari dosen: foto alat, tangkapan layar, grafik penelitiannya.
+  UNGGAHAN
+  /// Model penghasil gambar. WAJIB berketerangan asal saat dicetak, dan tidak
+  /// pernah dipakai untuk apa pun yang faktual (docs/17 I5, §6).
+  AI_RASTER
+}
+
+enum BentukGambar {
+  MERMAID
+  SVG
+  RASTER
+}
+
+model GambarBab {
+  id    String @id @default(cuid())
+  babId String @map("bab_id")
+  /// Urutan dalam bab. Nomor cetaknya "Gambar {nomor bab}.{nomor ini}", dan
+  /// itu diberikan server — bukan oleh model.
+  nomor Int
+
+  /// Keterangan gambar, tercetak di bawahnya dan masuk Daftar Gambar.
+  judul   String
+  /// Untuk pembaca layar. Kosong berarti gambarnya belum dapat diakses semua
+  /// pembaca, dan validator mengatakannya.
+  altTeks String? @map("alt_teks")
+
+  sumber SumberGambar
+  bentuk BentukGambar
+
+  /// Sumber kebenaran diagram (docs/17 I1): kode Mermaid, atau SVG yang SUDAH
+  /// lolos sanitasi server. Kosong untuk gambar raster — dan itulah sebabnya
+  /// gambar raster tidak dapat disunting.
+  kode String?
+
+  /// Turunan untuk dicetak, dirasterkan PERAMBAN saat dosen menyetujui
+  /// (docs/17 I3). Merasterkan di server berarti memakai font server, yang
+  /// tidak punya Times New Roman: labelnya bergeser tanpa satu galat pun.
+  png      Bytes
+  lebarPx  Int   @map("lebar_px")
+  tinggiPx Int   @map("tinggi_px")
+
+  /// Judul subbab tempat gambar ini berada, disalin persis. Dicocokkan saat
+  /// mencetak; yang tidak cocok jatuh ke akhir bab dan ditandai di layar —
+  /// tidak pernah hilang (docs/17 §4.4).
+  letak String?
+
+  dibuatPada DateTime @default(now()) @map("dibuat_pada")
+  diubahPada DateTime @updatedAt @map("diubah_pada")
+
+  bab BabBukuAjar @relation(fields: [babId], references: [id], onDelete: Cascade)
+
+  @@unique([babId, nomor])
+  @@index([babId])
+  @@map("gambar_bab")
+}
+
+// ─────────────────────────────────────────────────────────────
+// PENYUNTINGAN NASKAH — docs/19
+//
+// Model bekerja sebagai EDITOR: ia menunjuk kalimat, mengusulkan penggantinya,
+// dan menyebut alasannya. Tidak ada jalur yang membuatnya menulis langsung ke
+// naskah — naskah hasil dua lapis tulisan model tanpa satu pun pembacaan
+// manusia adalah keadaan yang peringatan di halaman hak cipta ada untuk
+// mencegahnya (docs/16 P4).
+// ─────────────────────────────────────────────────────────────
+
+enum JenisUsulanSunting {
+  BAHASA
+  ISTILAH
+  PENGULANGAN
+  TUJUAN
+  STRUKTUR
+}
+
+enum StatusUsulanSunting {
+  TERBUKA
+  DITERIMA
+  DITOLAK
+  /// Kutipannya tidak lagi ada di naskah — dosen menyuntingnya lebih dulu.
+  /// Memaksakan penggantian berarti menimpa suntingan dosen dengan usulan
+  /// atas naskah lama.
+  KEDALUWARSA
+}
+
+model UsulanSunting {
+  id         String  @id @default(cuid())
+  bukuAjarId String  @map("buku_ajar_id")
+  /// Null untuk temuan lintas bab (pengulangan, urutan, istilah).
+  babId      String? @map("bab_id")
+
+  jenis   JenisUsulanSunting
+  /// Kutipan PERSIS dari uraian bab. Null berarti usulan bersifat nasihat —
+  /// tidak ada yang dapat diganti otomatis, dan menyetujuinya hanya berarti
+  /// dosen sudah membacanya.
+  kutipan String?
+  usul    String
+  alasan  String
+
+  status      StatusUsulanSunting @default(TERBUKA)
+  dibuatPada  DateTime            @default(now()) @map("dibuat_pada")
+  diputusPada DateTime?           @map("diputus_pada")
+
+  buku BukuAjar     @relation(fields: [bukuAjarId], references: [id], onDelete: Cascade)
+  bab  BabBukuAjar? @relation(fields: [babId], references: [id], onDelete: Cascade)
+
+  @@index([bukuAjarId, status])
+  @@index([babId])
+  @@map("usulan_sunting")
 }

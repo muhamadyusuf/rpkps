@@ -22,7 +22,13 @@ export async function muatRpkps(id: string) {
       mataKuliah: {
         include: {
           kurikulum: {
-            select: { id: true, nama: true, tahun: true, prodiId: true, prodi: { select: { nama: true, kode: true } } },
+            select: {
+              id: true,
+              nama: true,
+              tahun: true,
+              prodiId: true,
+              prodi: { select: { nama: true, namaEn: true, kode: true } },
+            },
           },
           cpl: { include: { cpl: { select: { id: true, kode: true, deskripsi: true } } } },
           cpmk: {

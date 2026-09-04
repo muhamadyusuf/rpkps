@@ -24,7 +24,7 @@ import { FormulirIdentitas, PengelolaKomponenNilai, PengelolaPustaka } from "./f
 import { PanelBagikan, TimPengampu, ZonaKelola } from "./pengelola";
 import { muatDataKelola } from "@/lib/rpkps/kelola";
 import { jalurRpkpsPublik, urlSitus } from "@/lib/publik/tautan";
-import { TombolAjukan, TombolParaf, TombolPutusan } from "../tombol";
+import { TombolAjukan, TombolMintaParaf, TombolParaf, TombolPutusan } from "../tombol";
 import { statusParaf } from "@/domain/rpkps/paraf";
 import { bacaDataRiwayat, teksRiwayat } from "@/lib/bahasa/riwayat";
 import { kelengkapanRpkps } from "@/lib/rpkps/terjemahan";
@@ -355,7 +355,15 @@ export default async function HalamanRpkpsDetail({
           />
         ) : null}
         {bisaSunting && wenang.koordinator ? (
-          <TombolAjukan id={id} aktif={hasil.lolos} />
+          <>
+            <TombolAjukan id={id} aktif={hasil.lolos} />
+            {/*
+              Berdampingan dengan tombol ajukan, dan itu memang tempatnya:
+              koordinator menekannya persis ketika pengajuan tertahan karena
+              paraf tim belum lengkap (docs/14 §4.2).
+            */}
+            <TombolMintaParaf id={id} kurang={paraf.belum.length} />
+          </>
         ) : null}
         {bisaMemutuskan ? (
           <TombolPutusan id={id} tahap={bisaReview ? "REVIEW" : "PENGESAHAN"} />
@@ -528,6 +536,14 @@ export default async function HalamanRpkpsDetail({
         rpkpsId={id}
         urlPublik={urlPublik}
         statusLabel={k.enum.statusRpkps[rpkps.status] ?? rpkps.status}
+        tautan={dataKelola?.tautan ?? []}
+        /*
+         * Membagikan draf ke luar aplikasi adalah keputusan pemegang dokumen,
+         * bukan hak setiap anggota tim (docs/06 §4.2). Aksinya memeriksa ulang
+         * di server — yang di sini hanya supaya borangnya tidak menipu.
+         */
+        bolehBerbagiDraf={wenang.pengelola || wenang.koordinator}
+        asalSitus={urlSitus()}
       />
 
       {dataKelola ? (

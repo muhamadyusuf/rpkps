@@ -34,6 +34,7 @@ import { MIN_CATATAN_REVISI } from "@/domain/rpkps/tipe";
 import { isi as sisip } from "@/lib/bahasa/teks";
 import { pesanZod, telusuriKamus } from "@/lib/bahasa/zod";
 import { teksTemuan } from "@/lib/bahasa/temuan";
+import { statusParaf } from "@/domain/rpkps/paraf";
 import { riwayat } from "@/domain/rpkps/riwayat";
 import { barisRiwayat } from "@/lib/rpkps/riwayat";
 import { kelengkapanRpkps } from "@/lib/rpkps/terjemahan";
@@ -632,6 +633,69 @@ export async function parafPengampu(id: string): Promise<Hasil> {
 
   segarkan(`/rpkps/${id}`);
   return { ok: true, pesan: kam.aksi.rpkps.parafTercatat };
+}
+
+/**
+ * Meminta paraf tim — tahap P6 pada docs/14 §4.2.
+ *
+ * Satu-satunya notifikasi di aplikasi ini yang lahir dari PERMINTAAN, bukan
+ * dari perbuatan. Ia dibenarkan karena persis di titik ini seseorang menjadi
+ * penghambat orang lain tanpa mengetahuinya: koordinator tidak dapat mengajukan
+ * sebelum seluruh pengampu memaraf, dan pengampu yang belum memaraf tidak punya
+ * cara lain mengetahuinya selain membuka dasbornya sendiri.
+ *
+ * Yang dikabari HANYA yang belum memaraf ronde ini. Mengirim ke seluruh tim
+ * berarti orang yang sudah mengerjakan bagiannya menerima tagihan atas
+ * pekerjaan orang lain — cara tercepat membuat lonceng berhenti dibaca.
+ */
+export async function mintaParaf(id: string): Promise<Hasil> {
+  const kam = await kamusAksi();
+  const { boleh, koordinator, bolehSunting, status, sesi } = await pastikanWenang(id);
+  if (!boleh) return { ok: false, pesan: kam.aksi.wenang.umum };
+  if (!koordinator) return { ok: false, pesan: kam.aksi.rpkps.hanyaKoordinatorMinta };
+  if (!bolehSunting) return { ok: false, pesan: pesanTerkunci(status, kam) };
+
+  const dokumen = await muatDenganSidik(id);
+  if (!dokumen) return { ok: false, pesan: kam.aksi.takAda.rpkps };
+  const { rpkps, sidik } = dokumen;
+
+  /*
+   * Dinilai dengan sidik isi SEKARANG, sama seperti validator: paraf atas isi
+   * yang sudah diganti rekan setim tidak dihitung, jadi orang itu memang masih
+   * ditunggu — meskipun ia merasa sudah memaraf.
+   */
+  const paraf = statusParaf({
+    pengampu: rpkps.pengampu.map((p) => ({
+      penggunaId: p.penggunaId,
+      nama: p.pengguna.nama,
+      koordinator: p.peran === "KOORDINATOR",
+    })),
+    tandaTangan: rpkps.tandaTangan,
+    versi: rpkps.versi,
+    sidikSekarang: sidik,
+  });
+
+  const tujuan = paraf.belum.map((p) => p.penggunaId).filter((x) => x !== sesi.id);
+  if (tujuan.length === 0) return { ok: false, pesan: kam.aksi.rpkps.parafSudahLengkap };
+
+  const terkirim = await kirimNotifikasi(
+    tujuan,
+    {
+      jenis: "RPKPS_MINTA_PARAF",
+      rpkpsId: id,
+      mk: `${rpkps.mataKuliah.kode} ${rpkps.mataKuliah.nama}`,
+      ta: rpkps.tahunAkademik.kode.replace("-", " "),
+      oleh: sesi.namaLengkap,
+    },
+    sesi.id,
+  );
+
+  // Tidak ada baris riwayat: meminta bukan peristiwa dokumen, dan riwayat yang
+  // berisi permintaan berulang menenggelamkan perubahan yang sebenarnya.
+  return {
+    ok: true,
+    pesan: sisip(kam.aksi.rpkps.parafDiminta, { jumlah: terkirim }),
+  };
 }
 
 /**

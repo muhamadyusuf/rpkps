@@ -37,3 +37,24 @@ export async function tandaiSemuaDibaca() {
   });
   segarkan("/notifikasi", "/dashboard");
 }
+
+/**
+ * Menyalakan atau mematikan kanal surel bagi pengguna ini — docs/10 §2.5.
+ *
+ * Hanya menyentuh KANAL LUAR. Notifikasi dalam aplikasi tidak dapat dimatikan
+ * dari mana pun: ia tempat pekerjaan diberitahukan, dan mematikannya berarti
+ * mematikan alat kerjanya sendiri. Yang boleh dipilih adalah apakah kabar itu
+ * ikut menyusul ke kotak surat.
+ *
+ * Berlaku untuk peristiwa BERIKUTNYA. Baris yang sudah telanjur mengantre
+ * tetap diperiksa ulang saat dikuras, jadi mematikannya sekarang juga
+ * membatalkan yang belum sempat terkirim.
+ */
+export async function setelSurelNotifikasi(nyala: boolean) {
+  const sesi = await wajibAktif();
+  await prisma.pengguna.update({
+    where: { id: sesi.id },
+    data: { surelNotifikasi: nyala },
+  });
+  segarkan("/notifikasi");
+}

@@ -18,6 +18,7 @@ import {
   BagianDeskripsi,
   BagianMingguan,
   BagianPengampu,
+  BagianPengesah,
   BagianPenilaian,
   BagianPustaka,
   BagianTugas,
@@ -129,6 +130,7 @@ export default async function HalamanDokumenPublik({
     { id: "penilaian", label: ti.penilaian },
     { id: "pustaka", label: ti.pustaka },
     { id: "pengampu", label: ti.pengampu },
+    { id: "pengesahan", label: ti.pengesahan },
     ...(rpkps.riwayat.length > 0 ? [{ id: "riwayat", label: ti.riwayat }] : []),
   ];
 
@@ -309,6 +311,20 @@ export default async function HalamanDokumenPublik({
 
           <Bagian id="pengampu" judul={k.dokumenPublik.bagian.pengampuJudul}>
             <BagianPengampu dok={dok} />
+          </Bagian>
+
+          {/*
+            Pengesahan berdiri sebagai bagiannya sendiri, bukan baris di pita
+            atas: pita menjawab "isi mana ini", bagian ini menjawab "siapa yang
+            bertanggung jawab atasnya". Keduanya menyebut sidik yang sama, dan
+            itu memang inti pembuktiannya.
+          */}
+          <Bagian
+            id="pengesahan"
+            judul={k.dokumenPublik.bagian.pengesahanJudul}
+            keterangan={k.dokumenPublik.bagian.pengesahanKeterangan}
+          >
+            <BagianPengesah pengesah={rpkps.pengesah} />
           </Bagian>
 
           {rpkps.riwayat.length > 0 ? (

@@ -50,12 +50,19 @@ export const TENGGAT_KOSONG: TenggatSemester = {
   pengesahan: null,
 };
 
+/**
+ * Hasil penilaian, TANPA kalimat.
+ *
+ * Kalimatnya dirakit `teksTenggat` (`src/lib/bahasa/tenggat.ts`) saat dibaca,
+ * dalam bahasa pembacanya. Menaruh "review terlambat 3 hari" di sini akan
+ * menyelundupkan bahasa penulis domain ke layar pembaca berbahasa Inggris
+ * lewat pintu yang tidak dapat dilihat `tsc` (docs/11 §4).
+ */
 export type NilaiTenggat = {
   tahap: TahapTenggat;
   tingkat: TingkatTenggat;
   /** Sisa hari; negatif bila sudah lewat, null bila tenggat tidak berlaku. */
   hari: number | null;
-  label: string;
 };
 
 /** Tahap yang sedang berjalan — murni dari status dokumen. */
@@ -105,15 +112,10 @@ export function batasTahap(arg: {
   return dijamin > tetap ? dijamin : tetap;
 }
 
-const AWALAN: Record<TahapTenggat, string> = {
-  PENYUSUNAN: "",
-  REVIEW: "review ",
-  PENGESAHAN: "pengesahan ",
-  SELESAI: "",
-};
-
 /**
- * Menilai satu batas yang sudah dihitung. Labelnya menyebut tahap — "review
+ * Menilai satu batas yang sudah dihitung.
+ *
+ * `tahap` ikut dikembalikan supaya kalimatnya dapat menyebutnya — "review
  * terlambat 3 hari", bukan "terlambat 3 hari" — karena penanda tenggat yang
  * tidak menyebut tenggat apa memaksa pembacanya membuka dokumen hanya untuk
  * tahu itu urusan siapa.
@@ -124,37 +126,20 @@ export function nilaiTenggat(arg: {
   tahap: TahapTenggat;
 }): NilaiTenggat {
   const tahap = arg.tahap;
-  const awalan = AWALAN[tahap];
 
-  if (tahap === "SELESAI") {
-    return { tahap, tingkat: "SELESAI", hari: null, label: "sudah selesai" };
-  }
-  if (arg.batas === null) {
-    return { tahap, tingkat: "TIDAK_ADA", hari: null, label: "tanpa tenggat" };
-  }
+  if (tahap === "SELESAI") return { tahap, tingkat: "SELESAI", hari: null };
+  if (arg.batas === null) return { tahap, tingkat: "TIDAK_ADA", hari: null };
 
   const selisih = arg.batas.getTime() - arg.sekarang.getTime();
 
   if (selisih < 0) {
-    const lewat = Math.floor(-selisih / HARI);
-    return {
-      tahap,
-      tingkat: "LEWAT",
-      hari: -lewat,
-      label:
-        lewat === 0
-          ? `lewat tenggat ${awalan}hari ini`
-          : `${awalan}terlambat ${lewat} hari`,
-    };
+    // Terlambat beberapa jam disebut "lewat hari ini", bukan "terlambat 0
+    // hari": yang kedua terbaca seperti galat pembulatan.
+    return { tahap, tingkat: "LEWAT", hari: -Math.floor(-selisih / HARI) };
   }
 
   const sisa = Math.ceil(selisih / HARI);
-  return {
-    tahap,
-    tingkat: sisa <= AMBANG_DEKAT_HARI ? "DEKAT" : "AMAN",
-    hari: sisa,
-    label: sisa === 0 ? `tenggat ${awalan}hari ini` : `${awalan}tersisa ${sisa} hari`,
-  };
+  return { tahap, tingkat: sisa <= AMBANG_DEKAT_HARI ? "DEKAT" : "AMAN", hari: sisa };
 }
 
 /**

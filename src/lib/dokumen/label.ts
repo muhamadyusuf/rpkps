@@ -105,6 +105,12 @@ export const labelDokumenId = {
   tahapan: "Tahapan",
   tandaTangan: "Tanda Tangan",
   tanggal: "Tanggal :",
+  /**
+   * Keterangan di bawah tiap blok tanda tangan yang sudah terisi (docs/14 §5).
+   * Yang membuat sebuah tanda tangan berarti adalah SIDIK yang ditandatangani;
+   * tanpa menyebutnya, blok yang terisi hanya sebuah nama yang diketik.
+   */
+  ditandatanganiElektronik: "Ditandatangani secara elektronik",
   tanggalBerlaku: "Tanggal Berlaku",
   telahDiperiksaDanDinyatakanSesuaiD:
     "Telah diperiksa dan dinyatakan sesuai dengan standar ITTS",
@@ -152,6 +158,17 @@ export const labelDokumenId = {
     belumDidaftarkan: "(belum didaftarkan)",
     prakata: "PRAKATA",
     daftarIsi: "DAFTAR ISI",
+    daftarGambar: "DAFTAR GAMBAR",
+    gambar: "Gambar",
+    gambarAi: "(ilustrasi dihasilkan AI)",
+    pengungkapanAi:
+      "Sebagian ilustrasi dalam buku ini dihasilkan dengan bantuan kecerdasan buatan dan ditandai pada keterangan gambarnya. Seluruh diagram, data, dan uraian adalah tanggung jawab penulis.",
+    kdt: "KATALOG DALAM TERBITAN (KDT)",
+    kdtCatatan:
+      "Data katalog resmi diterbitkan Perpustakaan Nasional Republik Indonesia setelah pendaftaran.",
+    halaman: "halaman",
+    kataKunci: "Kata kunci",
+    sinopsis: "SINOPSIS",
     pendahuluan: "PENDAHULUAN",
     bab: "BAB",
     tujuanPembelajaran: "Tujuan Pembelajaran",
@@ -446,6 +463,7 @@ export const labelDokumenEn: LabelDokumen = {
   tahapan: "Stage",
   tandaTangan: "Signature",
   tanggal: "Date :",
+  ditandatanganiElektronik: "Electronically signed",
   tanggalBerlaku: "Effective Date",
   telahDiperiksaDanDinyatakanSesuaiD:
     "Reviewed and declared compliant with ITTS standards",
@@ -482,6 +500,17 @@ export const labelDokumenEn: LabelDokumen = {
     belumDidaftarkan: "(not yet registered)",
     prakata: "PREFACE",
     daftarIsi: "TABLE OF CONTENTS",
+    daftarGambar: "LIST OF FIGURES",
+    gambar: "Figure",
+    gambarAi: "(AI-generated illustration)",
+    pengungkapanAi:
+      "Some illustrations in this book were produced with the help of artificial intelligence and are marked in their captions. All diagrams, data, and text remain the responsibility of the author.",
+    kdt: "CATALOGUING IN PUBLICATION (CIP)",
+    kdtCatatan:
+      "The official catalogue record is issued by the National Library of Indonesia after registration.",
+    halaman: "pages",
+    kataKunci: "Keywords",
+    sinopsis: "SYNOPSIS",
     pendahuluan: "INTRODUCTION",
     bab: "CHAPTER",
     tujuanPembelajaran: "Learning Objectives",

@@ -27,6 +27,8 @@ import {
   VARIAN_STATUS,
 } from "../label";
 import { FormulirButir, TombolHapusButir } from "./butir";
+import { PanelDrafUsulan } from "./panel-draf";
+import { daftarKredensial } from "@/lib/ai/kredensial";
 import { Diskusi } from "./diskusi";
 import { KeputusanButir, TindakanPemutus, TindakanPengusul } from "./keputusan";
 import { teksTemuan } from "@/lib/bahasa/temuan";
@@ -47,7 +49,11 @@ export default async function HalamanUsulan({
   const cakupan = cakupanProdi(sesi);
   if (cakupan !== null && !cakupan.includes(usulan.kurikulum.prodiId)) notFound();
 
-  const [kurikulum, dampak, taBawaan, daftarTa] = await Promise.all([
+  const bolehDrafAi =
+    (usulan.status === "DRAF" || usulan.status === "DIREVISI") &&
+    usulan.diajukanOlehId === sesi.id;
+
+  const [kurikulum, dampak, taBawaan, daftarTa, kredensialAi] = await Promise.all([
     muatKurikulumInput(usulan.kurikulumId),
     dampakUsulan(usulan),
     taBerlakuBawaan(),
@@ -56,6 +62,10 @@ export default async function HalamanUsulan({
       select: { id: true, kode: true },
       take: 12,
     }),
+    // Kunci hanya dibaca bila panelnya memang akan tampil: daftar kredensial
+    // adalah satu perjalanan lagi ke basis data yang jauh, dan pembaca yang
+    // tidak berhak mendraf tidak akan pernah memakainya.
+    bolehDrafAi ? daftarKredensial(sesi.id) : [],
   ]);
   if (!kurikulum) notFound();
 
@@ -162,6 +172,15 @@ export default async function HalamanUsulan({
       ) : null}
 
       <PanelTemuan temuan={temuanUmum} lolos={hasil.lolos} k={k} />
+
+      {/*
+        Draf AI berdiri SEBELUM daftar butir, bukan sesudahnya: ia cara lain
+        menambah butir, dan tempatnya di sisi penyusunan — bukan di antara
+        butir yang sudah ada.
+      */}
+      {bolehDrafAi ? (
+        <PanelDrafUsulan usulanId={usulan.id} kredensial={kredensialAi} />
+      ) : null}
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold tracking-tight">

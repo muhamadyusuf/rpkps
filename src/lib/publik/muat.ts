@@ -6,6 +6,7 @@ import { dokumenPublik, type DokumenPublik } from "@/domain/rpkps/publik";
 import type { SumberProyeksi } from "@/domain/rpkps/proyeksi";
 import type { JenjangProdi } from "@/generated/prisma";
 import type { BarisRiwayatBeku } from "@/domain/rpkps/sidik";
+import { rantaiPengesahan, type SlotPengesah } from "@/domain/rpkps/paraf";
 
 /**
  * Pintu tunggal ke data yang boleh dilihat tanpa login.
@@ -65,6 +66,31 @@ export type RpkpsPublik = {
   riwayat: (Omit<BarisRiwayatBeku, "dibuatPada"> & { dibuatPada: Date })[];
   /** Tahun akademik lain yang RPKPS-nya juga sudah terbit, terbaru dulu. */
   versiLain: string[];
+  /**
+   * Tiga cap rantai pengesahan pada ronde yang terbit (docs/14 §5).
+   *
+   * Dibaca dari `tanda_tangan_rpkps`, bukan dari salinan beku, dan itu bukan
+   * pelanggaran aturan "halaman publik hanya membaca salinan beku": yang
+   * dijaga aturan itu adalah ISI dokumen — apa pun yang masuk `proyeksiIsi()`
+   * menggeser sidik SELURUH dokumen terbit. Tanda tangan justru sebaliknya: ia
+   * MENYEBUT sidik, tidak ikut membentuknya, dan barisnya tidak pernah ditulis
+   * ulang. Menyalinnya ke dalam proyeksi akan membuat setiap dokumen
+   * menandatangani tanda tangannya sendiri.
+   *
+   * Selalu tiga slot. Dokumen yang terbit sebelum rantai ini ada tidak diberi
+   * tanda tangan susulan, dan blok kosonglah yang mengatakannya.
+   */
+  pengesah: SlotPengesah<CapPublik>[];
+};
+
+/** Satu cap sebagaimana dibekukan saat ditandatangani. */
+export type CapPublik = {
+  versi: number;
+  peran: "PENGAMPU" | "KOORDINATOR" | "KAPRODI" | "PENJAMINAN_MUTU";
+  nama: string;
+  identitas: string | null;
+  sidik: string;
+  ditandatanganiPada: Date;
 };
 
 /** Penyaring bersama: satu-satunya sumber kebenaran "apa yang publik". */
@@ -390,21 +416,38 @@ export const muatRpkpsPublik = cache(async function muatRpkpsPublik(
   });
   if (!rpkps) return null;
 
-  const snapshot = await prisma.rpkpsSnapshot.findUnique({
-    where: { rpkpsId_versi: { rpkpsId: rpkps.id, versi: rpkps.versi } },
-    select: { isi: true, sidik: true, isiEn: true, sidikEn: true, dibuatPada: true },
-  });
+  /*
+   * Tiga bacaan yang tidak saling menunggu. Basis datanya jauh (~25 ms sekali
+   * jalan), jadi merangkainya dengan `await` berurutan membuat halaman publik
+   * membayar tiga kali perjalanan untuk pekerjaan yang muat dalam satu.
+   */
+  const [snapshot, semuaTa, tandaTangan] = await Promise.all([
+    prisma.rpkpsSnapshot.findUnique({
+      where: { rpkpsId_versi: { rpkpsId: rpkps.id, versi: rpkps.versi } },
+      select: { isi: true, sidik: true, isiEn: true, sidikEn: true, dibuatPada: true },
+    }),
+    prisma.rpkps.findMany({
+      where: { ...HANYA_TERBIT, mataKuliah: cocokMk },
+      orderBy: [...TERBARU_DULU],
+      select: { tahunAkademik: { select: { kode: true } } },
+    }),
+    prisma.tandaTanganRpkps.findMany({
+      where: { rpkpsId: rpkps.id, versi: rpkps.versi },
+      select: {
+        versi: true,
+        peran: true,
+        nama: true,
+        identitas: true,
+        sidik: true,
+        ditandatanganiPada: true,
+      },
+    }),
+  ]);
   // Terbit tanpa salinan beku berarti data tidak konsisten. Menampilkan data
   // langsung sebagai gantinya akan menerbitkan isi yang belum pernah disahkan.
   if (!snapshot) return null;
 
   const beku = cairkanSnapshot<SumberProyeksi>(snapshot.isi as unknown as IsiSnapshot);
-
-  const semuaTa = await prisma.rpkps.findMany({
-    where: { ...HANYA_TERBIT, mataKuliah: cocokMk },
-    orderBy: [...TERBARU_DULU],
-    select: { tahunAkademik: { select: { kode: true } } },
-  });
 
   /**
    * Versi Inggris dibaca dari salinan bekunya sendiri, bukan dirakit ulang dari
@@ -433,6 +476,7 @@ export const muatRpkpsPublik = cache(async function muatRpkpsPublik(
     dokumen: dokumenPublik(beku.rpkps),
     riwayat: beku.riwayat,
     versiLain: semuaTa.map((r) => r.tahunAkademik.kode),
+    pengesah: rantaiPengesahan(tandaTangan, rpkps.versi),
   };
 });
 

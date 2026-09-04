@@ -24,10 +24,13 @@ import {
 } from "./gaya";
 import { formatMenit } from "@/domain/beban-belajar/kalkulator";
 import { sidikRingkas } from "@/domain/rpkps/sidik";
+import { tanggal as tanggalTeks } from "@/lib/bahasa/format";
 import { namaLengkapPengampu } from "@/domain/rpkps/pemetaan";
+import { rantaiPengesahan, type PeranPengesah } from "@/domain/rpkps/paraf";
 import { keSumberPeta } from "@/domain/evaluasi/pemetaan";
 import { petaKomponenSubCpmk, susunPetaAsesmen } from "@/domain/evaluasi/peta-asesmen";
 import type { RpkpsLengkap } from "@/lib/rpkps/muat";
+import type { PeranTtd } from "@/generated/prisma";
 import { labelDokumen, type LabelDokumen } from "./label";
 import type { Bahasa } from "@/kamus";
 // `isi` sudah dipakai sebagai nama variabel lokal di beberapa bagian.
@@ -84,19 +87,94 @@ function kaki(r: RpkpsLengkap, L: LabelDokumen) {
   });
 }
 
-function halamanPengesahan(r: RpkpsLengkap, L: LabelDokumen): (Paragraph | Table)[] {
-  const koordinator = r.pengampu.find((p) => p.peran === "KOORDINATOR") ?? r.pengampu[0];
+/**
+ * Satu baris tanda tangan sebagaimana dicetak: nama dan identitas yang
+ * DIBEKUKAN saat menandatangani, bukan nama pemegang jabatan hari ini
+ * (docs/14 §5).
+ */
+export interface CapTandaTangan {
+  peran: PeranTtd;
+  penggunaId: string;
+  nama: string;
+  identitas: string | null;
+  sidik: string;
+  ditandatanganiPada: Date;
+}
 
-  const barisTim = r.pengampu.map((p, i) =>
-    new TableRow({
+function halamanPengesahan(
+  r: RpkpsLengkap,
+  L: LabelDokumen,
+  ttd: readonly CapTandaTangan[],
+  bahasa: Bahasa,
+): (Paragraph | Table)[] {
+  const koordinator = r.pengampu.find((p) => p.peran === "KOORDINATOR") ?? r.pengampu[0];
+  const hari = (d: Date) => tanggalTeks(d, bahasa, "panjang");
+
+  /*
+   * Urutan ketiga blok datang dari `rantaiPengesahan`, bukan dari urutan
+   * penulisan di sini: urutan itulah yang membuat halaman terbaca sebagai
+   * rantai, dan ia hanya boleh ditulis di satu tempat.
+   */
+  const slot = new Map(
+    rantaiPengesahan(
+      ttd.map((t) => ({ ...t, versi: r.versi })),
+      r.versi,
+    ).map((x) => [x.peran, x.cap]),
+  );
+
+  /**
+   * Satu blok tanda tangan. Yang belum ditandatangani tetap KOSONG — draf
+   * boleh dicetak, ia hanya belum sah, dan halaman yang kosong itulah yang
+   * mengatakannya. Mengarang nama pemegang jabatan hari ini di blok yang
+   * belum dicap adalah persis yang dicegah seluruh rancangan ini.
+   */
+  const blok = (peran: PeranPengesah, jabatan: string, lebar: number) => {
+    const t = slot.get(peran) ?? null;
+    return {
+      tanggal: sel(t ? `${L.tanggal} ${hari(t.ditandatanganiPada)}` : L.tanggal, { lebar }),
+      nama: sel(
+        [
+          paragraf(t?.nama ?? "", { tebal: true, spasi: { after: 0 } }),
+          paragraf(jabatan, { spasi: { after: 0 } }),
+          ...(t
+            ? [
+                paragraf(
+                  [
+                    teks(`${L.ditandatanganiElektronik} · ${sidikRingkas(t.sidik)}`, {
+                      ukuran: 13,
+                      warna: "6B7280",
+                    }),
+                  ],
+                  { spasi: { after: 0 } },
+                ),
+              ]
+            : []),
+        ],
+        { lebar },
+      ),
+    };
+  };
+
+  const koordinatorBlok = blok("KOORDINATOR", L.koordinatorMataKuliah, 33);
+  const kaprodiBlok = blok("KAPRODI", L.ketuaProgramStudi, 33);
+  const mutuBlok = blok("PENJAMINAN_MUTU", L.kepalaPenjaminanMutuInternal, 34);
+
+  const barisTim = r.pengampu.map((p, i) => {
+    // Kolom "Tanda Tangan" pada tabel tim: tanggal paraf, bukan kotak kosong
+    // untuk ditandatangani tangan (docs/14 §5).
+    const paraf = ttd.find((t) => t.peran === "PENGAMPU" && t.penggunaId === p.penggunaId);
+    return new TableRow({
       children: [
         sel(String(i + 1), { lebar: 8, rata: AlignmentType.CENTER }),
         sel(namaLengkapPengampu(p.pengguna), { lebar: 47 }),
         sel(p.pengguna.nidn ?? p.pengguna.nip ?? "", { lebar: 25 }),
-        sel("", { lebar: 20 }),
+        sel(paraf ? hari(paraf.ditandatanganiPada) : "", {
+          lebar: 20,
+          rata: AlignmentType.CENTER,
+        }),
       ],
-    }),
-  );
+    });
+  });
   // Template ITTS menyediakan lima baris tim dosen.
   for (let i = r.pengampu.length; i < 5; i += 1) {
     barisTim.push(
@@ -165,11 +243,7 @@ function halamanPengesahan(r: RpkpsLengkap, L: LabelDokumen): (Paragraph | Table
           ],
         }),
         new TableRow({
-          children: [
-            sel(L.tanggal, { lebar: 33 }),
-            sel(L.tanggal, { lebar: 33 }),
-            sel(L.tanggal, { lebar: 34 }),
-          ],
+          children: [koordinatorBlok.tanggal, kaprodiBlok.tanggal, mutuBlok.tanggal],
         }),
         new TableRow({
           children: [
@@ -179,29 +253,7 @@ function halamanPengesahan(r: RpkpsLengkap, L: LabelDokumen): (Paragraph | Table
           ],
         }),
         new TableRow({
-          children: [
-            sel(
-              [
-                paragraf(koordinator ? namaLengkapPengampu(koordinator.pengguna) : "", {
-                  tebal: true,
-                  spasi: { after: 0 },
-                }),
-                paragraf(L.koordinatorMataKuliah, { spasi: { after: 0 } }),
-              ],
-              { lebar: 33 },
-            ),
-            sel(
-              [paragraf("", { spasi: { after: 0 } }), paragraf(L.ketuaProgramStudi, { spasi: { after: 0 } })],
-              { lebar: 33 },
-            ),
-            sel(
-              [
-                paragraf("", { spasi: { after: 0 } }),
-                paragraf(L.kepalaPenjaminanMutuInternal, { spasi: { after: 0 } }),
-              ],
-              { lebar: 34 },
-            ),
-          ],
+          children: [koordinatorBlok.nama, kaprodiBlok.nama, mutuBlok.nama],
         }),
       ],
     }),
@@ -866,6 +918,12 @@ function bagianRiwayat(
 export async function buatDokumenRpkps(
   r: RpkpsLengkap,
   riwayat: { versi: number; dibuatPada: Date; deskripsi: string }[],
+  /**
+   * Tanda tangan ronde yang dicetak. Terpisah dari `r` dan dari salinan beku:
+   * baris tanda tangan adalah catatannya sendiri — tidak pernah berubah, dan
+   * tidak ikut ruang sidik mana pun (docs/14 §2.6).
+   */
+  ttd: readonly CapTandaTangan[],
   /** Sidik salinan beku; hanya ada pada dokumen yang sudah terbit. */
   sidik?: string | null,
   /**
@@ -889,7 +947,7 @@ export async function buatDokumenRpkps(
         headers: { default: kepala(r, L) },
         footers: { default: kaki(r, L) },
         children: [
-          ...halamanPengesahan(r, L),
+          ...halamanPengesahan(r, L, ttd, bahasa),
           paragraf("", { spasi: { after: 0 } }),
           ...(sidik
             ? [

@@ -1,6 +1,10 @@
 # Gambar dan Diagram dalam Buku Ajar
 
-> Status: **RANCANGAN — belum terpasang.**
+> Status: **TERPASANG SELURUHNYA (IL1–IL7).** Skema, domain murni, tahap AI
+> diagram, antarmuka beserta rasterisasi di peramban, penyematan gambar pada
+> `.docx` dan `.pptx`, serta ilustrasi raster berketerangan asal — semuanya
+> ada beserta ujinya.
+>
 > Melengkapi docs/16. Buku ajar mendapat gambar: **diagram vektor** yang
 > ditulis AI sebagai kode, **unggahan dosen**, dan — hanya pada penyedia yang
 > mendukung — **ilustrasi raster** dari model penghasil gambar.
@@ -278,6 +282,22 @@ bukan webfont.
 `innerHTML`, `dangerouslySetInnerHTML`, dan `<svg>` sebaris DILARANG untuk isi
 gambar mana pun. Penjaganya uji yang memindai berkas.
 
+### 5.2b Kode Mermaid punya jalur eksekusinya sendiri
+
+Ditemukan saat memasang IL2 dan TIDAK ada di rancangan awal ini. Yang disimpan
+untuk diagram Mermaid adalah KODENYA, bukan SVG hasil rendernya — sehingga
+hasil render itu tidak pernah melewati §5.1. Mermaid sendiri punya arahan yang
+mengubah perilaku perendernya, dan seluruhnya berjalan di peramban dosen:
+
+- `click` menautkan simpul ke alamat atau ke fungsi;
+- `%%{init: …}%%` menyetel ulang konfigurasi, termasuk `securityLevel` dan
+  `htmlLabels` — dua setelan yang justru menjadi penjaga kita;
+- `style`/`classDef`/`linkStyle` memberi diagram warnanya sendiri. Yang ini
+  bukan lubang keamanan melainkan pelanggaran cetakan gaya (I7).
+
+Penjaganya `src/domain/bahan-ajar/mermaid-aman.ts`, dengan daftar jenis
+diagram yang tertutup.
+
 ### 5.3 Unggahan dosen
 
 Diperlakukan sama persis. SVG unggahan lewat sanitasi yang sama; PNG dan JPEG
@@ -376,6 +396,9 @@ ikut ke berkas bundel setiap halaman aplikasi.
 | Berkas | Yang dijaga |
 |---|---|
 | `src/domain/bahan-ajar/svg-aman.test.ts` | `script`, `onload`, `foreignObject`, `href` luar, `data:`, `<!DOCTYPE`, dan entitas eksternal DITOLAK; SVG yang sah lolos utuh |
+| `src/domain/bahan-ajar/mermaid-aman.test.ts` | `click`, `%%{init}%%`, label HTML, dan `style`/`classDef` ditolak; panah `-->` dan `a < b` TIDAK disalahartikan sebagai HTML |
+| `src/domain/bahan-ajar/keluaran-diagram.test.ts` | diagram yang tidak lolos DIBUANG, bukan ditambal; alasan berulang dilaporkan sekali; nomor tetap rapat |
+| `src/lib/ai/skema-diagram.test.ts` | skema tidak punya satu pun medan piksel; panduan mengambil palet dan ambangnya DARI konstanta domain |
 | `src/domain/bahan-ajar/gaya-svg.test.ts` | gradien, filter, dan warna di luar palet ditolak; garis 1.5 lolos |
 | `src/domain/bahan-ajar/letak-gambar.test.ts` | penempatan setelah subbab; `letak` asing jatuh ke akhir bab, tidak hilang; penomoran "bab.urutan" |
 | `src/lib/dokumen/buku-ajar-docx.test.ts` | berkas memuat bagian media; keterangan "Gambar 1.1" ada; Daftar Gambar memuat setiap gambar |
@@ -387,15 +410,15 @@ ikut ke berkas bundel setiap halaman aplikasi.
 
 ## BAGIAN 11 — Rencana pemasangan
 
-| Tahap | Isi |
-|---|---|
-| IL1 | Skema: `GambarBab`, dua enum, batas ukuran |
-| IL2 | Domain murni: `svg-aman.ts`, `gaya-svg.ts`, `letak-gambar.ts` beserta ujinya |
-| IL3 | Tahap AI kelima `BUKU_DIAGRAM` + panduan dan cetakan gayanya |
-| IL4 | Antarmuka: daftar gambar, pratinjau `<img>`, rasterisasi peramban, unggahan, penyunting kode, Mermaid dinamis |
-| IL5 | Cetak `.docx`: `ImageRun` svg+PNG, keterangan, Daftar Gambar |
-| IL6 | Cetak `.pptx` |
-| IL7 | Ilustrasi raster: `gambar?()` opsional pada `Penyedia`, adapter Gemini, pengungkapan asal |
+| Tahap | Isi | Status |
+|---|---|---|
+| IL1 | Skema: `GambarBab`, dua enum, batas ukuran | ✅ |
+| IL2 | Domain murni: `svg-aman.ts`, `mermaid-aman.ts`, `gaya-svg.ts`, `letak-gambar.ts`, `berkas-gambar.ts` beserta ujinya | ✅ |
+| IL3 | Tahap AI kelima `BUKU_DIAGRAM` + panduan, cetakan gaya, dan `keluaran-diagram.ts` | ✅ |
+| IL4 | Antarmuka: daftar gambar, pratinjau `<img>`, rasterisasi peramban, unggahan, penyunting kode, Mermaid dinamis | ✅ |
+| IL5 | Cetak `.docx`: `ImageRun` svg+PNG, keterangan, Daftar Gambar | ✅ |
+| IL6 | Cetak `.pptx` | ✅ |
+| IL7 | Ilustrasi raster: `gambar?()` opsional pada `Penyedia`, adapter Gemini, pengungkapan asal | ✅ |
 
 ---
 

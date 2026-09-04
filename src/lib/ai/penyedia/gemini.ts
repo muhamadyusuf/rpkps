@@ -6,7 +6,13 @@ import {
   kalimatDaftarModel,
   kutipAlasan,
 } from "./galat-http";
-import type { JawabanPenyedia, PermintaanPenyedia, Penyedia } from "./tipe";
+import type {
+  JawabanGambar,
+  JawabanPenyedia,
+  PermintaanGambar,
+  PermintaanPenyedia,
+  Penyedia,
+} from "./tipe";
 
 /**
  * Adapter Google Gemini, lewat REST langsung.
@@ -59,6 +65,27 @@ const SkemaRespons = z.object({
     .nullish(),
 });
 
+/** Bentuk respons gambar; hanya `inlineData` yang dipakai. */
+const SkemaGambarRespons = z.object({
+  candidates: z
+    .array(
+      z.object({
+        content: z
+          .object({
+            parts: z.array(
+              z.object({
+                inlineData: z
+                  .object({ mimeType: z.string().nullish(), data: z.string().nullish() })
+                  .nullish(),
+              }),
+            ),
+          })
+          .nullish(),
+      }),
+    )
+    .nullish(),
+});
+
 /** Alasan berhenti yang berarti model menolak, bukan gagal teknis. */
 const PENOLAKAN = new Set([
   "SAFETY",
@@ -73,6 +100,41 @@ export function penyediaGemini(apiKey: string): Penyedia {
   return {
     kode: "gemini",
     modelBawaan: "gemini-2.5-pro",
+    modelGambarBawaan: "gemini-2.5-flash-image",
+
+    /**
+     * Gambar raster — docs/17 §6.
+     *
+     * SATU-SATUNYA adapter yang mengimplementasikan `gambar()`. Anthropic dan
+     * Mistral tidak menghasilkan gambar, dan ketiadaan metode ini di sanalah
+     * yang membuat tombolnya padam — bukan sebuah daftar nama penyedia yang
+     * ditulis di tempat lain dan akan basi.
+     *
+     * Jawaban Gemini memuat gambar sebagai `inlineData` berbase64, bukan
+     * sebagai teks; karena itu ia tidak dapat lewat jalur `chat` yang seluruh
+     * bentuknya bertumpu pada keluaran terstruktur.
+     */
+    async gambar(p: PermintaanGambar): Promise<JawabanGambar> {
+      const badan = {
+        contents: [{ role: "user", parts: [{ text: p.perintah }] }],
+        generationConfig: { responseModalities: ["IMAGE"] },
+      };
+
+      const jawaban = await kirim(apiKey, p.model, badan);
+      const terurai = SkemaGambarRespons.safeParse(jawaban);
+      const bagian = terurai.success
+        ? (terurai.data.candidates?.[0]?.content?.parts ?? [])
+        : [];
+
+      const data = bagian.find((x) => x.inlineData?.data)?.inlineData?.data;
+      if (!data) {
+        throw new GalatAi(
+          "Gemini tidak mengembalikan gambar. Model gambar mungkin tidak tersedia untuk kunci Anda.",
+        );
+      }
+
+      return { png: new Uint8Array(Buffer.from(data, "base64")) };
+    },
 
     async chat<T>(p: PermintaanPenyedia<T>): Promise<JawabanPenyedia<T>> {
       const badan = {

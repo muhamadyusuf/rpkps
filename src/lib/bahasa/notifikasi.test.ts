@@ -37,6 +37,27 @@ describe("kalimat notifikasi", () => {
     assert.ok(contoh.kunci in en.pesanNotifikasi);
   });
 
+  it("permintaan paraf berbunyi sebagai tagihan, bukan kabar", () => {
+    // P6 (docs/14 §4.2). Satu-satunya notifikasi yang lahir dari permintaan;
+    // kalimatnya harus menyebut dokumen mana dan apa yang tertahan karenanya.
+    const n = susunNotifikasi({
+      jenis: "RPKPS_MINTA_PARAF",
+      rpkpsId: "r1",
+      mk: "TI214 Basis Data",
+      ta: "2025/2026 GENAP",
+      oleh: "Sari",
+    });
+    assert.equal(n.kunci, "RPKPS_MINTA_PARAF");
+    assert.ok(n.kunci in id.pesanNotifikasi);
+    assert.ok(n.kunci in en.pesanNotifikasi);
+    assert.equal(n.tautan, "/rpkps/r1");
+
+    const data = { kunci: n.kunci, params: n.params };
+    const kosong = { judul: "", ringkasan: "" };
+    assert.match(teksNotifikasi(data, kosong, id).judul, /TI214 Basis Data/);
+    assert.match(teksNotifikasi(data, kosong, en).ringkasan, /cannot be submitted/);
+  });
+
   it("merakit kalimat dalam bahasa pembacanya", () => {
     const n = susunNotifikasi({
       jenis: "RPKPS_DIAJUKAN",

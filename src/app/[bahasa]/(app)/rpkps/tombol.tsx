@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { PenLine, Undo2 } from "lucide-react";
+import { BellRing, PenLine, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import { useBahasa } from "@/components/penyedia-bahasa";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,7 @@ import {
   ajukanRpkps,
   buatRpkps,
   kembalikanRpkps,
+  mintaParaf,
   parafPengampu,
   sahkanRpkps,
   setujuiRpkps,
@@ -64,7 +65,7 @@ function useAksi() {
 export function TombolBuatRpkps({
   mataKuliahId,
   tahunAkademikId,
-  label = "Buat RPKPS",
+  label,
 }: {
   mataKuliahId: string;
   tahunAkademikId: string;
@@ -80,7 +81,7 @@ export function TombolBuatRpkps({
   return (
     <div className="flex shrink-0 items-center gap-1">
       <Button size="sm" disabled={menunggu} onClick={() => buat("OTOMATIS")}>
-        {menunggu ? "Menyiapkan…" : label}
+        {menunggu ? k.rpkps.tombol.menyiapkan : (label ?? k.rpkps.tombol.buat)}
       </Button>
       <Button
         size="sm"
@@ -103,6 +104,7 @@ export function TombolBuatRpkps({
  * memperbaruinya.
  */
 export function TombolParaf({ id, sudah }: { id: string; sudah: boolean }) {
+  const { k } = useBahasa();
   const { menunggu, jalankan } = useAksi();
   return (
     <Button
@@ -111,17 +113,47 @@ export function TombolParaf({ id, sudah }: { id: string; sudah: boolean }) {
       onClick={() => jalankan(() => parafPengampu(id))}
     >
       <PenLine />
-      {menunggu ? "Menandatangani…" : sudah ? "Paraf ulang" : "Paraf halaman pengesahan"}
+      {menunggu
+        ? k.rpkps.tombol.menandatangani
+        : sudah
+          ? k.rpkps.tombol.parafUlang
+          : k.rpkps.tombol.paraf}
+    </Button>
+  );
+}
+
+/**
+ * "Minta paraf" — tahap P6 (docs/14 §4.2).
+ *
+ * Hanya muncul bagi koordinator, dan hanya selama masih ada yang belum
+ * memaraf: tombol yang tetap ada setelah tim lengkap mengundang pengiriman
+ * kabar yang tidak menuntut perbuatan siapa pun.
+ */
+export function TombolMintaParaf({ id, kurang }: { id: string; kurang: number }) {
+  const { k, isi } = useBahasa();
+  const { menunggu, jalankan } = useAksi();
+  if (kurang === 0) return null;
+
+  return (
+    <Button
+      variant="ghost"
+      disabled={menunggu}
+      title={isi(k.rpkps.tombol.mintaParafPetunjuk, { jumlah: kurang })}
+      onClick={() => jalankan(() => mintaParaf(id))}
+    >
+      <BellRing />
+      {menunggu ? k.rpkps.tombol.mengirim : k.rpkps.tombol.mintaParaf}
     </Button>
   );
 }
 
 /** Cap koordinator, "a.n Tim penyusun RPKPS" — sekaligus pengajuannya. */
 export function TombolAjukan({ id, aktif }: { id: string; aktif: boolean }) {
+  const { k } = useBahasa();
   const { menunggu, jalankan } = useAksi();
   return (
     <Button disabled={menunggu || !aktif} onClick={() => jalankan(() => ajukanRpkps(id))}>
-      {menunggu ? "Mengajukan…" : "Tanda tangani & ajukan"}
+      {menunggu ? k.rpkps.tombol.mengajukan : k.rpkps.tombol.ajukan}
     </Button>
   );
 }
@@ -132,6 +164,7 @@ export function TombolAjukan({ id, aktif }: { id: string; aktif: boolean }) {
  * tidak ada: menyetujui bukan menerbitkan.
  */
 export function TombolPutusan({ id, tahap }: { id: string; tahap: "REVIEW" | "PENGESAHAN" }) {
+  const { k } = useBahasa();
   const { menunggu, jalankan } = useAksi();
   const review = tahap === "REVIEW";
 
@@ -141,7 +174,7 @@ export function TombolPutusan({ id, tahap }: { id: string; tahap: "REVIEW" | "PE
         disabled={menunggu}
         onClick={() => jalankan(() => (review ? setujuiRpkps(id) : sahkanRpkps(id)))}
       >
-        {review ? "Setujui & tanda tangani" : "Sahkan & terbitkan"}
+        {review ? k.rpkps.tombol.setujui : k.rpkps.tombol.sahkan}
       </Button>
       <DialogRevisi id={id} menunggu={menunggu} jalankan={jalankan} />
     </div>

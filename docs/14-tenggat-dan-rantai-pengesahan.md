@@ -1,9 +1,9 @@
 # Tiga Tenggat dan Rantai Pengesahan
 
-> Status: **P1–P4 TERPASANG (31 Agustus 2026).** Skema, domain murni + uji,
-> kunci penyuntingan, dan empat aksi rantai sudah berjalan. P5–P7 (antrian per
-> jalur dengan jaminan N hari, notifikasi minta paraf, halaman pengesahan DOCX
-> terisi) belum.
+> Status: **TERPASANG SELURUHNYA (P1–P7).** Skema, domain murni + uji, kunci
+> penyuntingan, empat aksi rantai, antrian per jalur dengan jaminan N hari,
+> notifikasi minta paraf, halaman pengesahan DOCX terisi, dan blok pengesahan
+> pada halaman publik.
 > Menggantikan docs/10 §3 (satu tenggat) dan melengkapi docs/02 §1.1
 > (Halaman Pengesahan) yang blok tanda tangannya sampai sekarang dicetak
 > kosong lalu diisi tangan.
@@ -452,9 +452,9 @@ adalah hal yang justru dicegah oleh seluruh rancangan ini.
 | **P2** ✅ | Domain murni + uji: `tahapTenggat`, `batasTahap`, `nilaiTenggatDokumen`, `statusParaf`, `capRonde`; pemblokir `B-PARAF-BELUM-LENGKAP` | `src/domain/rpkps/{tenggat,paraf,validator}.ts` |
 | **P3** ✅ | Kunci isi selama rantai berjalan: `bolehSuntingIsi` + `pesanTerkunci` di `wenang.ts`, dipanggil delapan aksi penulisan | `src/lib/rpkps/wenang.ts` + berkas aksi |
 | **P4** ✅ | Aksi rantai: `parafPengampu`, `ajukanRpkps` (cap koordinator), `setujuiRpkps`, `sahkanRpkps` (memindahkan `bekukanRpkps`), `kembalikanRpkps` | `src/app/[bahasa]/(app)/rpkps/{aksi.ts,tombol.tsx,[id]/page.tsx}` |
-| **P5** | Tenggat per jalur pada antrian (jaminan N hari lewat agregat `min(ditandatangani_pada)`), lencana tahap di daftar | `src/domain/dasbor/antrian.ts`, `src/lib/dasbor/muat.ts` |
-| **P6** | Notifikasi `RPKPS_MINTA_PARAF` + tombol "Minta paraf" | `src/domain/notifikasi/pesan.ts` |
-| **P7** | Halaman pengesahan DOCX terisi; panel pengesah di halaman publik | `src/lib/dokumen/rpkps-docx.ts`, `src/lib/publik/muat.ts` |
+| **P5** ✅ | Tenggat per jalur pada antrian (jaminan N hari lewat agregat `min(ditandatangani_pada)`), lencana tahap di daftar | `src/domain/dasbor/antrian.ts`, `src/lib/dasbor/muat.ts` |
+| **P6** ✅ | Notifikasi `RPKPS_MINTA_PARAF` + tombol "Minta paraf" | `src/domain/notifikasi/pesan.ts` |
+| **P7** ✅ | Halaman pengesahan DOCX terisi; blok pengesah di halaman publik lewat `rantaiPengesahan` | `src/lib/dokumen/rpkps-docx.ts`, `src/domain/rpkps/paraf.ts`, `src/lib/publik/muat.ts` |
 
 P1–P4 satu kesatuan: rantai yang setengah terpasang lebih buruk daripada satu
 tombol yang jujur.

@@ -17,14 +17,36 @@ import type { NilaiTenggat } from "../rpkps/tenggat";
 
 export type Kegentingan = "TINGGI" | "SEDANG" | "RENDAH";
 
+/**
+ * Butir antrian dikenali dari kuncinya, dan kalimatnya ada di kamus
+ * (`kamus.dasbor.antrian.butir`). Domain tidak menyimpan kalimat: dasbor
+ * dibaca dalam dua bahasa, dan judul yang lahir di sini akan selalu bahasa
+ * penulisnya (docs/11 §4).
+ */
+export type KunciAntrian =
+  | "kebijakan-draf"
+  | "usulan-menunggu"
+  | "rpkps-menunggu"
+  | "rpkps-pengesahan"
+  | "rpkps-paraf"
+  | "rpkps-dikembalikan"
+  | "pengguna-verifikasi"
+  | "kelas-siap-tutup"
+  | "temuan-belum-verifikasi"
+  | "rpkps-draf";
+
 export interface ButirAntrian {
-  kunci: string;
-  judul: string;
-  rincian: string;
+  kunci: KunciAntrian;
   href: string;
   jumlah: number;
   kegentingan: Kegentingan;
   nada: Nada;
+  /**
+   * Tenggat JALUR butir ini — bukan tenggat dokumen mana pun tertentu, dan
+   * bukan tenggat jalur orang lain. Dirender pemanggil; di sini ia hanya
+   * menaikkan kegentingan.
+   */
+  tenggat: NilaiTenggat | null;
 }
 
 export interface SumberAntrian {
@@ -39,6 +61,12 @@ export interface SumberAntrian {
    * perbuatan oleh dua jabatan.
    */
   rpkpsMenungguPengesahan: number;
+  /**
+   * RPKPS yang saya ampu dan masih menunggu paraf SAYA pada ronde berjalan.
+   * Selama satu paraf belum masuk, koordinator tidak dapat mengajukan
+   * dokumennya sama sekali (docs/14 §2.2).
+   */
+  rpkpsMenungguParaf: number;
   /** RPKPS yang saya ampu dan dikembalikan untuk direvisi. */
   rpkpsDikembalikan: number;
   /** RPKPS yang saya ampu dan masih draf. */
@@ -52,24 +80,41 @@ export interface SumberAntrian {
   /** Kebijakan beban belajar masih DRAF (hanya Admin/GPM). */
   kebijakanMasihDraf: boolean;
   /**
-   * Tenggat semester berjalan bagi pekerjaan yang BELUM diajukan. Menaikkan
-   * kegentingan dua butir milik dosen — draf dan dokumen yang dikembalikan —
-   * karena keduanya menghalangi tenggat yang sama.
+   * Tenggat semester berjalan, SATU PER JALUR (docs/14 §4.1).
+   *
+   * Tiga, bukan satu, karena satu dokumen hanya terikat satu tenggat pada satu
+   * waktu dan pemiliknya berpindah mengikuti rantai. Satu bidang tunggal
+   * berarti keterlambatan penyusunan mewarnai merah butir milik Kaprodi —
+   * menyalahkan orang atas keterlambatan orang lain, persis yang ditolak
+   * §3.2. Nilainya adalah yang TERPARAH di jalur itu.
    */
-  tenggat: NilaiTenggat | null;
+  tenggat: TenggatJalur;
 }
+
+export interface TenggatJalur {
+  penyusunan: NilaiTenggat | null;
+  review: NilaiTenggat | null;
+  pengesahan: NilaiTenggat | null;
+}
+
+export const TENGGAT_JALUR_KOSONG: TenggatJalur = {
+  penyusunan: null,
+  review: null,
+  pengesahan: null,
+};
 
 export const SUMBER_KOSONG: SumberAntrian = {
   usulanMenungguKeputusan: 0,
   rpkpsMenungguKeputusan: 0,
   rpkpsMenungguPengesahan: 0,
+  rpkpsMenungguParaf: 0,
   rpkpsDikembalikan: 0,
   rpkpsDraf: 0,
   penggunaMenungguVerifikasi: 0,
   temuanBelumDiverifikasi: 0,
   kelasSiapDitutup: 0,
   kebijakanMasihDraf: false,
-  tenggat: null,
+  tenggat: TENGGAT_JALUR_KOSONG,
 };
 
 const BOBOT: Record<Kegentingan, number> = { TINGGI: 0, SEDANG: 1, RENDAH: 2 };
@@ -94,96 +139,88 @@ function karenaTenggat(
   return { kegentingan: dasar, nada };
 }
 
-/** Kalimat tenggat yang ditempelkan pada rincian butir, bila ada. */
-function tambahanTenggat(tenggat: NilaiTenggat | null): string {
-  if (tenggat === null) return "";
-  if (tenggat.tingkat === "LEWAT") return ` Tenggat semester ${tenggat.label}.`;
-  if (tenggat.tingkat === "DEKAT") return ` Tenggat semester ${tenggat.label}.`;
-  return "";
-}
-
 export function susunAntrian(s: SumberAntrian): ButirAntrian[] {
   const semua: ButirAntrian[] = [
     {
       kunci: "kebijakan-draf",
-      judul: "Kebijakan beban belajar belum diberlakukan",
-      rincian:
-        "Angkanya masih bawaan SN-Dikti. Memperbaikinya setelah ada RPKPS terbit berarti menghitung ulang semuanya.",
       href: "/kebijakan",
       jumlah: s.kebijakanMasihDraf ? 1 : 0,
       kegentingan: "TINGGI",
       nada: "bahaya",
+      tenggat: null,
     },
     {
       kunci: "usulan-menunggu",
-      judul: "Usulan revisi menunggu keputusan Anda",
-      rincian: "Pengusul tidak dapat melanjutkan sebelum tiap butir diputuskan.",
       href: "/usulan",
       jumlah: s.usulanMenungguKeputusan,
       kegentingan: "TINGGI",
       nada: "bahaya",
+      tenggat: null,
     },
     {
       kunci: "rpkps-menunggu",
-      judul: "RPKPS menunggu putusan Anda",
-      rincian: "Selama belum disetujui, dokumen ini tidak sampai ke Penjaminan Mutu.",
       href: "/rpkps",
       jumlah: s.rpkpsMenungguKeputusan,
-      kegentingan: "TINGGI",
-      nada: "bahaya",
+      tenggat: s.tenggat.review,
+      ...karenaTenggat("TINGGI", "bahaya", s.tenggat.review),
     },
     {
       kunci: "rpkps-pengesahan",
-      judul: "RPKPS menunggu pengesahan Anda",
-      rincian:
-        "Sudah ditandatangani Kaprodi. Tinggal pemeriksaan kesesuaian standar sebelum terbit.",
       href: "/rpkps",
       jumlah: s.rpkpsMenungguPengesahan,
-      kegentingan: "TINGGI",
-      nada: "bahaya",
+      tenggat: s.tenggat.pengesahan,
+      ...karenaTenggat("TINGGI", "bahaya", s.tenggat.pengesahan),
     },
     {
       kunci: "rpkps-dikembalikan",
-      judul: "RPKPS dikembalikan untuk direvisi",
-      rincian: `Catatan pemutus menunggu ditindaklanjuti.${tambahanTenggat(s.tenggat)}`,
       href: "/rpkps",
       jumlah: s.rpkpsDikembalikan,
-      ...karenaTenggat("TINGGI", "peringatan", s.tenggat),
+      tenggat: s.tenggat.penyusunan,
+      ...karenaTenggat("TINGGI", "peringatan", s.tenggat.penyusunan),
+    },
+    {
+      /*
+       * Memaraf bukan pekerjaan sendiri: selama satu paraf tertahan,
+       * koordinator tidak dapat mengajukan dokumennya sama sekali. Ia tetap
+       * tidak dimulai dari TINGGI — yang tertahan baru satu langkah, bukan
+       * sebuah keputusan — dan tenggat penyusunanlah yang menaikkannya.
+       */
+      kunci: "rpkps-paraf",
+      href: "/rpkps",
+      jumlah: s.rpkpsMenungguParaf,
+      tenggat: s.tenggat.penyusunan,
+      ...karenaTenggat("SEDANG", "peringatan", s.tenggat.penyusunan),
     },
     {
       kunci: "pengguna-verifikasi",
-      judul: "Pengguna menunggu verifikasi",
-      rincian: "Belum punya peran, sehingga belum dapat mengakses apa pun.",
       href: "/pengguna",
       jumlah: s.penggunaMenungguVerifikasi,
       kegentingan: "SEDANG",
       nada: "peringatan",
+      tenggat: null,
     },
     {
       kunci: "kelas-siap-tutup",
-      judul: "Kelas siap ditutup evaluasinya",
-      rincian: "Nilai sudah lengkap; capaian belum masuk agregasi prodi.",
       href: "/rpkps",
       jumlah: s.kelasSiapDitutup,
       kegentingan: "SEDANG",
       nada: "cahaya",
+      tenggat: null,
     },
     {
       kunci: "temuan-belum-verifikasi",
-      judul: "Temuan yang Anda tanggung belum diverifikasi",
-      rincian: "Tindak lanjut tanpa verifikasi memutus siklus PPEPP.",
       href: "/evaluasi",
       jumlah: s.temuanBelumDiverifikasi,
       kegentingan: "SEDANG",
       nada: "peringatan",
+      tenggat: null,
     },
     {
       kunci: "rpkps-draf",
-      judul: "RPKPS Anda masih draf",
-      rincian: `Belum diajukan untuk diputuskan.${tambahanTenggat(s.tenggat)}`,
       href: "/rpkps",
       jumlah: s.rpkpsDraf,
-      ...karenaTenggat("RENDAH", "netral", s.tenggat),
+      tenggat: s.tenggat.penyusunan,
+      ...karenaTenggat("RENDAH", "netral", s.tenggat.penyusunan),
     },
   ];
 

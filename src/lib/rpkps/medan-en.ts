@@ -21,9 +21,9 @@
  * tidak dapat tinggal di sana. Ia juga tanpa `server-only` — isinya data,
  * bukan akses basis data.
  *
- * `rpkps.catatan_evaluasi_en` sengaja TIDAK ada di sini: kolomnya dibuat
- * migrasi L4 tetapi `schema.prisma` tidak pernah mendapat medannya, jadi
- * belum ada yang dapat mengisinya — dan `medanRpkps` pun tidak menawarkannya.
+ * `rpkps.catatan_evaluasi` sengaja TIDAK punya kembaran di sini, sejalan
+ * dengan migrasi L4: kolom itu belum punya penulis maupun pembaca satu pun,
+ * jadi terjemahannya tak akan pernah dapat diisi siapa pun (docs/11 §5.1a).
  */
 export interface IzinMedan {
   tabel: string;

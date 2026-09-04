@@ -233,6 +233,126 @@ export const temuanEn: KamusTemuan = {
   },
   "I-TANPA-LINIMASA": { pesan: "{label} has no stage timeline yet." },
   "I-TANPA-SUB-CPMK": { pesan: "{label} is not linked to any Sub-CPMK yet." },
+  "IL-BERKAS-BUKAN-GAMBAR": {
+    pesan: "This file is neither a PNG nor a JPEG.",
+    saran: "What is checked is the file's contents, not its name — a file called .png holding something else is still rejected.",
+  },
+  "IL-BERKAS-RUSAK": {
+    pesan: "The image dimensions could not be read from the file.",
+  },
+  "IL-BERKAS-TERLALU-BESAR": {
+    pesan: "The image file is empty or exceeds {n} MB.",
+  },
+  "IL-BERKAS-TERLALU-LEBAR": {
+    pesan: "An image side exceeds {n} pixels.",
+    saran: "That is already beyond 300 dpi at B5 print width; more only enlarges the file.",
+  },
+  "IL-DIAGRAM-DITOLAK": {
+    pesan: "{jumlah} diagrams were dropped for failing their checks: {daftar}.",
+    saran: "Diagrams are never patched into passing — what gets printed must be the figure that was actually meant. Ask the AI to redraw them.",
+  },
+  "IL-DIAGRAM-TERLALU-BANYAK": {
+    pesan: "{jumlah} diagrams exceeded the limit of {n} per chapter and were not taken.",
+  },
+  "IL-GAYA-FONT-ASING": {
+    pesan: "Diagram fonts {daftar} do not end in a generic serif family.",
+    saran:
+      "Images render inside <img>, where page webfonts are not loaded. Without a generic family last, the reader's machine substitutes a font silently.",
+  },
+  "IL-GAYA-GARIS": {
+    pesan: "Stroke widths {daftar} fall outside the rule.",
+    saran: "This book uses two widths only: 1.5 for ordinary lines, 2.5 for emphasis.",
+  },
+  "IL-GAYA-GRADIEN": {
+    pesan: "The diagram uses a gradient.",
+    saran:
+      "Gradients are a visual signature of machine-made images and explain nothing that flat lines and fills cannot.",
+  },
+  "IL-GAYA-TEKS-KECIL": {
+    pesan: "Some labels are smaller than {n}.",
+    saran: "Anything smaller is unreadable at B5 print size.",
+  },
+  "IL-GAYA-TEMBUS": {
+    pesan: "{jumlah} elements use transparency.",
+    saran: "Textbook diagrams use flat fills; stacked transparency prints inconsistently.",
+  },
+  "IL-GAYA-UKURAN-TETAP": {
+    pesan: "The diagram forces its own width and height.",
+    saran: "Remove width and height from the svg tag; viewBox decides, so the figure fits the print width.",
+  },
+  "IL-GAYA-WARNA-ASING": {
+    pesan: "{jumlah} colours outside the book palette: {daftar}.",
+    saran: "The diagram palette is closed: #111827, #6B7280, accent #1D4ED8, fills #F3F4F6 or white.",
+  },
+  "IL-LETAK-ASING": {
+    pesan: "{jumlah} figures name a section that does not exist in this chapter.",
+    saran: "They are still printed at the end of the chapter — nothing is lost. Fix the placement if a figure should follow a particular section.",
+  },
+  "IL-MMD-ARAHAN": {
+    pesan: "The Mermaid code contains configuration directives: {daftar}.",
+    saran: "Init directives can switch off the very settings that act as guards — securityLevel and htmlLabels among them.",
+  },
+  "IL-MMD-GAYA-SENDIRI": {
+    pesan: "The Mermaid code gives the diagram its own colours via {daftar}.",
+    saran: "The diagram theme belongs to the book, not to the model. Remove those lines; the palette is applied at render time.",
+  },
+  "IL-MMD-HTML": {
+    pesan: "Mermaid labels contain HTML markup.",
+    saran: "HTML labels do not render inside <img>, so the diagram would print with empty boxes.",
+  },
+  "IL-MMD-JENIS-ASING": {
+    pesan: "The Mermaid diagram type {daftar} is not used in this book.",
+    saran: "In use: flowchart, graph, sequenceDiagram, stateDiagram-v2, erDiagram, classDiagram, timeline, gantt.",
+  },
+  "IL-MMD-KOSONG": {
+    pesan: "The Mermaid code is empty.",
+  },
+  "IL-MMD-TAUTAN": {
+    pesan: "The Mermaid code contains {jumlah} links or click directives.",
+    saran: "Nobody clicks a figure in a printed textbook; all that remains is its ability to open an address nobody checked.",
+  },
+  "IL-MMD-TERLALU-BESAR": {
+    pesan: "The Mermaid code exceeds {n} characters.",
+  },
+  "IL-SVG-ATRIBUT-TERLARANG": {
+    pesan: "{jumlah} attributes are not allowed: {daftar}.",
+    saran: "Diagrams may only use drawing attributes. Event handlers and style are never allowed.",
+  },
+  "IL-SVG-BUKAN-SVG": {
+    pesan: "This file is not an SVG.",
+  },
+  "IL-SVG-DOCTYPE": {
+    pesan: "The file contains a DOCTYPE, an entity declaration, or a CDATA block.",
+    saran: "All three are routes to reading server files and to files that expand until memory runs out. None has any use in a diagram.",
+  },
+  "IL-SVG-ELEMEN-TERLARANG": {
+    pesan: "{jumlah} elements are not allowed: {daftar}.",
+    saran: "Only drawing elements are allowed. script, style, image, filter, and foreignObject are not among them.",
+  },
+  "IL-SVG-ENTITAS": {
+    pesan: "The file contains an unknown entity.",
+  },
+  "IL-SVG-INSTRUKSI": {
+    pesan: "The file contains a processing instruction other than the XML declaration.",
+  },
+  "IL-SVG-RUJUKAN-LUAR": {
+    pesan: "{jumlah} references point outside the file: {daftar}.",
+    saran: "External references reveal who opens the document, and their contents can change after you approve them.",
+  },
+  "IL-SVG-RUSAK": {
+    pesan: "The SVG could not be parsed to the end.",
+  },
+  "IL-SVG-TANPA-VIEWBOX": {
+    pesan: "The svg tag has no viewBox.",
+    saran: "Without a viewBox the figure cannot adapt to the print width.",
+  },
+  "IL-SVG-TERLALU-BESAR": {
+    pesan: "The SVG is empty or exceeds {n} characters.",
+  },
+  "IL-SVG-TERLALU-RUMIT": {
+    pesan: "The diagram exceeds {n} elements.",
+    saran: "Anything more complex has stopped explaining; split it into several figures.",
+  },
   "K-CPL-KODE-GANDA": { pesan: "Duplicate CPL codes: {daftar}." },
   "K-CPL-PL-TIDAK-ADA": {
     pesan: "{kode} refers to {profil}, which is not in the graduate profile list.",
@@ -341,6 +461,73 @@ export const temuanEn: KamusTemuan = {
   },
   "KK-TOTAL-SKOR": {
     pesan: "Item scores on {label} total {total}, and should total {seharusnya}.",
+  },
+  "KT-BAB-KOSONG": {
+    pesan: "{jumlah} chapters still have no body text: {daftar}.",
+  },
+  "KT-BELUM-DISUNTING": {
+    pesan: "{jumlah} chapters have never been touched by a human: {daftar}.",
+    saran: "Your name goes on the cover; a manuscript its author has not read is not ready to submit.",
+  },
+  "KT-HALAMAN": {
+    pesan: "The manuscript is estimated at {taksiran} pages, below {n}.",
+    saran:
+      "Forty-nine pages is the customary line between a book and a pamphlet in publishing practice.",
+  },
+  "KT-ISBN": {
+    pesan: "The ISBN is missing or invalid.",
+    saran: "Apply for an ISBN with the National Library first, then enter the number here.",
+  },
+  "KT-METADATA": {
+    pesan: "{jumlah} publication details are still empty.",
+    saran: "Title, author, publisher, city, and year are needed for the copyright page.",
+  },
+  "KT-TANPA-GLOSARIUM": {
+    pesan: "The glossary is empty.",
+  },
+  "KT-TANPA-PRAKATA": {
+    pesan: "The preface has not been written.",
+  },
+  "KT-TANPA-PUSTAKA": {
+    pesan: "The bibliography is empty.",
+  },
+  "KT-TANPA-SINOPSIS": {
+    pesan: "The synopsis or the keywords are missing.",
+    saran: "Publishers and ISBN registration ask for both.",
+  },
+  "KT-USULAN-TERBUKA": {
+    pesan: "{jumlah} editorial suggestions are still undecided.",
+    saran: "Accept or reject them first; a pending suggestion means a passage you have not decided on.",
+  },
+  "NS-BAB-TANPA-SITIRAN": {
+    pesan: "This chapter cites no reference at all.",
+  },
+  "NS-BAB-TIMPANG": {
+    pesan: "Chapters {daftar} differ sharply in length from the rest.",
+    saran: "A much thinner chapter is usually unfinished; a much thicker one usually holds two topics.",
+  },
+  "NS-GLOSARIUM-TAK-DIPAKAI": {
+    pesan: "{jumlah} glossary entries appear in no chapter: {daftar}.",
+  },
+  "NS-ISTILAH-TAK-SERAGAM": {
+    pesan: "{jumlah} terms are spelled several ways: {daftar}.",
+    saran: "One concept should keep one spelling throughout the book.",
+  },
+  "NS-KALIMAT-PANJANG": {
+    pesan: "Some sentences exceed {n} words: {daftar}",
+    saran: "Sentences that long make a third-semester reader read them twice.",
+  },
+  "NS-PARAGRAF-PANJANG": {
+    pesan: "{jumlah} paragraphs exceed {n} words.",
+  },
+  "NS-PUSTAKA-TAK-DISITIR": {
+    pesan: "{jumlah} references are cited by no chapter: {daftar}.",
+    saran: "A bibliography listing unused sources weakens the ones actually used.",
+  },
+  "NS-TUJUAN-TAK-TERSENTUH": {
+    pesan: "{jumlah} learning-objective verbs never appear in the chapter body: {daftar}.",
+    saran:
+      "A chapter that promises an ability but never exercises it fails to teach what it promised.",
   },
   "L1-KELEBIHAN": {
     pesan: "The load exceeds the budget by {persen}% ({terpakai} against a budget of {pagu}).",
@@ -452,6 +639,15 @@ export const temuanEn: KamusTemuan = {
       "The weight of {kode} is split evenly across {jumlah} Sub-CPMKs because its blueprint is empty.",
     saran:
       "A blueprint makes each Sub-CPMK's share follow the item scores rather than an even guess.",
+  },
+  "SU-KUTIPAN-TAK-DITEMUKAN": {
+    pesan: "{jumlah} suggestions were dropped because their quotes are not in the manuscript.",
+    saran:
+      "A suggestion whose quote cannot be found cannot be applied; usually the model tidied its own quote while copying it.",
+  },
+  "SU-KUTIPAN-BERUBAH": {
+    pesan: "This suggestion's quote is no longer in the manuscript.",
+    saran: "You edited it first. Applying it would overwrite your edit with a suggestion about the old text.",
   },
   "TL-AKAR-PENDEK": {
     pesan: "The root cause for {kode} is too short (at least {minimal} characters).",

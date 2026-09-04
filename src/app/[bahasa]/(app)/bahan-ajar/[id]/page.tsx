@@ -18,6 +18,11 @@ import { keInputPemeriksaan, muatBuku, sidikSekarang } from "@/lib/bahan-ajar/mu
 import { wenangBuku } from "@/lib/bahan-ajar/wenang";
 import { periksaBukuAjar } from "@/domain/bahan-ajar/validator";
 import { babBergeser } from "@/domain/bahan-ajar/sidik-sumber";
+import { periksaNaskah } from "@/domain/bahan-ajar/naskah";
+import { periksaKesiapanTerbit } from "@/domain/bahan-ajar/kesiapan-terbit";
+import { bacaGlosarium } from "@/lib/bahan-ajar/cetak";
+import { PanelUsulan } from "./panel-usulan";
+import { PanelTerbit } from "./panel-terbit";
 import { FormulirMetadata } from "./metadata";
 import { PanelAi } from "./panel-ai";
 import { TombolHapusBuku } from "./tombol";
@@ -48,6 +53,51 @@ export default async function HalamanBuku({
 
   const periksa = periksaBukuAjar(keInputPemeriksaan(buku));
   const sidik = sidikSekarang(buku);
+
+  /*
+   * Pemeriksaan naskah dan kesiapan terbit dihitung DI SINI setiap kali
+   * halaman dibuka, tidak disimpan: keduanya deterministik, jadi menghitung
+   * ulang lebih murah daripada menjaga baris basi tetap sejalan (docs/19 §2.1).
+   */
+  const nomorPustaka = new Map(buku.rpkps.pustaka.map((p) => [p.id, p.nomor]));
+  const glosarium = bacaGlosarium(buku.glosarium);
+  const naskah = periksaNaskah({
+    bab: buku.bab.map((b) => ({
+      nomor: b.nomor,
+      judul: b.judul,
+      tujuan: b.tujuan,
+      uraian: b.uraian,
+      ringkasan: b.ringkasan,
+      sitiran: b.pustaka
+        .map((x) => nomorPustaka.get(x.pustakaId))
+        .filter((n): n is number => n !== undefined),
+    })),
+    glosarium,
+    pustaka: buku.rpkps.pustaka.map((p) => ({ nomor: p.nomor })),
+  });
+
+  const kesiapan = periksaKesiapanTerbit({
+    judul: buku.judul,
+    penulis: buku.penulis,
+    penerbit: buku.penerbit,
+    kotaTerbit: buku.kotaTerbit,
+    tahunTerbit: buku.tahunTerbit,
+    isbn: buku.isbn,
+    prakata: buku.prakata,
+    sinopsis: buku.sinopsis,
+    kataKunci: buku.kataKunci,
+    glosarium,
+    pustaka: buku.rpkps.pustaka.map((p) => ({ nomor: p.nomor })),
+    bab: buku.bab.map((b) => ({
+      nomor: b.nomor,
+      adaUraian: Boolean(b.uraian?.trim()),
+      disunting: b.disuntingPada !== null,
+    })),
+    jumlahKata: naskah.ringkasan.jumlahKata,
+    usulanTerbuka: buku.usulan.length,
+  });
+
+  const nomorBabDari = new Map(buku.bab.map((b) => [b.id, b.nomor]));
 
   // Kunci AI hanya dimuat bila memang ada tombolnya. Bagi pembaca yang tidak
   // berwenang menulis, satu kueri ini murni terbuang.
@@ -140,6 +190,69 @@ export default async function HalamanBuku({
           }))}
         />
       ) : null}
+
+      <PanelTerbit
+        bukuId={buku.id}
+        temuan={kesiapan.temuan}
+        siap={kesiapan.siap}
+        ringkasan={kesiapan.ringkasan}
+        sinopsisAwal={buku.sinopsis}
+        kataKunciAwal={buku.kataKunci}
+        bolehTulis={w.bolehTulis}
+        adaKunciAi={kredensial.length > 0}
+      />
+
+      <PanelUsulan
+        bukuId={buku.id}
+        bolehTulis={w.bolehTulis}
+        adaKunciAi={kredensial.length > 0}
+        tinjauSeluruh
+        usulan={buku.usulan.map((u) => ({
+          id: u.id,
+          babNomor: u.babId ? (nomorBabDari.get(u.babId) ?? null) : null,
+          jenis: u.jenis,
+          kutipan: u.kutipan,
+          usul: u.usul,
+          alasan: u.alasan,
+        }))}
+      />
+
+      {/* Temuan mekanis: dihitung tanpa memakai kuota AI dosen. */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">{k.bahanAjar.naskahJudul}</CardTitle>
+          <CardDescription>{k.bahanAjar.naskahKeterangan}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {naskah.temuan.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{k.bahanAjar.naskahBersih}</p>
+          ) : (
+            <ul className="space-y-2 text-sm">
+              {naskah.temuan.map((t, i) => {
+                const kalimat = teksTemuan(t, k);
+                return (
+                  <li key={`${t.kode}-${i}`} className="flex items-start gap-2">
+                    <CircleAlert className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                    <span>
+                      {t.bab !== undefined ? (
+                        <span className="mr-1 text-xs text-muted-foreground">
+                          {isi(k.bahanAjar.babEyebrow, { nomor: t.bab })} ·
+                        </span>
+                      ) : null}
+                      {kalimat.pesan}
+                      {kalimat.saran ? (
+                        <span className="block text-xs text-muted-foreground">
+                          {kalimat.saran}
+                        </span>
+                      ) : null}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

@@ -4,6 +4,9 @@ import { describe, it } from "node:test";
 import JSZip from "jszip";
 import { buatSlidePptx, namaBerkasSlide, type DekUntukSlide } from "./slide-pptx";
 
+const PNG_1PX =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+
 /**
  * Uji pencetak slide.
  *
@@ -36,6 +39,15 @@ function dek(ubah: Partial<DekUntukSlide> = {}): DekUntukSlide {
           { nomor: 2, judul: "Tumpukan pemanggilan", butir: ["Satu bingkai per panggilan"], catatan: null },
         ],
         latihan: [{ nomor: 1, soal: "Jelaskan kasus dasar." }],
+        gambar: [
+          {
+            nomor: 1,
+            judul: "Alur penelusuran",
+            dataUri: PNG_1PX,
+            lebarPx: 800,
+            tinggiPx: 400,
+          },
+        ],
       },
       {
         nomor: 2,
@@ -43,6 +55,7 @@ function dek(ubah: Partial<DekUntukSlide> = {}): DekUntukSlide {
         tujuan: [],
         slide: [{ nomor: 1, judul: "Pengurutan sisip", butir: ["O(n^2)"], catatan: null }],
         latihan: [],
+        gambar: [],
       },
     ],
     ...ubah,
@@ -82,11 +95,11 @@ describe("slide .pptx", () => {
       /^ppt\/slides\/slide\d+\.xml$/.test(n),
     ).length;
     /*
-     * Bab 1: pembuka + tujuan + dua slide isi + latihan = 5
-     * Bab 2: pembuka + satu slide isi                    = 2  (tanpa tujuan,
-     *                                                          tanpa latihan)
+     * Bab 1: pembuka + tujuan + dua slide isi + gambar + latihan = 6
+     * Bab 2: pembuka + satu slide isi                            = 2
+     *        (tanpa tujuan, tanpa gambar, tanpa latihan)
      */
-    assert.equal(jumlah, 7);
+    assert.equal(jumlah, 8);
   });
 
   it("catatan menjadi speaker notes, bukan teks di atas slide", async () => {
@@ -141,5 +154,25 @@ describe("slide .pptx", () => {
       namaBerkasSlide(dek(), { bab: 3 }),
       "Struktur Data dan Algoritma - Bab 3.pptx",
     );
+  });
+});
+
+describe("gambar di dalam slide", () => {
+  it("tiap gambar menjadi slidenya sendiri, dengan medianya ikut", async () => {
+    // Penuh layar, bukan terselip di samping butir — itulah cara diagram
+    // ditayangkan di kelas.
+    const berkas = await buatSlidePptx(dek(), { bab: 1 });
+    const zip = await bukaZip(berkas);
+    const media = Object.keys(zip.files).filter((n) => n.startsWith("ppt/media/"));
+    assert.ok(media.length > 0, "tidak ada media di dalam .pptx");
+    assert.ok((await teksSlide(berkas)).includes("Gambar 1.1"), "keterangan tidak bernomor");
+  });
+
+  it("bab tanpa gambar tidak menambah slide", async () => {
+    const zip = await bukaZip(await buatSlidePptx(dek(), { bab: 2 }));
+    const jumlah = Object.keys(zip.files).filter((n) =>
+      /^ppt\/slides\/slide\d+\.xml$/.test(n),
+    ).length;
+    assert.equal(jumlah, 2);
   });
 });

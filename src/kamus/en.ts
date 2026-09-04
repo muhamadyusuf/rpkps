@@ -42,6 +42,11 @@ export const en: Kamus = {
       "Copied from {asal}; Sub-CPMK mappings and blueprints were not carried over because the course differs",
   },
   pesanNotifikasi: {
+    RPKPS_MINTA_PARAF: {
+      judul: "Your initials are needed on RPKPS {mk}",
+      ringkasan:
+        "{oleh} asked the teaching team of RPKPS {mk} ({ta}) to initial it. The document cannot be submitted until every teacher has.",
+    },
     RPKPS_DIAJUKAN: {
       judul: "RPKPS {mk} is awaiting approval",
       ringkasan: "{oleh} submitted RPKPS {mk} ({ta}) for approval.",
@@ -93,6 +98,28 @@ export const en: Kamus = {
     USULAN_DIPUTUSKAN_TANPA_CATATAN: {
       judul: "Proposal \"{judul}\" {keputusan}",
       ringkasan: "{oleh} {keputusan} your proposal.",
+    },
+  },
+  tenggat: {
+    tanpa: "no deadline",
+    selesai: "completed",
+    penyusunan: {
+      lewatHariIni: "deadline passed today",
+      terlambat: { satu: "{n} day overdue", banyak: "{n} days overdue" },
+      hariIni: "due today",
+      tersisa: { satu: "{n} day left", banyak: "{n} days left" },
+    },
+    review: {
+      lewatHariIni: "review deadline passed today",
+      terlambat: { satu: "review {n} day overdue", banyak: "review {n} days overdue" },
+      hariIni: "review due today",
+      tersisa: { satu: "review {n} day left", banyak: "review {n} days left" },
+    },
+    pengesahan: {
+      lewatHariIni: "approval deadline passed today",
+      terlambat: { satu: "approval {n} day overdue", banyak: "approval {n} days overdue" },
+      hariIni: "approval due today",
+      tersisa: { satu: "approval {n} day left", banyak: "approval {n} days left" },
     },
   },
   keputusanUsulan: {
@@ -332,7 +359,54 @@ export const en: Kamus = {
       isi: "An administrator needs to fill in your NIDN/NIP, role, and study programme before the curriculum, RPKPS, and evaluation modules open for you.",
     },
 
-    antrian: { kosong: "Nothing is waiting on you." },
+    antrian: {
+      kosong: "Nothing is waiting on you.",
+      tenggatJalur: "Semester deadline: {tenggat}.",
+      butir: {
+        "kebijakan-draf": {
+          judul: "Study-load policy is not in effect yet",
+          rincian:
+            "The numbers are still the SN-Dikti defaults. Fixing them once an RPKPS is published means recomputing everything.",
+        },
+        "usulan-menunggu": {
+          judul: "Curriculum revision proposals await your decision",
+          rincian: "Proposers cannot move on until every item is decided.",
+        },
+        "rpkps-menunggu": {
+          judul: "RPKPS documents await your decision",
+          rincian: "Until you approve, the document never reaches Quality Assurance.",
+        },
+        "rpkps-pengesahan": {
+          judul: "RPKPS documents await your approval",
+          rincian:
+            "Already signed by the head of programme. Only the standards check remains before publication.",
+        },
+        "rpkps-paraf": {
+          judul: "RPKPS documents await your initials",
+          rincian: "The coordinator cannot submit until every teacher has initialled.",
+        },
+        "rpkps-dikembalikan": {
+          judul: "RPKPS returned for revision",
+          rincian: "The reviewer's notes are waiting to be acted on.",
+        },
+        "pengguna-verifikasi": {
+          judul: "Users awaiting verification",
+          rincian: "They hold no role yet, so they cannot access anything.",
+        },
+        "kelas-siap-tutup": {
+          judul: "Classes ready for evaluation closing",
+          rincian: "Marks are complete; the outcomes are not in the programme aggregate yet.",
+        },
+        "temuan-belum-verifikasi": {
+          judul: "Findings you own are unverified",
+          rincian: "Follow-up without verification breaks the PPEPP cycle.",
+        },
+        "rpkps-draf": {
+          judul: "Your RPKPS is still a draft",
+          rincian: "It has not been submitted for a decision.",
+        },
+      },
+    },
 
     prodi: {
       judul: "{nama} Study Programme",
@@ -610,6 +684,13 @@ export const en: Kamus = {
   },
 
   notifikasi: {
+      surelJudul: "Email notifications",
+      surelNyala: "Anything that needs your action is also sent to your campus email.",
+      surelMati: "Notifications appear only inside this application.",
+      surelNyalakan: "Turn on",
+      surelMatikan: "Turn off",
+      surelDinyalakan: "Email notifications are on.",
+      surelDimatikan: "Email notifications are off. The messages still appear here.",
     judul: "Notifications",
     keterangan: "News about documents you teach and proposals you have submitted. Unread items sit on top.",
     tandaiSemua: "Mark all as read",
@@ -716,6 +797,21 @@ export const en: Kamus = {
     },
   },
 
+  pratinjau: {
+    metaJudul: "RPKPS draft preview",
+    metaTidakBerlaku: "Link no longer valid",
+    pita: "DRAFT — NOT YET RATIFIED",
+    pitaKeterangan:
+      "This document was shared through a preview link and has not been through the approval chain. Its content may still change, and it carries no official document fingerprint.",
+    kedaluwarsa: "This preview link is valid until {tanggal}.",
+  },
+  surel: {
+    salam: "Hello {nama},",
+    buka: "Open in the app: {tautan}",
+    hentikan:
+      "You are receiving this because email notifications are on for your account. Turn them off any time in {pengaturan}.",
+    kaki: "RPKPS ITTS — this message was sent automatically; please do not reply.",
+  },
   dokumenPublik: {
     komponenNilai: "Assessment components",
     versiInggris: {
@@ -740,6 +836,21 @@ export const en: Kamus = {
     metaKurikulum: "Curriculum",
     unduh: "Download the official document",
     tahunLain: "Other academic years",
+    pengesah: {
+      KOORDINATOR: "Course Coordinator",
+      KAPRODI: "Head of Study Programme",
+      PENJAMINAN_MUTU: "Head of Internal Quality Assurance",
+      peranKeterangan: {
+        KOORDINATOR: "on behalf of the RPKPS drafting team",
+        KAPRODI: "Approved by",
+        PENJAMINAN_MUTU: "Reviewed and declared compliant with ITTS standards",
+      },
+      belum: "Not signed",
+      belumKeterangan:
+        "This document was published before electronic approval was in use; its signatures are on the printed file.",
+      ditandatanganiElektronik: "Signed electronically",
+      sidikYangDicap: "Fingerprint of the signed content",
+    },
     disahkan: "Ratified {tanggal}",
     disahkanVersi: " — version {versi}; the content was frozen on that date.",
     daftarIsi: {
@@ -750,6 +861,7 @@ export const en: Kamus = {
       penilaian: "Assessment",
       pustaka: "References",
       pengampu: "Teaching team",
+      pengesahan: "Approval",
       riwayat: "Document history",
     },
     isi: {
@@ -809,6 +921,9 @@ export const en: Kamus = {
       penilaianKeterangan: "The weight of each component and the thresholds used to declare a pass.",
       pustakaJudul: "References and resources",
       pengampuJudul: "Teaching team",
+      pengesahanJudul: "Approval",
+      pengesahanKeterangan:
+        "Three consecutive signatures on the published round. Each one names the content fingerprint it signed.",
       riwayatJudul: "Document history",
       riwayatKeterangan: "The trail from drafting to ratification.",
     },
@@ -1269,6 +1384,51 @@ export const en: Kamus = {
   },
 
   usulan: {
+    draf: {
+      judul: "Draft items with AI",
+      keterangan:
+        "The AI transcribes findings that already exist into tidy proposal items. It does not judge the curriculum, and it never writes its own grounds — those are picked from validator findings, evaluation findings, and the note you type.",
+      catatan: "Your note",
+      catatanPetunjuk:
+        "Optional. What you write here may become the grounds of an item, but only as a verbatim quotation — the AI may not paraphrase it into another sentence.",
+      catatanContoh:
+        "The week 5 Sub-CPMK sits at too high a level for the lab time available.",
+      susun: "Draft items",
+      menyusun: "Drafting…",
+      terapkan: "Apply {jumlah} items",
+      pilihSemua: "Select all",
+      kosongkan: "Clear selection",
+      bahan: "{validator} validator findings · {evaluasi} evaluation findings",
+      hasilKosong: "The AI produced no item whose grounds could be traced.",
+      dibuangJudul: "{jumlah} items discarded",
+      dibuangKeterangan:
+        "Discarded by the server before reaching you. Named plainly: a draft half of which was silently dropped reads like a good draft.",
+      dasarJudul: "Grounds",
+      tanpaKunciTebal: "No AI key yet.",
+      tanpaKunciIsi: "This feature uses your own API key.",
+      daftarkanKunci: "Register a key",
+      kunciDipakai: "Key in use",
+      pilihKunci: "Choose a key",
+      kunciBawaan: " · default",
+      sumberAi: "Drafted by AI",
+      sebab: {
+        "D-JENIS-TERLARANG": "This kind of item may not be drafted by AI.",
+        "D-TANPA-SASARAN": "Names no target outcome.",
+        "D-KODE-TIDAK-DIKENAL": "Its code does not exist on this course.",
+        "D-KODE-BENTROK": "Its new code is already taken by an existing outcome.",
+        "D-RUMUSAN-KOSONG": "Carries no statement.",
+        "D-ALASAN-PENDEK": "Its reason is too terse to judge.",
+        "D-LEVEL-ASING": "Its Bloom level is not recognised.",
+        "D-CPL-ASING": "Names a PLO not assigned to this course.",
+        "D-PETA-KOSONG": "A PLO mapping with no PLO at all.",
+        "D-DASAR-KARANGAN": "Its grounds are absent from the material provided.",
+        "D-DASAR-BEDA-SASARAN": "Its grounds concern a different outcome.",
+        "D-CATATAN-TIDAK-ADA": "Quotes a lecturer note that was never written.",
+        "D-KUTIPAN-PENDEK": "The quoted note is too short.",
+        "D-KUTIPAN-KARANGAN": "The quotation is absent from the note you wrote.",
+        "D-SASARAN-GANDA": "An item of the same kind already targets this outcome.",
+      },
+    },
     metaJudul: "Curriculum Revision Proposals",
     judul: "Curriculum Revision Proposals",
     keterangan: "The only door to changing CPMK and Sub-CPMK. Lecturers propose; the Head of Study Programme decides and ratifies.",
@@ -1588,12 +1748,108 @@ export const en: Kamus = {
     slideCatatan: "Speaker notes",
     susunBabIni: "Draft this chapter with AI",
     susunSlideIni: "Build slides for this chapter",
+    gambarJudul: "Figures ({jumlah})",
+    gambarKeterangan:
+      "Diagrams are written by the AI as code and drawn by machine — not painted by a model. Their labels are real text, and they stay sharp at any print size.",
+    gambarKosong: "This chapter has no figures yet.",
+    susunDiagram: "Draft diagrams with AI",
+    susunIlustrasi: "Create an illustration",
+    ilustrasiKeterangan:
+      "An atmospheric or metaphorical chapter opener. Available on Gemini keys only, and never for diagrams, charts, maps, or equipment schematics — an image model knows nothing about the equipment it draws.",
+    ilustrasiPlaceholder: "Describe the illustration you want…",
+    ilustrasiPeringatan:
+      "This figure will be printed with a note that it was AI-generated, and a book containing one carries a disclosure paragraph on its copyright page.",
+    unggahGambar: "Upload an image",
+    usulJudul: "Unsaved proposals ({jumlah})",
+    setujuiGambar: "Approve",
+    tolakGambar: "Discard",
+    gambarGagalRender: "This diagram could not be drawn.",
+    hapusGambarKonfirmasi: "Remove this figure from the chapter?",
+    labelKeteranganGambar: "Figure caption",
+    labelLetak: "Placement (section title)",
+    pratinjau: "Preview",
+    tab: { visual: "Visual", kode: "Code", raster: "Image" },
+    batal: "Undo",
+    ulang: "Redo",
+    terapkan: "Apply",
+    petunjukSeret: "Click an element to select it, drag to move it, pull the corner handle to resize.",
+    pilihElemen: "No element selected yet.",
+    elemenTerpilih: "Selected: {tag}",
+    elemenTakDisunting: "this kind cannot be moved",
+    isiTeks: "Text content",
+    warnaIsian: "Fill colour",
+    warnaGaris: "Stroke colour",
+    hapusElemen: "Delete element",
+    tanpaViewBox: "This figure has no viewBox, so it cannot be edited visually.",
+    bekukan: "Freeze to SVG",
+    bekukanKonfirmasi:
+      "Freeze this diagram into SVG? Mermaid's automatic layout is lost for good, and redrafting from Mermaid code will discard your visual edits.",
+    bekukanBerhasil: "Diagram frozen to SVG and ready for visual editing. Not saved yet.",
+    potong: "Crop",
+    putar: "Rotate 90°",
+    petunjukPotong: "Drag on the image to select the part you keep.",
+    peringatanPotong:
+      "Cropping discards pixels and cannot be undone once saved — the original is not kept.",
+    usulanJudul: "Editorial suggestions ({jumlah})",
+    usulanKeterangan:
+      "The AI works as an editor: it points at a sentence, proposes a replacement, and states why. You decide — and reading while you decide is what makes this manuscript fit to carry your name.",
+    usulanKosong: "No suggestions are waiting for a decision.",
+    suntingBab: "Edit this chapter with AI",
+    tinjauNaskah: "Review the whole manuscript",
+    naskahSekarang: "Current text",
+    usulanPengganti: "Suggested",
+    usulHapus: "(this passage is removed)",
+    terapkanUsulan: "Apply",
+    tandaiDibaca: "Mark as read",
+    tolakUsulan: "Reject",
+    seluruhBuku: "Whole book",
+    jenisUsulan: {
+      BAHASA: "Language",
+      ISTILAH: "Terminology",
+      PENGULANGAN: "Repetition",
+      TUJUAN: "Objectives",
+      STRUKTUR: "Structure",
+    },
+    terbitJudul: "Publication readiness",
+    terbitRingkas: "Estimated {halaman} pages · {berisi} of {total} chapters written",
+    terbitSiap: "Ready to submit",
+    terbitBelum: "Not ready",
+    terbitLengkap: "Every submission requirement is met.",
+    sinopsisJudul: "Back-cover synopsis",
+    sinopsisKeterangan:
+      "Requested by publishers and by ISBN registration. Unlike the ISBN and publisher, a synopsis is writing — so the AI may draft it, and you edit it.",
+    susunSinopsis: "Draft with AI",
+    kataKunci: "Keywords",
+    kataKunciPetunjuk: "Comma separated, e.g. data structures, algorithms, recursion",
+    naskahJudul: "Manuscript checks",
+    naskahKeterangan:
+      "Computed mechanically, without spending your AI quota: sentence and paragraph length, term spelling, objective alignment, and citations.",
+    naskahBersih: "No mechanical findings in this manuscript.",
+    sumberGambar: {
+      DIAGRAM_AI: "AI diagram",
+      UNGGAHAN: "Uploaded",
+      AI_RASTER: "AI illustration",
+    },
     sumberMinggu: "Week {minggu} · {subCpmk}",
     tanpaSubCpmk: "no Sub-CPMK",
   },
 
   rpkps: {
     tabelKosong: "Empty table",
+    tombol: {
+      buat: "Create RPKPS",
+      menyiapkan: "Preparing…",
+      paraf: "Initial the ratification page",
+      parafUlang: "Initial again",
+      menandatangani: "Signing…",
+      mintaParaf: "Request initials",
+      mintaParafPetunjuk: "Reminds {jumlah} teachers who have not initialled this round.",
+      mengirim: "Sending…",
+      ajukan: "Sign & submit",
+      mengajukan: "Submitting…",
+      setujui: "Approve & sign",
+      sahkan: "Ratify & publish",
+    },
     tabelKosongPetunjuk:
       "Creates an RPKPS without a skeleton; you write the weekly table yourself",
     metaJudul: "RPKPS",
@@ -2064,6 +2320,23 @@ export const en: Kamus = {
     },
 
     kelola: {
+      pratinjauJudul: "Draft preview links",
+      pratinjauKeterangan:
+        "For showing an unratified document to someone without an account — an industry partner or an assessor. Always marked as draft, always expiring, and revocable at any time.",
+      pratinjauCatatan: "Shared with",
+      pratinjauContohCatatan: "Andi, PT Pertamina",
+      pratinjauHari: "Valid (days)",
+      pratinjauBuat: "Create link",
+      pratinjauKosong: "No preview links yet.",
+      pratinjauTanpaCatatan: "(no note)",
+      pratinjauSisa: "{n} days left",
+      pratinjauAkses: "opened {n} times",
+      pratinjauCabut: "Revoke",
+      statusTautan: {
+        AKTIF: "Active",
+        KEDALUWARSA: "Expired",
+        DICABUT: "Revoked",
+      },
       timJudul: "Teaching team",
       timKeterangan: "Being named a teacher means being allowed to edit this RPKPS — and only this one, even if the lecturer belongs to another study programme.",
       nidn: "NIDN {nomor}",
@@ -2214,8 +2487,11 @@ export const en: Kamus = {
       subCpmk: "Sub-CPMK not found.",
       cpl: "CPL not found.",
       rpkps: "RPKPS not found.",
+      tautan: "Preview link not found.",
       bukuAjar: "Teaching book not found.",
       babBukuAjar: "Book chapter not found.",
+      gambar: "That figure does not belong to this book.",
+      usulanSunting: "Editorial suggestion not found.",
       rpkpsAsal: "Source RPKPS not found.",
       kurikulum: "Curriculum not found.",
       kelas: "Class not found.",
@@ -2269,9 +2545,13 @@ export const en: Kamus = {
     },
 
     periksa: {
+      catatanTautanPanjang: "A link note may be at most {n} characters.",
+      hariTautanMinimal: "A link must be valid for at least {n} day.",
+      hariTautanMaksimal: "A link may be valid for at most {n} days.",
       alasanArsip: "A reason for archiving is required, at least {n} characters.",
       judulBukuPendek: "The book title must be at least {n} characters.",
       judulBabPendek: "The chapter title must be at least {n} characters.",
+      judulGambarPendek: "A figure caption must be at least {n} characters.",
       alasanHapusPaksa:
         "A reason for deletion is required, at least {n} characters — this sentence is the only thing left in the audit log once the document itself is gone.",
       kodeCplWajib: "The CPL code is required.",
@@ -2361,6 +2641,23 @@ export const en: Kamus = {
       babTersimpan: "Chapter {nomor} saved.",
       gagalSimpanBab: "Could not save the chapter. Check the server log.",
       sebutanBab: "Chapter {nomor}",
+      diagramTersusun: "{jumlah} diagrams proposed. Review them before saving.",
+      gagalDiagram: "Could not draft the diagrams. Check the server log.",
+      gambarTersimpan: "Figure saved.",
+      gambarDihapus: "Figure deleted.",
+      gambarDitolak: "The figure failed its checks and was not saved.",
+      gambarPenuh: "This chapter already holds {n} figures, its maximum.",
+      ilustrasiTersusun: "Illustration ready. Review it before saving.",
+      perintahPendek: "Describe the illustration you want first — at least one sentence.",
+      usulanTersimpan: "{jumlah} new suggestions saved.",
+      usulanDiterima: "Suggestion applied.",
+      usulanDitolak: "Suggestion rejected.",
+      usulanSudahDiputus: "This suggestion has already been decided.",
+      usulanKedaluwarsa:
+        "This suggestion's quote is no longer in the manuscript — you edited it first, so it was not applied.",
+      gagalSunting: "The editing pass failed. Check the server log.",
+      tinjauButuhDuaBab: "A manuscript review judges how chapters relate; write at least two chapters first.",
+      sinopsisTersusun: "Synopsis and keywords drafted. Edit them before sending to a publisher.",
     },
     umum: {
       dataTidakValid: "Invalid data.",
@@ -2386,6 +2683,15 @@ export const en: Kamus = {
       disahkan: "The RPKPS is ratified and published.",
       dikembalikan: "Returned for revision. Every signature from this round is void.",
       parafTercatat: "Your initials are recorded on the ratification page.",
+      hanyaPemegangBerbagi:
+        "Only the course coordinator and programme managers can share a draft outside the application.",
+      tautanDibuat: "Preview link created.",
+      tautanDicabut: "Preview link revoked.",
+      tautanSudahDicabut: "That link was already revoked.",
+      hanyaKoordinatorMinta: "Only the course coordinator can ask the team to initial.",
+      parafSudahLengkap:
+        "Every teacher has already initialled the current content — there is no one to remind.",
+      parafDiminta: "Initial request sent to {jumlah} teachers.",
       dihapus: "RPKPS {label} deleted.",
       tujuanSudahPunya: "{kode} already has an RPKPS for {ta}.",
       kurikulumTujuanBelumBerlaku: "The target course's curriculum is not in effect.",
@@ -2447,6 +2753,14 @@ export const en: Kamus = {
       butirDisimpan: "Item decision saved.",
       tanpaTaBerikutnya: "There is no next academic year to carry this revision. Add one first under Academic Years.",
       drafDibuat: "A draft revision proposal was created. Complete its change items on the proposal page.",
+      drafTanpaMk:
+        "This proposal names no course, so the AI draft has no code boundary to work within.",
+      drafTanpaDasar:
+        "There are no validator or evaluation findings on this course yet. An AI draft may only rest on real grounds.",
+      drafTanpaPilihan: "No item has been ticked for application yet.",
+      drafTakLolos:
+        "None of the ticked items can still be traced to its grounds. Draft it again.",
+      drafDiterapkan: "{jumlah} items were added to this proposal. Read and edit them before submitting.",
     },
     kurikulum: {
       dihapus: "Curriculum deleted.",
