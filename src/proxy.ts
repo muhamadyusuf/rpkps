@@ -26,13 +26,34 @@ import { bahasaPadaJalur, lepasAwalan, tanpaAwalanBahasa } from "@/lib/bahasa/ja
  */
 const JALUR_PUBLIK_TEPAT = new Set(["/", "/sitemap.xml", "/robots.txt", "/favicon.ico"]);
 
-/** Alamat yang dicocokkan dari awalannya, berikut seluruh isinya. */
+/**
+ * Alamat yang dicocokkan dari awalannya, berikut seluruh isinya.
+ *
+ * Tiga di antaranya terbuka justru karena punya PENJAGANYA SENDIRI, bukan
+ * karena isinya tidak rahasia. Menutupnya di sini berarti penjaga itu tidak
+ * pernah sempat berjalan — dan gejalanya bukan galat, melainkan pengalihan
+ * diam-diam ke halaman masuk yang tidak dapat dibaca penjadwal maupun tamu
+ * tanpa akun.
+ */
 const JALUR_PUBLIK_AWALAN = [
   "/katalog", // katalog RPKPS terbit — tanpa login, lihat lib/publik/muat.ts
   "/api/publik",
   "/masuk",
   "/setup",
   "/api/sesi",
+  /**
+   * Pintu kedua tanpa login (docs/06 §4.2). Penjaganya TOKEN pada alamatnya,
+   * diperiksa `src/lib/berbagi/muat.ts` — bukan sesi. Justru orang tanpa akun
+   * yang dituju fitur ini: mitra industri dan asesor sebelum visitasi.
+   */
+  "/pratinjau",
+  /**
+   * Penguras antrian surel (docs/10 §2.5). Dipanggil PENJADWAL, yang tidak
+   * punya sesi dan tidak dapat mengikuti pengalihan ke halaman masuk.
+   * Penjaganya rahasia bersama `SUREL_CRON_RAHASIA`, diperiksa rutenya sendiri
+   * dengan `timingSafeEqual`.
+   */
+  "/api/surel",
 ];
 
 function terbukaUntukUmum(pathname: string) {

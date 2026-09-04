@@ -9,7 +9,6 @@ import { pesanZod } from "@/lib/bahasa/zod";
 import { wenangRpkps } from "@/lib/rpkps/wenang";
 import { urlSitus } from "@/lib/publik/tautan";
 import {
-  BAWAAN_HARI_BERBAGI,
   MAKS_HARI_BERBAGI,
   MIN_HARI_BERBAGI,
   hitungKedaluwarsa,
@@ -134,4 +133,3 @@ export async function cabutTautanBerbagi(tautanId: string): Promise<HasilBerbagi
   return { ok: true, pesan: kam.aksi.rpkps.tautanDicabut };
 }
 
-export { BAWAAN_HARI_BERBAGI, MAKS_HARI_BERBAGI };
