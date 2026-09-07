@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { BATAS_ARAHAN } from "@/domain/rpkps/arahan";
 import { ringkasDraf, type DrafRpkps, type TemuanDraf } from "@/domain/rpkps/draf";
 import {
   periksaKesiapanDraf,
@@ -161,6 +162,7 @@ export type KunciPilihan = {
 export function PanelDraf({
   rpkpsId,
   kredensial,
+  arahanAwal,
 }: {
   rpkpsId: string;
   /**
@@ -169,6 +171,13 @@ export function PanelDraf({
    * klien tidak pernah menarik modul `server-only`.
    */
   kredensial: KunciPilihan[];
+  /**
+   * Arahan yang tersimpan dari penyusunan terakhir (docs/20). Dipakai sebagai
+   * isian AWAL saja: sesudah itu medannya milik pengetik, dan menyinkronkannya
+   * kembali ke prop akan menghapus ketikan yang sedang berjalan setiap kali
+   * halaman disegarkan.
+   */
+  arahanAwal?: string | null;
 }) {
   const { k, isi } = useBahasa();
   const [draf, setDraf] = useState<DrafRpkps | null>(null);
@@ -184,6 +193,7 @@ export function PanelDraf({
   const [selesai, setSelesai] = useState<Set<Tahap>>(new Set());
   const [kesiapan, setKesiapan] = useState<HasilKesiapan["ringkas"]>(undefined);
   const [msModel, setMsModel] = useState<number | null>(null);
+  const [arahan, setArahan] = useState(arahanAwal ?? "");
   const [detik, setDetik] = useState(0);
   useDenyutDetik(berjalan === "susun", setDetik);
   const [menerapkan, mulaiTerap] = useTransition();
@@ -267,6 +277,28 @@ export function PanelDraf({
           </div>
         )}
 
+        <div className="space-y-1.5">
+          <div className="flex items-baseline justify-between gap-2">
+            <label htmlFor="arahan-draf" className="label-teknis text-muted-foreground/80">
+              {k.rpkps.draf.arahan}
+            </label>
+            <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+              {arahan.length}/{BATAS_ARAHAN}
+            </span>
+          </div>
+          <textarea
+            id="arahan-draf"
+            rows={3}
+            maxLength={BATAS_ARAHAN}
+            disabled={sedangSusun}
+            value={arahan}
+            onChange={(e) => setArahan(e.target.value)}
+            placeholder={k.rpkps.draf.arahanContoh}
+            className="w-full rounded-md border bg-transparent px-3 py-2 text-sm"
+          />
+          <p className="text-xs text-muted-foreground">{k.rpkps.draf.arahanPetunjuk}</p>
+        </div>
+
         <Button
           variant={draf ? "outline" : "default"}
           disabled={sedangSusun || kunci === null}
@@ -290,7 +322,7 @@ export function PanelDraf({
 
             setBerjalan("susun");
             setDetik(0);
-            const hasil = await susunDrafRpkps(rpkpsId, kunciId || null);
+            const hasil = await susunDrafRpkps(rpkpsId, arahan, kunciId || null);
             setBerjalan(null);
             setSelesai(new Set<Tahap>(["kesiapan", "susun", "periksa"]));
 

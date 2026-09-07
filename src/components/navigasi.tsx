@@ -18,6 +18,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { ButirMenu, KunciIkon } from "@/lib/menu";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 const IKON: Record<KunciIkon, LucideIcon> = {
@@ -63,44 +64,105 @@ function sedangAktif(pathname: string, href: string) {
  * bilah — bukan blok warna penuh — supaya daftar tetap tenang dan mata langsung
  * tahu posisinya di dalam aplikasi.
  */
-export function NavigasiSamping({ menu }: { menu: readonly ButirMenu[] }) {
+export function NavigasiSamping({
+  menu,
+  ciut = false,
+}: {
+  menu: readonly ButirMenu[];
+  /** Rel ikon saja: labelnya pindah ke penjelas, tidak hilang. */
+  ciut?: boolean;
+}) {
   const pathname = useJalurTanpaBahasa();
   const { k } = useBahasa();
 
   return (
-    <nav className="flex-1 px-2.5 py-3">
-      <p className="label-teknis mb-2 px-2.5 text-muted-foreground/70">Modul</p>
+    <nav className={cn("flex-1 py-3", ciut ? "px-2" : "px-2.5")}>
+      {/*
+        Judul kelompok tidak diciutkan menjadi singkatan: pada rel selebar ikon
+        ia hanya akan menjadi teks yang tidak terbaca. Yang hilang di sana
+        adalah tulisannya, bukan pengelompokannya — jaraknya tetap.
+      */}
+      {ciut ? (
+        <div className="mb-2 h-4" aria-hidden />
+      ) : (
+        <p className="label-teknis mb-2 px-2.5 text-muted-foreground/70">
+          {k.kerangka.modul}
+        </p>
+      )}
 
       <div className="space-y-0.5">
         {menu.map(({ href, label, ikon, lencana }) => {
           const Ikon = IKON[ikon];
           const aktif = sedangAktif(pathname, href);
-          return (
+          const nama = k.menu[label];
+
+          const butir = (
             <Tautan
               key={href}
               href={href}
               aria-current={aktif ? "page" : undefined}
+              /*
+                Nama modul tetap terbaca pembaca layar saat rel ciut. Tanpa
+                `aria-label`, tautan yang isinya hanya `<svg aria-hidden>`
+                dibacakan sebagai "tautan" tanpa tujuan — dan seluruh menu
+                menjadi dua belas tautan yang tidak dapat dibedakan.
+              */
+              aria-label={ciut ? nama : undefined}
               className={cn(
-                "relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-all duration-200 ease-presisi",
-                "before:absolute before:top-1/2 before:-left-2.5 before:h-5 before:w-0.5 before:-translate-y-1/2 before:rounded-r-full before:bg-cahaya before:transition-opacity before:duration-200 before:content-['']",
+                "relative flex items-center rounded-lg text-sm font-medium transition-all duration-200 ease-presisi",
+                ciut ? "justify-center px-0 py-2" : "gap-2.5 px-2.5 py-2",
+                "before:absolute before:top-1/2 before:h-5 before:w-0.5 before:-translate-y-1/2 before:rounded-r-full before:bg-cahaya before:transition-opacity before:duration-200 before:content-['']",
+                ciut ? "before:-left-2" : "before:-left-2.5",
                 aktif
                   ? "bg-cahaya/10 text-foreground before:opacity-100 before:shadow-[0_0_10px_var(--cahaya)]"
                   : "text-muted-foreground before:opacity-0 hover:bg-sidebar-accent hover:text-foreground active:scale-[0.985]",
               )}
             >
-              <Ikon
-                className={cn(
-                  "size-4 shrink-0 transition-colors",
-                  aktif ? "text-cahaya" : "opacity-75",
-                )}
-              />
-              <span className="truncate">{k.menu[label]}</span>
-              {lencana ? <Lencana jumlah={lencana} /> : null}
+              <span className="relative flex shrink-0 items-center">
+                <Ikon
+                  className={cn(
+                    "size-4 shrink-0 transition-colors",
+                    aktif ? "text-cahaya" : "opacity-75",
+                  )}
+                />
+                {/*
+                  Pada rel ciut angkanya tidak muat di samping ikon, jadi ia
+                  menempel di pojoknya. Yang tidak boleh hilang adalah
+                  ISYARATNYA — notifikasi yang tak terlihat sama saja dengan
+                  notifikasi yang tidak ada.
+                */}
+                {ciut && lencana ? <Titik jumlah={lencana} /> : null}
+              </span>
+              {ciut ? null : <span className="truncate">{nama}</span>}
+              {!ciut && lencana ? <Lencana jumlah={lencana} /> : null}
             </Tautan>
+          );
+
+          if (!ciut) return butir;
+          return (
+            <Tooltip key={href}>
+              <TooltipTrigger render={<span className="block" />}>
+                {butir}
+              </TooltipTrigger>
+              <TooltipContent side="right">{nama}</TooltipContent>
+            </Tooltip>
           );
         })}
       </div>
     </nav>
+  );
+}
+
+/** Lencana versi rel ciut: titik bernomor di pojok ikon. */
+function Titik({ jumlah }: { jumlah: number }) {
+  const { k, isi } = useBahasa();
+  return (
+    <span
+      aria-label={isi(k.kerangka.belumDibaca, { jumlah })}
+      className="absolute -top-1.5 -right-2 rounded-full bg-cahaya/20 px-1 font-mono text-[9px] leading-[14px] text-cahaya ring-1 ring-cahaya/40"
+    >
+      {jumlah > 9 ? "9+" : jumlah}
+    </span>
   );
 }
 

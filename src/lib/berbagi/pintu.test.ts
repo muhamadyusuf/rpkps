@@ -25,6 +25,10 @@ const HALAMAN = readFileSync(
   "utf8",
 );
 const ROBOTS = readFileSync("src/app/robots.ts", "utf8");
+const PRATINJAU_APLIKASI = readFileSync(
+  "src/app/[bahasa]/(app)/rpkps/[id]/pratinjau/page.tsx",
+  "utf8",
+);
 
 /**
  * Kode tanpa komentar.
@@ -43,6 +47,7 @@ function kodeSaja(berkas: string): string {
 }
 
 const HALAMAN_KODE = kodeSaja(HALAMAN);
+const PRATINJAU_APLIKASI_KODE = kodeSaja(PRATINJAU_APLIKASI);
 
 describe("dua pintu tanpa login", () => {
   it("pemuat katalog tidak mengenal tautan pratinjau", () => {
@@ -69,6 +74,26 @@ describe("dua pintu tanpa login", () => {
   it("pratinjau tidak pernah terindeks — dua lapis", () => {
     assert.match(HALAMAN, /robots: \{ index: false, follow: false/);
     assert.match(ROBOTS, /"\/pratinjau"/);
+  });
+
+  /**
+   * Pratinjau DI DALAM aplikasi memakai komponen tampilan yang sama dengan
+   * katalog publik, dan justru karena itu ia mudah tergelincir menjadi pintu
+   * ketiga: sekali ia memanggil salah satu pemuat tanpa login, aturan pintu
+   * itu ikut terbawa ke halaman yang seharusnya dijaga sesi.
+   */
+  it("pratinjau dalam aplikasi bukan pintu ketiga", () => {
+    assert.ok(
+      !PRATINJAU_APLIKASI_KODE.includes("@/lib/publik/muat"),
+      "pratinjau aplikasi memanggil pemuat katalog",
+    );
+    assert.ok(
+      !PRATINJAU_APLIKASI_KODE.includes("@/lib/berbagi/muat"),
+      "pratinjau aplikasi memanggil pemuat tautan bertoken",
+    );
+    // Gerbangnya sesi dan wewenang, sama seperti halaman ikhtisar.
+    assert.match(PRATINJAU_APLIKASI_KODE, /wajibAktif\(\)/);
+    assert.match(PRATINJAU_APLIKASI_KODE, /wenangAtasRpkps\(sesi, rpkps\)\.bolehLihat/);
   });
 
   it("halaman pratinjau tidak menyentuh kelas, nilai, maupun evaluasi", () => {

@@ -68,6 +68,18 @@ Lima prinsip yang mengikat seluruh desain di bawah:
 > judul/penulis/tahun diverifikasi sebelum disetujui. Kompensasinya `periksaDraf()` menolak draf yang melanggar
 > invarian mana pun, dan `sumber = AI` dicatat pada `pertemuan`/`tugas`/
 > `kisi_kisi`.
+>
+> **Dosen dapat menambahkan arahannya sendiri (5 September 2026).** Draf semula
+> hanya berbicara dengan konteks yang dirakit server dari basis data, sehingga
+> buta terhadap hal yang tidak ada di sana: cara mata kuliah benar-benar
+> berjalan, konteks kasus yang dipilih prodi, bentuk asesmen yang disepakati
+> tim. Sekarang ada satu medan teks bebas (maksimal 1.000 karakter, tersimpan
+> pada `Rpkps.arahanAi`) yang dikirim ke KETIGA tahap sebagai blok
+> `<arahan_dosen>` di dalam bagian `permintaan` — tidak pernah di dalam
+> `PANDUAN_*`, yang harus tetap stabil agar kena prompt caching. Arahan
+> berkedudukan sebagai preferensi ISI dan tidak dapat melonggarkan aturan mana
+> pun; penjaganya tetap `periksaDraf()`. Spesifikasinya di
+> [docs/20](./20-arahan-dosen-pada-draf-ai.md).
 
 Realitas lapangan: sebagian besar dosen belum punya API key dan tidak akan membuatnya. Bangun Mode A dulu (sesuai permintaan), tapi rancang skemanya agar Mode B hanya menambah satu baris `scope` — bukan perombakan.
 

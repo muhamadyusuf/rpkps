@@ -6,6 +6,7 @@ import { isi, namaMk, pilihTeks } from "@/lib/bahasa/teks";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { wajibAktif } from "@/lib/otorisasi";
 import { wenangAtasRpkps } from "@/lib/rpkps/wenang";
+import { PratinjauSamping } from "../pratinjau/samping";
 import { muatKebijakan, muatRpkps } from "@/lib/rpkps/muat";
 import { posisiMingguUjian } from "@/domain/beban-belajar/kalkulator";
 import type { KonteksKisiKisi } from "@/domain/rpkps/kisi-kisi";
@@ -109,69 +110,71 @@ export default async function HalamanKisiKisi({
   const k = await kamus();
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <div>
-        <ButtonLink variant="ghost" size="sm" href={`/rpkps/${id}`}>
-          <ArrowLeft />
-          {rpkps.mataKuliah.kode} — {namaMk(rpkps.mataKuliah, b)}
-        </ButtonLink>
-      </div>
-
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {k.rpkps.kisiKisi.judul}
-        </h1>
-        <p className="mt-1.5 text-sm text-muted-foreground">
-          {k.rpkps.kisiKisi.keterangan}
-        </p>
-      </header>
-
-      {!bisaSunting ? (
-        <div className="flex items-start gap-2.5 rounded-lg border bg-muted/40 p-4 text-sm">
-          <Lock className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-          <p className="text-muted-foreground">
-            {k.rpkps.terkunciSunting}
-          </p>
+    <PratinjauSamping rpkps={rpkps} jangkar="naskah-lampiran">
+      <div className="mx-auto max-w-4xl space-y-6">
+        <div>
+          <ButtonLink variant="ghost" size="sm" href={`/rpkps/${id}`}>
+            <ArrowLeft />
+            {rpkps.mataKuliah.kode} — {namaMk(rpkps.mataKuliah, b)}
+          </ButtonLink>
         </div>
-      ) : null}
 
-      {kisiKisi.map(({ jenis, awal }) => (
-        <Card key={jenis}>
-          <CardHeader>
-            <CardTitle className="text-base">
-              {isi(k.rpkps.kisiKisi.kartuJudul, { jenis })}
-            </CardTitle>
-            <CardDescription>
-              {jenis === "UTS"
-                ? isi(k.rpkps.kisiKisi.keteranganUts, {
-                    jumlah: konteks.subCpmkSebelumUts.length,
-                    minggu: mingguUts,
-                  })
-                : isi(k.rpkps.kisiKisi.keteranganUas, {
-                    jumlah: konteks.subCpmkSetelahUts.length,
+        <header>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {k.rpkps.kisiKisi.judul}
+          </h1>
+          <p className="mt-1.5 text-sm text-muted-foreground">
+            {k.rpkps.kisiKisi.keterangan}
+          </p>
+        </header>
+
+        {!bisaSunting ? (
+          <div className="flex items-start gap-2.5 rounded-lg border bg-muted/40 p-4 text-sm">
+            <Lock className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+            <p className="text-muted-foreground">
+              {k.rpkps.terkunciSunting}
+            </p>
+          </div>
+        ) : null}
+
+        {kisiKisi.map(({ jenis, awal }) => (
+          <Card key={jenis}>
+            <CardHeader>
+              <CardTitle className="text-base">
+                {isi(k.rpkps.kisiKisi.kartuJudul, { jenis })}
+              </CardTitle>
+              <CardDescription>
+                {jenis === "UTS"
+                  ? isi(k.rpkps.kisiKisi.keteranganUts, {
+                      jumlah: konteks.subCpmkSebelumUts.length,
+                      minggu: mingguUts,
+                    })
+                  : isi(k.rpkps.kisiKisi.keteranganUas, {
+                      jumlah: konteks.subCpmkSetelahUts.length,
+                    })}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {bisaSunting ? (
+                <EditorKisiKisi
+                  rpkpsId={id}
+                  jenis={jenis}
+                  subCpmkTersedia={subCpmkTersedia}
+                  konteks={konteks}
+                  awal={awal}
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  {isi(k.rpkps.kisiKisi.ringkasBacaSaja, {
+                    butir: awal.butir.length,
+                    skor: awal.butir.reduce((s, b) => s + b.skor, 0),
                   })}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {bisaSunting ? (
-              <EditorKisiKisi
-                rpkpsId={id}
-                jenis={jenis}
-                subCpmkTersedia={subCpmkTersedia}
-                konteks={konteks}
-                awal={awal}
-              />
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                {isi(k.rpkps.kisiKisi.ringkasBacaSaja, {
-                  butir: awal.butir.length,
-                  skor: awal.butir.reduce((s, b) => s + b.skor, 0),
-                })}
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      ))}
-    </div>
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </PratinjauSamping>
   );
 }

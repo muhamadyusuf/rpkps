@@ -149,6 +149,10 @@ export const en: Kamus = {
   },
   dwibahasa: {
     unduhBahasaLain: "Download DOCX (Indonesia)",
+    unduhBahasaLabel: "File language",
+    unduhId: "Indonesian",
+    unduhEn: "English",
+    unduhIdCatatan: "authoritative text",
     mode: "Language",
     modeId: "Indonesian",
     modeEn: "English",
@@ -2125,6 +2129,28 @@ export const en: Kamus = {
       historiJudul: "Revision history",
     },
 
+    pratinjau: {
+      tombol: "Preview",
+      judul: "Manuscript preview",
+      buka: "Open the side preview",
+      tutup: "Close the preview panel",
+      penuh: "Open the full-page preview",
+      seret: "Drag to resize the preview panel",
+      kembali: "Back to the RPKPS",
+      cetakPdf: "Print / save as PDF",
+      bahasaDokumen: "Document language",
+      draf: "Preview of the current content — not yet ratified",
+      drafKeterangan:
+        "What you see is the current data, not the official document. A fingerprint only exists after ratification.",
+      resmi: "Official copy, version {versi}",
+      resmiKeterangan:
+        "The content that was signed — identical to the DOCX file you download.",
+      bergeser:
+        "The source data has changed since ratification. This preview still shows the official copy.",
+      catatanLembar:
+        "Sheets on screen grow with their content; the real page breaks are decided when printing.",
+    },
+
     tugasEditor: {
       identitas: "Assignment identity",
       namaTugas: "Assignment name",
@@ -2228,6 +2254,11 @@ export const en: Kamus = {
       kunciDipakai: "Key in use",
       pilihKunci: "Choose a key…",
       kunciBawaan: " (default)",
+      arahan: "Extra guidance (optional)",
+      arahanPetunjuk:
+        "Tell the model what only you know about this course — how the class actually runs, the case context you use, the assessment forms your teaching team has agreed on. Guidance steers the CONTENT of the draft, not its rules: the study-load ceiling, the 100% total weight, and the Sub-CPMK codes still come from the curriculum. It is saved and reused on the next drafting run.",
+      arahanContoh:
+        "Half of the sessions run in the lab. Use manufacturing industry case studies. The final exam is a project, not a written test.",
       ringkasKesiapan: "{minggu} teaching sessions · {sub} Sub-CPMK · {pustaka} readings · {komponen} grade components. Drafting runs in three sequential stages — skeleton, session content, then assignments and blueprint — and usually takes two to five minutes.",
       gagalSusun: "Drafting failed.",
       melanggarAturan: "The draft breaks the document rules.",
@@ -2948,5 +2979,8 @@ export const en: Kamus = {
     tanpaPeran: "No role",
     belumDibaca: "{jumlah} unread",
     bukaMenu: "Open menu",
+    ciutkan: "Collapse the menu to icons",
+    lebarkan: "Expand the menu",
+    modul: "Modules",
   },
 };

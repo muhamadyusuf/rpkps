@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { ArrowLeft, CalendarDays, ClipboardList, Download, ListChecks, Lock, Scale, ShieldCheck, Users } from "lucide-react";
+import { ArrowLeft, CalendarDays, ClipboardList, Eye, ListChecks, Lock, Scale, ShieldCheck, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { bahasaAktif, kamus } from "@/lib/bahasa/server";
@@ -19,12 +19,14 @@ import { formatMenit, paguPertemuanEfektif } from "@/domain/beban-belajar/kalkul
 import { PanelValidasi } from "./panel-validasi";
 import { PanelDraf } from "./panel-draf";
 import { PanelTerjemahan } from "./panel-terjemahan";
+import { PratinjauSamping } from "./pratinjau/samping";
 import { daftarKredensial } from "@/lib/ai/kredensial";
 import { FormulirIdentitas, PengelolaKomponenNilai, PengelolaPustaka } from "./formulir";
 import { PanelBagikan, TimPengampu, ZonaKelola } from "./pengelola";
 import { muatDataKelola } from "@/lib/rpkps/kelola";
 import { jalurRpkpsPublik, urlSitus } from "@/lib/publik/tautan";
 import { TombolAjukan, TombolMintaParaf, TombolParaf, TombolPutusan } from "../tombol";
+import { TombolUnduh } from "./tombol-unduh";
 import { statusParaf } from "@/domain/rpkps/paraf";
 import { bacaDataRiwayat, teksRiwayat } from "@/lib/bahasa/riwayat";
 import { kelengkapanRpkps } from "@/lib/rpkps/terjemahan";
@@ -185,405 +187,409 @@ export default async function HalamanRpkpsDetail({
   const b = await bahasaAktif();
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <div>
-        <ButtonLink variant="ghost" size="sm" href="/rpkps">
-          <ArrowLeft />
-          {k.rpkps.ikhtisar.kembali}
-        </ButtonLink>
-      </div>
+    <PratinjauSamping rpkps={rpkps}>
+      <div className="mx-auto max-w-4xl space-y-6">
+        <div>
+          <ButtonLink variant="ghost" size="sm" href="/rpkps">
+            <ArrowLeft />
+            {k.rpkps.ikhtisar.kembali}
+          </ButtonLink>
+        </div>
 
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="secondary">{rpkps.mataKuliah.kode}</Badge>
-            <h1 className="text-2xl font-semibold tracking-tight">
-              {namaMk(rpkps.mataKuliah, b)}
-            </h1>
-            <Badge variant={rpkps.status === "TERBIT" ? "default" : "outline"}>
-              {k.enum.statusRpkps[rpkps.status]}
-            </Badge>
+        <header className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="secondary">{rpkps.mataKuliah.kode}</Badge>
+              <h1 className="text-2xl font-semibold tracking-tight">
+                {namaMk(rpkps.mataKuliah, b)}
+              </h1>
+              <Badge variant={rpkps.status === "TERBIT" ? "default" : "outline"}>
+                {k.enum.statusRpkps[rpkps.status]}
+              </Badge>
+            </div>
+            <p className="mt-1.5 text-sm text-muted-foreground">
+              {isi(k.rpkps.ikhtisar.ringkasan, {
+                ta: rpkps.tahunAkademik.kode.replace("-", " "),
+                sks: rpkps.mataKuliah.sksTeori + rpkps.mataKuliah.sksPraktik,
+                teori: rpkps.mataKuliah.sksTeori,
+                praktik: rpkps.mataKuliah.sksPraktik,
+                versi: rpkps.versi,
+              })}
+            </p>
           </div>
-          <p className="mt-1.5 text-sm text-muted-foreground">
-            {isi(k.rpkps.ikhtisar.ringkasan, {
-              ta: rpkps.tahunAkademik.kode.replace("-", " "),
-              sks: rpkps.mataKuliah.sksTeori + rpkps.mataKuliah.sksPraktik,
-              teori: rpkps.mataKuliah.sksTeori,
-              praktik: rpkps.mataKuliah.sksPraktik,
-              versi: rpkps.versi,
-            })}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <ButtonLink
-            variant="outline"
-            href={`/api/rpkps/${id}/docx?bahasa=${b}`}
-            prefetch={false}
-          >
-            <Download />
-            {k.rpkps.ikhtisar.unduhDocx}
-          </ButtonLink>
-          <ButtonLink
-            variant="outline"
-            href={`/api/rpkps/${id}/docx?bahasa=${b === "id" ? "en" : "id"}`}
-            prefetch={false}
-          >
-            <Download />
-            {k.dwibahasa.unduhBahasaLain}
-          </ButtonLink>
-          <ButtonLink variant="outline" href={`/rpkps/${id}/kelas`}>
-            <Users />
-            {k.rpkps.ikhtisar.kelasNilai}
-          </ButtonLink>
-          <ButtonLink variant="outline" href={`/rpkps/${id}/asesmen`}>
-            <Scale />
-            {k.rpkps.ikhtisar.petaAsesmen}
-          </ButtonLink>
-          <ButtonLink variant="outline" href={`/rpkps/${id}/kisi-kisi`}>
-            <ListChecks />
-            {k.rpkps.ikhtisar.kisiKisi}
-          </ButtonLink>
-          <ButtonLink variant="outline" href={`/rpkps/${id}/tugas`}>
-            <ClipboardList />
-            {isi(k.rpkps.ikhtisar.tugasNav, { jumlah: rpkps.tugas.length })}
-          </ButtonLink>
-          <ButtonLink variant="outline" href={`/rpkps/${id}/mingguan`}>
-            <CalendarDays />
-            {k.rpkps.ikhtisar.rencanaMingguan}
-          </ButtonLink>
-        </div>
-      </header>
-
-      {!dariDatabase ? (
-        <p className="rounded-lg border border-warning/25 bg-warning/10 p-3 text-sm">
-          {k.rpkps.ikhtisar.kebijakanBawaan}
-        </p>
-      ) : null}
-
-      {snapshot ? (
-        <Card
-          className={
-            pergeseran.ada
-              ? "border-l-2 border-l-warning bg-warning/8"
-              : undefined
-          }
-        >
-          <CardHeader>
-            <div className="flex items-start gap-3">
-              <ShieldCheck
-                className={`mt-0.5 size-5 shrink-0 ${pergeseran.ada ? "text-warning" : "text-success"}`}
-              />
-              <div className="min-w-0">
-                <CardTitle className="text-base">
-                  {pergeseran.ada
-                    ? k.rpkps.ikhtisar.sumberBergeser
-                    : k.rpkps.ikhtisar.terkunciResmi}
-                </CardTitle>
-                <CardDescription className="mt-1">
-                  {isi(k.rpkps.ikhtisar.sidikVersi, { versi: snapshot.versi })}{" "}
-                  <code className="rounded bg-muted px-1 font-mono">
-                    {sidikRingkas(snapshot.sidik)}
-                  </code>
-                  {pergeseran.ada ? (
-                    <>
-                      {" "}
-                      {k.rpkps.ikhtisar.sekarangMenghasilkan}{" "}
-                      <code className="rounded bg-muted px-1 font-mono">
-                        {sidikRingkas(pergeseran.sidikSekarang)}
-                      </code>
-                      {k.rpkps.ikhtisar.pergeseranAkhir}
-                    </>
-                  ) : (
-                    k.rpkps.ikhtisar.identikTtd
-                  )}
-                </CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-        </Card>
-      ) : null}
-
-      {bisaSunting && wenang.boleh ? (
-        <PanelDraf rpkpsId={id} kredensial={kredensialAi} />
-      ) : null}
-
-      <PanelValidasi hasil={hasil} />
-
-      <PanelKelengkapan kelengkapan={kelengkapanRpkps(rpkps)} k={k} />
-
-      {bisaSunting && wenang.boleh ? (
-        <PanelTerjemahan rpkpsId={id} kredensial={kredensialAi} />
-      ) : null}
-
-      <Card className={peta.lolos ? undefined : "border-l-2 border-l-warning bg-warning/8"}>
-        <CardHeader>
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0">
-              <CardTitle className="text-base">
-                {peta.lolos
-                  ? k.rpkps.ikhtisar.petaTertutup
-                  : k.rpkps.ikhtisar.petaBelumSiap}
-              </CardTitle>
-              <CardDescription className="mt-1">
-                {isi(k.rpkps.ikhtisar.petaRingkas, {
-                  asesmen: peta.ringkasan.jumlahAsesmen,
-                  bobot: peta.ringkasan.totalBobot,
-                  subTerukur: peta.ringkasan.subCpmkTerukur,
-                  subSeluruh: peta.ringkasan.subCpmkSeluruh,
-                  cplTerukur: peta.ringkasan.cplTerukur,
-                  cplDibebankan: peta.ringkasan.cplDibebankan,
-                })}
-                {peta.lolos
-                  ? null
-                  : isi(k.rpkps.ikhtisar.petaTemuan, {
-                      jumlah: peta.pemblokir.length,
-                    })}
-              </CardDescription>
-            </div>
-            <ButtonLink variant="outline" size="sm" href={`/rpkps/${id}/asesmen`}>
-              {k.rpkps.ikhtisar.lihatPeta}
+          <div className="flex flex-wrap gap-2">
+            {/*
+              Pratinjau lebih dulu, lalu unduhan: yang dicari orang saat membuka
+              halaman ini adalah membaca dokumennya, dan mengunduh DOCX hanya
+              untuk itu adalah jalan memutar lewat Word.
+            */}
+            <ButtonLink variant="outline" href={`/rpkps/${id}/pratinjau`}>
+              <Eye />
+              {k.rpkps.pratinjau.tombol}
+            </ButtonLink>
+            {/*
+              Satu tombol, dua bahasa berkas. Dokumennya sama; yang berbeda
+              hanya naskahnya, jadi keduanya butir dari satu menu — bukan dua
+              tombol sejajar yang terbaca sebagai dua dokumen.
+            */}
+            <TombolUnduh
+              basis={`/api/rpkps/${id}/docx`}
+              label={k.rpkps.ikhtisar.unduhDocx}
+            />
+            <ButtonLink variant="outline" href={`/rpkps/${id}/kelas`}>
+              <Users />
+              {k.rpkps.ikhtisar.kelasNilai}
+            </ButtonLink>
+            <ButtonLink variant="outline" href={`/rpkps/${id}/asesmen`}>
+              <Scale />
+              {k.rpkps.ikhtisar.petaAsesmen}
+            </ButtonLink>
+            <ButtonLink variant="outline" href={`/rpkps/${id}/kisi-kisi`}>
+              <ListChecks />
+              {k.rpkps.ikhtisar.kisiKisi}
+            </ButtonLink>
+            <ButtonLink variant="outline" href={`/rpkps/${id}/tugas`}>
+              <ClipboardList />
+              {isi(k.rpkps.ikhtisar.tugasNav, { jumlah: rpkps.tugas.length })}
+            </ButtonLink>
+            <ButtonLink variant="outline" href={`/rpkps/${id}/mingguan`}>
+              <CalendarDays />
+              {k.rpkps.ikhtisar.rencanaMingguan}
             </ButtonLink>
           </div>
-        </CardHeader>
-      </Card>
+        </header>
 
-      <div className="flex flex-wrap items-center gap-3">
-        {bisaParaf ? (
-          <TombolParaf
-            id={id}
-            sudah={paraf.sudah.some((p) => p.penggunaId === sesi.id)}
-          />
-        ) : null}
-        {bisaSunting && wenang.koordinator ? (
-          <>
-            <TombolAjukan id={id} aktif={hasil.lolos} />
-            {/*
-              Berdampingan dengan tombol ajukan, dan itu memang tempatnya:
-              koordinator menekannya persis ketika pengajuan tertahan karena
-              paraf tim belum lengkap (docs/14 §4.2).
-            */}
-            <TombolMintaParaf id={id} kurang={paraf.belum.length} />
-          </>
-        ) : null}
-        {bisaMemutuskan ? (
-          <TombolPutusan id={id} tahap={bisaReview ? "REVIEW" : "PENGESAHAN"} />
-        ) : null}
-        {!bisaParaf && !bisaMemutuskan && !(bisaSunting && wenang.koordinator) ? (
-          <p className="text-sm text-muted-foreground">
-            {isi(k.rpkps.ikhtisar.takDapatDisunting, {
-              status: k.enum.statusRpkps[rpkps.status].toLowerCase(),
-            })}
+        {!dariDatabase ? (
+          <p className="rounded-lg border border-warning/25 bg-warning/10 p-3 text-sm">
+            {k.rpkps.ikhtisar.kebijakanBawaan}
           </p>
         ) : null}
-      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">{k.rpkps.ikhtisar.paguJudul}</CardTitle>
-          <CardDescription>{k.rpkps.ikhtisar.paguKeterangan}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-3 sm:grid-cols-4">
-            <Metrik
-              label={k.rpkps.ikhtisar.paguMingguEfektif}
-              nilai={formatMenit(pagu.total)}
-            />
-            <Metrik label={k.rpkps.ikhtisar.paguTm} nilai={formatMenit(pagu.tm)} />
-            <Metrik
-              label={k.rpkps.ikhtisar.paguTerjadwal}
-              nilai={formatMenit(pagu.terjadwal)}
-            />
-            <Metrik
-              label={k.rpkps.ikhtisar.paguRuangKhusus}
-              nilai={pagu.ruangKhusus > 0 ? formatMenit(pagu.ruangKhusus) : "—"}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">{k.rpkps.ikhtisar.capaianJudul}</CardTitle>
-          <CardDescription className="flex items-center gap-1.5">
-            <Lock className="size-3.5" />
-            {isi(k.rpkps.ikhtisar.readOnlyDari, {
-              nama: rpkps.mataKuliah.kurikulum.nama,
-            })}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              {k.rpkps.ikhtisar.cplDibebankan}
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {rpkps.mataKuliah.cpl.map((m) => (
-                <Badge key={m.cplId} variant="outline">
-                  {m.cpl.kode}
-                </Badge>
-              ))}
-            </div>
-          </div>
-          <div>
-            <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              {k.rpkps.ikhtisar.cpmkDanSub}
-            </p>
-            <ul className="space-y-2 text-sm">
-              {rpkps.mataKuliah.cpmk.map((c) => (
-                <li key={c.id}>
-                  <span className="font-medium">{c.kode}</span> —{" "}
-                  {pilihTeks(c.rumusan, c.rumusanEn, b).teks}
-                  <span className="ml-1 text-xs text-muted-foreground">
-                    {isi(k.rpkps.ikhtisar.jumlahSub, { jumlah: c.subCpmk.length })}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <ButtonLink
-            variant="outline"
-            size="sm"
-            href={`/kurikulum/${rpkps.mataKuliah.kurikulum.id}/mk/${rpkps.mataKuliah.id}`}
+        {snapshot ? (
+          <Card
+            className={
+              pergeseran.ada
+                ? "border-l-2 border-l-warning bg-warning/8"
+                : undefined
+            }
           >
-            {k.rpkps.ikhtisar.lihatDiKurikulum}
-          </ButtonLink>
-        </CardContent>
-      </Card>
+            <CardHeader>
+              <div className="flex items-start gap-3">
+                <ShieldCheck
+                  className={`mt-0.5 size-5 shrink-0 ${pergeseran.ada ? "text-warning" : "text-success"}`}
+                />
+                <div className="min-w-0">
+                  <CardTitle className="text-base">
+                    {pergeseran.ada
+                      ? k.rpkps.ikhtisar.sumberBergeser
+                      : k.rpkps.ikhtisar.terkunciResmi}
+                  </CardTitle>
+                  <CardDescription className="mt-1">
+                    {isi(k.rpkps.ikhtisar.sidikVersi, { versi: snapshot.versi })}{" "}
+                    <code className="rounded bg-muted px-1 font-mono">
+                      {sidikRingkas(snapshot.sidik)}
+                    </code>
+                    {pergeseran.ada ? (
+                      <>
+                        {" "}
+                        {k.rpkps.ikhtisar.sekarangMenghasilkan}{" "}
+                        <code className="rounded bg-muted px-1 font-mono">
+                          {sidikRingkas(pergeseran.sidikSekarang)}
+                        </code>
+                        {k.rpkps.ikhtisar.pergeseranAkhir}
+                      </>
+                    ) : (
+                      k.rpkps.ikhtisar.identikTtd
+                    )}
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+          </Card>
+        ) : null}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">{k.rpkps.ikhtisar.identitasJudul}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {bisaSunting ? (
-            <FormulirIdentitas
-              key={JSON.stringify(identitasAwal)}
+        {bisaSunting && wenang.boleh ? (
+          <PanelDraf rpkpsId={id} kredensial={kredensialAi} arahanAwal={rpkps.arahanAi} />
+        ) : null}
+
+        <PanelValidasi hasil={hasil} />
+
+        <PanelKelengkapan kelengkapan={kelengkapanRpkps(rpkps)} k={k} />
+
+        {bisaSunting && wenang.boleh ? (
+          <PanelTerjemahan rpkpsId={id} kredensial={kredensialAi} />
+        ) : null}
+
+        <Card className={peta.lolos ? undefined : "border-l-2 border-l-warning bg-warning/8"}>
+          <CardHeader>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <CardTitle className="text-base">
+                  {peta.lolos
+                    ? k.rpkps.ikhtisar.petaTertutup
+                    : k.rpkps.ikhtisar.petaBelumSiap}
+                </CardTitle>
+                <CardDescription className="mt-1">
+                  {isi(k.rpkps.ikhtisar.petaRingkas, {
+                    asesmen: peta.ringkasan.jumlahAsesmen,
+                    bobot: peta.ringkasan.totalBobot,
+                    subTerukur: peta.ringkasan.subCpmkTerukur,
+                    subSeluruh: peta.ringkasan.subCpmkSeluruh,
+                    cplTerukur: peta.ringkasan.cplTerukur,
+                    cplDibebankan: peta.ringkasan.cplDibebankan,
+                  })}
+                  {peta.lolos
+                    ? null
+                    : isi(k.rpkps.ikhtisar.petaTemuan, {
+                        jumlah: peta.pemblokir.length,
+                      })}
+                </CardDescription>
+              </div>
+              <ButtonLink variant="outline" size="sm" href={`/rpkps/${id}/asesmen`}>
+                {k.rpkps.ikhtisar.lihatPeta}
+              </ButtonLink>
+            </div>
+          </CardHeader>
+        </Card>
+
+        <div className="flex flex-wrap items-center gap-3">
+          {bisaParaf ? (
+            <TombolParaf
               id={id}
-              awal={identitasAwal}
+              sudah={paraf.sudah.some((p) => p.penggunaId === sesi.id)}
             />
-          ) : (
-            <p className="text-sm">{rpkps.deskripsi ?? k.rpkps.ikhtisar.tanpaDeskripsi}</p>
-          )}
-        </CardContent>
-      </Card>
+          ) : null}
+          {bisaSunting && wenang.koordinator ? (
+            <>
+              <TombolAjukan id={id} aktif={hasil.lolos} />
+              {/*
+                Berdampingan dengan tombol ajukan, dan itu memang tempatnya:
+                koordinator menekannya persis ketika pengajuan tertahan karena
+                paraf tim belum lengkap (docs/14 §4.2).
+              */}
+              <TombolMintaParaf id={id} kurang={paraf.belum.length} />
+            </>
+          ) : null}
+          {bisaMemutuskan ? (
+            <TombolPutusan id={id} tahap={bisaReview ? "REVIEW" : "PENGESAHAN"} />
+          ) : null}
+          {!bisaParaf && !bisaMemutuskan && !(bisaSunting && wenang.koordinator) ? (
+            <p className="text-sm text-muted-foreground">
+              {isi(k.rpkps.ikhtisar.takDapatDisunting, {
+                status: k.enum.statusRpkps[rpkps.status].toLowerCase(),
+              })}
+            </p>
+          ) : null}
+        </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">{k.rpkps.ikhtisar.komponenJudul}</CardTitle>
-          <CardDescription>{k.rpkps.ikhtisar.komponenKeterangan}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {bisaSunting ? (
-            <PengelolaKomponenNilai
-              key={JSON.stringify(komponenNilaiAwal)}
-              rpkpsId={id}
-              awal={komponenNilaiAwal}
-            />
-          ) : (
-            <ul className="space-y-1 text-sm">
-              {rpkps.komponenNilai.map((komp) => (
-                <li key={komp.id} className="flex justify-between border-b pb-1">
-                  <span>{komp.nama}</span>
-                  <span className="tabular-nums">{Number(komp.bobot)}%</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">{k.rpkps.ikhtisar.pustakaJudul}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {bisaSunting ? (
-            <PengelolaPustaka
-              rpkpsId={id}
-              pustaka={rpkps.pustaka.map((p) => ({
-                id: p.id,
-                jenis: p.jenis,
-                nomor: p.nomor,
-                teks: p.teks,
-                url: p.url,
-              }))}
-            />
-          ) : (
-            <ol className="space-y-1 text-sm">
-              {rpkps.pustaka.map((p) => (
-                <li key={p.id}>
-                  {p.nomor}. {p.teks}
-                </li>
-              ))}
-            </ol>
-          )}
-        </CardContent>
-      </Card>
-
-      <TimPengampu
-        rpkpsId={id}
-        bolehKelola={bolehKelola}
-        calon={dataKelola?.calon ?? []}
-        pengampu={rpkps.pengampu.map((p) => ({
-          penggunaId: p.penggunaId,
-          nama: namaLengkapPengampu(p.pengguna),
-          nidn: p.pengguna.nidn,
-          koordinator: p.peran === "KOORDINATOR",
-        }))}
-      />
-
-      <PanelBagikan
-        rpkpsId={id}
-        urlPublik={urlPublik}
-        statusLabel={k.enum.statusRpkps[rpkps.status] ?? rpkps.status}
-        tautan={dataKelola?.tautan ?? []}
-        /*
-         * Membagikan draf ke luar aplikasi adalah keputusan pemegang dokumen,
-         * bukan hak setiap anggota tim (docs/06 §4.2). Aksinya memeriksa ulang
-         * di server — yang di sini hanya supaya borangnya tidak menipu.
-         */
-        bolehBerbagiDraf={wenang.pengelola || wenang.koordinator}
-        asalSitus={urlSitus()}
-      />
-
-      {dataKelola ? (
-        <ZonaKelola
-          rpkpsId={id}
-          status={rpkps.status}
-          kodeMk={rpkps.mataKuliah.kode}
-          alasanTakDapatDihapus={dataKelola.alasanTakDapatDihapus}
-          akibatHapusPaksa={dataKelola.akibatHapusPaksa}
-          bolehHapusPaksa={dataKelola.bolehHapusPaksa}
-          sasaran={dataKelola.sasaran}
-          tahun={dataKelola.tahun}
-        />
-      ) : null}
-
-      {riwayat.length > 0 ? (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">{k.rpkps.ikhtisar.historiJudul}</CardTitle>
+            <CardTitle className="text-base">{k.rpkps.ikhtisar.paguJudul}</CardTitle>
+            <CardDescription>{k.rpkps.ikhtisar.paguKeterangan}</CardDescription>
           </CardHeader>
           <CardContent>
-            <ul className="space-y-2 text-sm">
-              {riwayat.map((r) => (
-                <li key={r.id} className="flex gap-3 border-b pb-2 last:border-0">
-                  <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-                    {tanggal(r.dibuatPada, b, "pendek")}
-                  </span>
-                  <span className="min-w-0">
-                    <Badge variant="outline" className="mr-1.5 text-[10px]">
-                      v{r.versi}
-                    </Badge>
-                    {teksRiwayat(bacaDataRiwayat(r.data), r.deskripsi, k)}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <div className="grid gap-3 sm:grid-cols-4">
+              <Metrik
+                label={k.rpkps.ikhtisar.paguMingguEfektif}
+                nilai={formatMenit(pagu.total)}
+              />
+              <Metrik label={k.rpkps.ikhtisar.paguTm} nilai={formatMenit(pagu.tm)} />
+              <Metrik
+                label={k.rpkps.ikhtisar.paguTerjadwal}
+                nilai={formatMenit(pagu.terjadwal)}
+              />
+              <Metrik
+                label={k.rpkps.ikhtisar.paguRuangKhusus}
+                nilai={pagu.ruangKhusus > 0 ? formatMenit(pagu.ruangKhusus) : "—"}
+              />
+            </div>
           </CardContent>
         </Card>
-      ) : null}
-    </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">{k.rpkps.ikhtisar.capaianJudul}</CardTitle>
+            <CardDescription className="flex items-center gap-1.5">
+              <Lock className="size-3.5" />
+              {isi(k.rpkps.ikhtisar.readOnlyDari, {
+                nama: rpkps.mataKuliah.kurikulum.nama,
+              })}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                {k.rpkps.ikhtisar.cplDibebankan}
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {rpkps.mataKuliah.cpl.map((m) => (
+                  <Badge key={m.cplId} variant="outline">
+                    {m.cpl.kode}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                {k.rpkps.ikhtisar.cpmkDanSub}
+              </p>
+              <ul className="space-y-2 text-sm">
+                {rpkps.mataKuliah.cpmk.map((c) => (
+                  <li key={c.id}>
+                    <span className="font-medium">{c.kode}</span> —{" "}
+                    {pilihTeks(c.rumusan, c.rumusanEn, b).teks}
+                    <span className="ml-1 text-xs text-muted-foreground">
+                      {isi(k.rpkps.ikhtisar.jumlahSub, { jumlah: c.subCpmk.length })}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <ButtonLink
+              variant="outline"
+              size="sm"
+              href={`/kurikulum/${rpkps.mataKuliah.kurikulum.id}/mk/${rpkps.mataKuliah.id}`}
+            >
+              {k.rpkps.ikhtisar.lihatDiKurikulum}
+            </ButtonLink>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">{k.rpkps.ikhtisar.identitasJudul}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {bisaSunting ? (
+              <FormulirIdentitas
+                key={JSON.stringify(identitasAwal)}
+                id={id}
+                awal={identitasAwal}
+              />
+            ) : (
+              <p className="text-sm">{rpkps.deskripsi ?? k.rpkps.ikhtisar.tanpaDeskripsi}</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">{k.rpkps.ikhtisar.komponenJudul}</CardTitle>
+            <CardDescription>{k.rpkps.ikhtisar.komponenKeterangan}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {bisaSunting ? (
+              <PengelolaKomponenNilai
+                key={JSON.stringify(komponenNilaiAwal)}
+                rpkpsId={id}
+                awal={komponenNilaiAwal}
+              />
+            ) : (
+              <ul className="space-y-1 text-sm">
+                {rpkps.komponenNilai.map((komp) => (
+                  <li key={komp.id} className="flex justify-between border-b pb-1">
+                    <span>{komp.nama}</span>
+                    <span className="tabular-nums">{Number(komp.bobot)}%</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">{k.rpkps.ikhtisar.pustakaJudul}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {bisaSunting ? (
+              <PengelolaPustaka
+                rpkpsId={id}
+                pustaka={rpkps.pustaka.map((p) => ({
+                  id: p.id,
+                  jenis: p.jenis,
+                  nomor: p.nomor,
+                  teks: p.teks,
+                  url: p.url,
+                }))}
+              />
+            ) : (
+              <ol className="space-y-1 text-sm">
+                {rpkps.pustaka.map((p) => (
+                  <li key={p.id}>
+                    {p.nomor}. {p.teks}
+                  </li>
+                ))}
+              </ol>
+            )}
+          </CardContent>
+        </Card>
+
+        <TimPengampu
+          rpkpsId={id}
+          bolehKelola={bolehKelola}
+          calon={dataKelola?.calon ?? []}
+          pengampu={rpkps.pengampu.map((p) => ({
+            penggunaId: p.penggunaId,
+            nama: namaLengkapPengampu(p.pengguna),
+            nidn: p.pengguna.nidn,
+            koordinator: p.peran === "KOORDINATOR",
+          }))}
+        />
+
+        <PanelBagikan
+          rpkpsId={id}
+          urlPublik={urlPublik}
+          statusLabel={k.enum.statusRpkps[rpkps.status] ?? rpkps.status}
+          tautan={dataKelola?.tautan ?? []}
+          /*
+           * Membagikan draf ke luar aplikasi adalah keputusan pemegang dokumen,
+           * bukan hak setiap anggota tim (docs/06 §4.2). Aksinya memeriksa ulang
+           * di server — yang di sini hanya supaya borangnya tidak menipu.
+           */
+          bolehBerbagiDraf={wenang.pengelola || wenang.koordinator}
+          asalSitus={urlSitus()}
+        />
+
+        {dataKelola ? (
+          <ZonaKelola
+            rpkpsId={id}
+            status={rpkps.status}
+            kodeMk={rpkps.mataKuliah.kode}
+            alasanTakDapatDihapus={dataKelola.alasanTakDapatDihapus}
+            akibatHapusPaksa={dataKelola.akibatHapusPaksa}
+            bolehHapusPaksa={dataKelola.bolehHapusPaksa}
+            sasaran={dataKelola.sasaran}
+            tahun={dataKelola.tahun}
+          />
+        ) : null}
+
+        {riwayat.length > 0 ? (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">{k.rpkps.ikhtisar.historiJudul}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-2 text-sm">
+                {riwayat.map((r) => (
+                  <li key={r.id} className="flex gap-3 border-b pb-2 last:border-0">
+                    <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                      {tanggal(r.dibuatPada, b, "pendek")}
+                    </span>
+                    <span className="min-w-0">
+                      <Badge variant="outline" className="mr-1.5 text-[10px]">
+                        v{r.versi}
+                      </Badge>
+                      {teksRiwayat(bacaDataRiwayat(r.data), r.deskripsi, k)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+        ) : null}
+      </div>
+    </PratinjauSamping>
   );
 }
 

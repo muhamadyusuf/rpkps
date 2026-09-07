@@ -24,10 +24,10 @@ Konsep lengkap ada di `docs/` — **baca sebelum menambah fitur**:
 | `docs/04-usulan-revisi-kurikulum.md` | Pintu resmi mengubah CPMK/Sub-CPMK: usulan → Kaprodi → pengesahan. U1–U3 terpasang (draf AI butir usulan dari temuan validator/evaluasi/catatan dosen); U4 menunggu sumber datanya ada. |
 | `docs/05-evaluasi-ketercapaian-mk.md` | Evaluasi ketercapaian CPMK/CPL per MK + tindak lanjut (PPEPP). E1–E6 terpasang: peta asesmen, impor nilai, ketercapaian, tindak lanjut, agregasi prodi, analisis butir. |
 | `docs/07-dasbor-peran.md` | Dasbor per peran: antrian kerja, panel Kaprodi/GPM/Dosen/Admin/Asesor/Mahasiswa, bagan SVG server. D1–D3 terpasang. |
-| `docs/06-daur-hidup-dan-berbagi-rpkps.md` | Hapus/arsip RPKPS, tim pengampu, serah terima, salin, panel bagikan. B1–B4 terpasang beserta hapus paksa admin (§2.6); tautan pratinjau bertoken (B5) ditunda. |
+| `docs/06-daur-hidup-dan-berbagi-rpkps.md` | Hapus/arsip RPKPS, tim pengampu, serah terima, salin, panel bagikan. B1–B5 terpasang, termasuk hapus paksa admin (§2.6) dan tautan pratinjau bertoken. |
 | `docs/08-kunci-ai-per-pengguna.md` | BYOK Mode A: tiap dosen mendaftarkan kunci AI-nya sendiri. Menggantikan kunci institusi lewat env. Terpasang. |
 | `docs/09-rencana-mingguan-manual.md` | Penyusunan manual tabel mingguan: tambah, sisip, hapus, geser, ubah jenis. M1–M5 terpasang. |
-| `docs/10-notifikasi-dan-tenggat.md` | Notifikasi dalam aplikasi (6 peristiwa) dan tenggat pengajuan per tahun akademik. N1–N4 terpasang; surel (N5) ditunda. |
+| `docs/10-notifikasi-dan-tenggat.md` | Notifikasi dalam aplikasi (6 peristiwa) dan tenggat pengajuan per tahun akademik. N1–N5 terpasang, termasuk kanal surel SMTP di atas tabel `notifikasi` yang sama. |
 | `docs/11-dwibahasa.md` | Dwibahasa Indonesia–Inggris: rute `[bahasa]`, kamus antarmuka, kolom `*En` isi RPKPS, ruang sidik kedua, ekspor dua bahasa, terjemahan BYOK. L1–L7 terpasang. |
 | `docs/12-draf-ai-tertutup.md` | Draf AI menutup peta asesmennya sendiri: komponen per baris mingguan, bobot ujian, rekonsiliasi `alokasikanAsesmen`. Terpasang. |
 | `docs/13-penugasan-koordinator-mk.md` | Penugasan dosen koordinator per mata kuliah dan tahun akademik: papan penugasan Kaprodi, aliran ke RPKPS. K1–K4 terpasang. |
@@ -37,6 +37,7 @@ Konsep lengkap ada di `docs/` — **baca sebelum menambah fitur**:
 | `docs/17-ilustrasi-bahan-ajar.md` | Gambar dan diagram dalam buku ajar: diagram vektor ditulis AI sebagai kode (Mermaid/SVG), unggahan dosen, ilustrasi raster (Gemini saja). Sanitasi SVG, rasterisasi di peramban. IL1–IL7 terpasang: skema, domain murni, tahap AI diagram, antarmuka gambar, cetak .docx/.pptx, ilustrasi raster. |
 | `docs/18-penyuntingan-gambar-visual.md` | Penyunting diagram visual: lapisan pegangan di atas `<img>`, suntingan menulis ulang KODE (bukan piksel), pembekuan Mermaid ke SVG, potong/putar raster. V1–V5 terpasang. |
 | `docs/19-penyuntingan-naskah-dan-kesiapan-terbit.md` | AI sebagai EDITOR: usulan kutipan→pengganti yang disetujui dosen satu per satu, tinjauan lintas bab, pemeriksaan naskah mekanis, kesiapan terbit + sinopsis/kata kunci + blok KDT. E1–E6 terpasang. |
+| `docs/20-arahan-dosen-pada-draf-ai.md` | Arahan bebas dosen pada penyusunan draf RPKPS oleh AI: medan `Rpkps.arahanAi`, amplop `<arahan_dosen>` di ketiga tahap, kedudukannya terhadap aturan. AD1–AD5 terpasang. |
 
 ## Aturan yang mengikat
 
@@ -66,6 +67,21 @@ Konsep lengkap ada di `docs/` — **baca sebelum menambah fitur**:
   komponen. Lembar tugas adalah rencana baris itu; memberinya bobot di luar
   komponen yang sudah dirinci baris mingguan membuat tagihan yang sama terhitung
   dua kali — itulah yang dulu memunculkan "total 200%" (docs/12).
+- **Arahan dosen pada draf AI adalah DATA, bukan panduan.** Teks bebas yang
+  diketik dosen masuk ke blok `permintaan` KETIGA tahap lewat `amplopArahan()`
+  (`src/domain/rpkps/arahan.ts`), yang meng-escape `<` dan `>` supaya amplop
+  `<arahan_dosen>` tidak dapat ditutup penulisnya sendiri. Ia TIDAK pernah masuk
+  `PANDUAN_*`: blok itu stabil dan di-cache penyedia, dan satu byte yang berubah
+  membatalkan cache untuk semua orang. Arahan juga tidak dapat melonggarkan satu
+  pun aturan — penjaganya tetap `periksaDraf()`, yang berjalan tanpa mengetahui
+  ada arahan sama sekali (docs/20).
+- **`Rpkps.arahanAi` tidak boleh masuk `proyeksiIsi()`, `proyeksiIsiEn()`,
+  maupun `rpkps_snapshot`.** Alasannya sama dengan profil lulusan dan hasil
+  evaluasi: proyeksi adalah dasar sidik SHA-256, dan menambah apa pun ke sana
+  menggeser sidik SELURUH RPKPS terbit. Arahan adalah catatan KERJA penyusunan,
+  bukan isi dokumen — karena itu ia juga tidak berpasangan `*En` dan tidak
+  dihitung dalam kelengkapan terjemahan. Satu-satunya jalan tulisnya
+  `susunDrafRpkps`, yang sudah melewati `bolehSuntingIsi`.
 - **Identitas baris `komponen_nilai` tidak boleh hilang saat daftarnya
   disimpan.** `pertemuan` dan `tugas` menunjuk komponen lewat id yang
   ber-`onDelete: SetNull`, jadi menyimpan dengan hapus-lalu-buat-ulang melepas

@@ -497,6 +497,14 @@
     box-shadow: none !important;
   }
 
+
+  /* Aturan cetak naskah RPKPS TIDAK di sini, melainkan pada halaman
+     pratinjau itu sendiri (`pratinjau/gaya-cetak.tsx`). Alasannya `@page`:
+     aturan itu tidak dapat dibatasi selektor, jadi `margin: 0` yang dipasang
+     di berkas global akan membuat SETIAP halaman aplikasi tercetak menempel
+     tepi kertas — termasuk katalog publik yang justru mengandalkan margin
+     bawaan peramban. */
+
   /* Bagian tidak boleh terpotong di tengah judulnya. */
   h1,
   h2,

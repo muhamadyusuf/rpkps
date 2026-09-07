@@ -28,11 +28,16 @@ import { tanggal as tanggalTeks } from "@/lib/bahasa/format";
 import { namaLengkapPengampu } from "@/domain/rpkps/pemetaan";
 import { rantaiPengesahan, type PeranPengesah } from "@/domain/rpkps/paraf";
 import { keSumberPeta } from "@/domain/evaluasi/pemetaan";
+import {
+  jumlahPertemuanEfektif,
+  minimalKehadiran,
+  skalaNilai,
+} from "@/domain/rpkps/cetak";
 import { petaKomponenSubCpmk, susunPetaAsesmen } from "@/domain/evaluasi/peta-asesmen";
 import type { RpkpsLengkap } from "@/lib/rpkps/muat";
 import type { PeranTtd } from "@/generated/prisma";
 import { labelDokumen, type LabelDokumen } from "./label";
-import type { Bahasa } from "@/kamus";
+import { LOCALE, type Bahasa } from "@/kamus";
 // `isi` sudah dipakai sebagai nama variabel lokal di beberapa bagian.
 import { isi as isi_ } from "@/lib/bahasa/teks";
 
@@ -53,7 +58,12 @@ function kepala(r: RpkpsLengkap, L: LabelDokumen) {
         { spasi: { after: 0 } },
       ),
       paragraf(
-        [teks(`Rencana Pembelajaran : ${r.mataKuliah.nama}`, { ukuran: 14, warna: "6B7280" })],
+        [
+          teks(`${L.kepalaRencanaPembelajaran}${r.mataKuliah.nama}`, {
+            ukuran: 14,
+            warna: "6B7280",
+          }),
+        ],
         { spasi: { after: 60 } },
       ),
     ],
@@ -294,7 +304,12 @@ function bagianAwal(r: RpkpsLengkap, L: LabelDokumen): (Paragraph | Table)[] {
     paragraf([teks(L.mkPrasyarat, { tebal: true }), teks("-")]),
     paragraf([
       teks(L.statusMatakuliah, { tebal: true }),
-      teks(r.mataKuliah.status === "PILIHAN" ? "Pilihan" : "Wajib"),
+      /*
+       * Template ITTS hanya mengenal dua nilai pada baris ini, jadi
+       * `WAJIB_UMUM` ikut tercetak sebagai Wajib — sama seperti sebelumnya.
+       * Yang berubah hanya bahasanya.
+       */
+      teks(r.mataKuliah.status === "PILIHAN" ? L.statusMkPilihan : L.statusMkWajib),
     ]),
 
     judulBagian("A", L.deskripsiMataKuliah),
@@ -374,8 +389,8 @@ function bagianAwal(r: RpkpsLengkap, L: LabelDokumen): (Paragraph | Table)[] {
 function bagianEvaluasi(r: RpkpsLengkap, L: LabelDokumen): (Paragraph | Table)[] {
   const isi: (Paragraph | Table)[] = [judulBagian("E", L.evaluasiPembelajaran)];
 
-  const pertemuanEfektif = r.pertemuan.filter((p) => p.jenis === "EFEKTIF").length;
-  const minimalHadir = Math.ceil((r.minimalKehadiranPersen / 100) * pertemuanEfektif);
+  const pertemuanEfektif = jumlahPertemuanEfektif(r.pertemuan);
+  const minimalHadir = minimalKehadiran(r.minimalKehadiranPersen, pertemuanEfektif);
 
   isi.push(
     ...daftarBernomor([
@@ -468,7 +483,7 @@ function bagianEvaluasi(r: RpkpsLengkap, L: LabelDokumen): (Paragraph | Table)[]
             sel(L.keterangan, { lebar: 35, tebal: true, latar: ABU }),
           ],
         }),
-        ...skalaNilai(L).map((s) =>
+        ...skalaNilai(L.keteranganNilai).map((s) =>
           new TableRow({
             children: [
               sel(s.rentang, { lebar: 25, rata: AlignmentType.CENTER }),
@@ -494,18 +509,6 @@ function bagianEvaluasi(r: RpkpsLengkap, L: LabelDokumen): (Paragraph | Table)[]
 
   return isi;
 }
-
-const skalaNilai = (L: LabelDokumen) => [
-  { rentang: "85 – 100", huruf: "A", angka: "4", keterangan: L.keteranganNilai.sangatBaik },
-  { rentang: "80 – 84,99", huruf: "A-", angka: "3,7", keterangan: L.keteranganNilai.baik },
-  { rentang: "75 – 79,99", huruf: "B+", angka: "3,3", keterangan: "" },
-  { rentang: "70 – 74,99", huruf: "B", angka: "3,0", keterangan: "" },
-  { rentang: "65 – 69,99", huruf: "B-", angka: "2,7", keterangan: L.keteranganNilai.memuaskan },
-  { rentang: "60 – 64,99", huruf: "C+", angka: "2,3", keterangan: "" },
-  { rentang: "55 – 59,99", huruf: "C", angka: "2,0", keterangan: "" },
-  { rentang: "45 – 54,99", huruf: "D", angka: "1,0", keterangan: L.keteranganNilai.kurangMemuaskan },
-  { rentang: "0 – 44,99", huruf: "E", angka: "0", keterangan: L.keteranganNilai.sangatTidakMemuaskan },
-];
 
 function bagianReferensi(r: RpkpsLengkap, L: LabelDokumen): (Paragraph | Table)[] {
   const isi: (Paragraph | Table)[] = [judulBagian("G", L.referensiDanSumberPembelajaran)];
@@ -669,7 +672,7 @@ function bagianTugas(r: RpkpsLengkap, L: LabelDokumen): (Paragraph | Table)[] {
       paragraf([teks(L.kodeMataKuliah, { tebal: true }), teks(r.mataKuliah.kode)]),
       paragraf([
         teks(L.jenisTugasProyek, { tebal: true }),
-        teks(t.jenis === "KELOMPOK" ? "Group Project" : "Tugas Individu"),
+        teks(t.jenis === "KELOMPOK" ? L.jenisTugasKelompok : L.jenisTugasIndividu),
       ]),
       paragraf([
         teks(L.bobot3, { tebal: true }),
@@ -807,7 +810,7 @@ function lampiranKisiKisi(r: RpkpsLengkap, L: LabelDokumen): (Paragraph | Table)
   ];
 
   for (const k of r.kisiKisi) {
-    const judul = k.jenis === "UTS" ? "Ujian Tengah Semester" : "Ujian Akhir Semester";
+    const judul = k.jenis === "UTS" ? L.ujianTengahSemester : L.ujianAkhirSemester;
     isi.push(
       paragraf([teks(judul, { tebal: true })], { spasi: { before: 180, after: 60 } }),
       paragraf(
@@ -878,6 +881,7 @@ function bagianRiwayat(
   r: RpkpsLengkap,
   riwayat: { versi: number; dibuatPada: Date; deskripsi: string }[],
   L: LabelDokumen,
+  bahasa: Bahasa,
 ) {
   return [
     judulBagian("J", L.historiRevisi),
@@ -899,7 +903,14 @@ function bagianRiwayat(
               sel(r.mataKuliah.kode, { lebar: 15, rata: AlignmentType.CENTER }),
               sel(String(h.versi), { lebar: 12, rata: AlignmentType.CENTER }),
               sel(
-                h.dibuatPada.toLocaleDateString("id-ID", {
+                /*
+                 * Kolom angka, bukan kalimat — karena itu `Intl` langsung dan
+                 * bukan `tanggalTeks`. Yang tidak boleh tetap adalah
+                 * LOCALE-nya: "06/02/2025" dibaca 6 Februari oleh pembaca
+                 * Indonesia dan 2 Juni oleh pembaca Inggris, dan tabel histori
+                 * revisi adalah tempat terakhir yang boleh ambigu.
+                 */
+                h.dibuatPada.toLocaleDateString(LOCALE[bahasa], {
                   day: "2-digit",
                   month: "2-digit",
                   year: "numeric",
@@ -993,7 +1004,7 @@ export async function buatDokumenRpkps(
         children: [
           ...bagianTugas(r, L),
           ...lampiranKisiKisi(r, L),
-          ...bagianRiwayat(r, riwayat, L),
+          ...bagianRiwayat(r, riwayat, L, bahasa),
         ],
       },
     ],

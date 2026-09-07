@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { bolehSuntingIsi, pesanTerkunci, wenangRpkps } from "@/lib/rpkps/wenang";
 import { GalatAi } from "@/lib/ai/galat";
 import { susunDraf } from "@/lib/ai/draf-rpkps";
+import { bersihkanArahan } from "@/domain/rpkps/arahan";
 import {
   periksaDraf,
   type DrafRpkps,
@@ -62,6 +63,7 @@ async function pastikanWenang(rpkpsId: string) {
  */
 const PILIH_KONTEKS = {
   deskripsi: true,
+  arahanAi: true,
   mataKuliah: {
     select: {
       kode: true, nama: true, deskripsi: true, semester: true,
@@ -192,13 +194,20 @@ export async function periksaKesiapanDraf(rpkpsId: string): Promise<HasilKesiapa
 }
 
 /**
- * Menyusun draf isi RPKPS dengan AI. TIDAK menyimpan apa pun.
+ * Menyusun draf isi RPKPS dengan AI. Tidak menyentuh isi dokumen.
+ *
+ * Satu-satunya yang ditulisnya adalah `arahanAi` — catatan kerja penyusunan,
+ * bukan isi RPKPS, dan karena itu tidak pernah masuk `proyeksiIsi()` maupun
+ * salinan beku (docs/20 §2.5). Draf sendiri tidak disimpan sama sekali sampai
+ * dosen menyetujuinya lewat `terapkanDrafRpkps`.
  *
  * Persetujuan dosen berupa satu tombol untuk seluruh dokumen, jadi draf yang
  * melanggar invarian dikembalikan beserta temuannya dan tidak dapat diterapkan.
  */
 export async function susunDrafRpkps(
   rpkpsId: string,
+  /** Arahan bebas dosen (docs/20). Kiriman peramban — dibersihkan di sini. */
+  arahanMentah?: string | null,
   /** Kunci AI yang dipilih dosen; kosong berarti kunci bawaannya. */
   kredensialId?: string | null,
 ): Promise<HasilDraf> {
@@ -210,12 +219,22 @@ export async function susunDrafRpkps(
   const k = await muatKonteks(rpkpsId);
   if (!k) return { ok: false, pesan: kam.aksi.takAda.rpkps };
 
+  // Disimpan SEBELUM model dipanggil, dan hanya di sini: yang tersimpan selalu
+  // arahan yang benar-benar dipakai menyusun draf terakhir, bukan yang sempat
+  // diketik lalu dibatalkan. Await-nya memang menunggu pemeriksaan wewenang
+  // dan keberadaan RPKPS di atas, jadi ia tidak dapat digabungkan ke
+  // Promise.all mana pun — dan 25 ms itu tidak berarti apa-apa di depan
+  // panggilan model yang berdurasi puluhan detik.
+  const { arahan } = bersihkanArahan(arahanMentah);
+  await prisma.rpkps.update({ where: { id: rpkpsId }, data: { arahanAi: arahan } });
+
   const mulai = Date.now();
   try {
     const { draf, penyedia, model, catatan } = await susunDraf({
       penggunaId: sesi.id,
       rpkpsId,
       kredensialId,
+      arahan,
       batas: konteksDomain(k),
       konteks: {
         mataKuliah: {
@@ -541,13 +560,21 @@ export async function terapkanDrafRpkps(
           olehId: sesi.id,
         },
       });
+      // Arahan dibaca dari basis data, TIDAK diterima dari klien: jejak audit
+      // yang isinya ditentukan peramban bukan jejak audit. Ia sengaja tidak
+      // ikut ke rpkps_riwayat — baris riwayat dirakit dari { kunci, params }
+      // dan dibaca berbulan-bulan kemudian dalam bahasa pembacanya, bukan
+      // tempat bagi paragraf bebas milik satu dosen (docs/20 AD5).
       await tx.logAudit.create({
         data: {
           penggunaId: sesi.id,
           aksi: "RPKPS_DRAF_AI_DITERAPKAN",
           entitas: "rpkps",
           entitasId: rpkpsId,
-          ringkasan: `${sesi.email} menyetujui draf AI — ${ringkas}`,
+          ringkasan:
+            `${sesi.email} menyetujui draf AI — ${ringkas}` +
+            (k.arahanAi ? " · dengan arahan dosen" : ""),
+          data: { arahan: k.arahanAi },
         },
       });
     }, { timeout: 60_000, maxWait: 15_000 });

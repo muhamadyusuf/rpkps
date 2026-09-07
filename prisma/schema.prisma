@@ -816,6 +816,11 @@ model Rpkps {
   /// ditulis maupun dibaca di mana pun (docs/11 §5.1a).
   catatanEvaluasi        String? @map("catatan_evaluasi")
 
+  /// Arahan bebas dosen untuk penyusunan draf AI (docs/20). Catatan KERJA,
+  /// bukan isi dokumen: tidak boleh masuk `proyeksiIsi()`/`proyeksiIsiEn()`
+  /// maupun `rpkps_snapshot`, dan karena itu tidak punya kembaran `*_en`.
+  arahanAi String? @map("arahan_ai")
+
   dibuatPada DateTime @default(now()) @map("dibuat_pada")
   diubahPada DateTime @updatedAt @map("diubah_pada")
 

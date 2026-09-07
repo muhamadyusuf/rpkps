@@ -14,6 +14,16 @@ export async function muatKebijakan() {
 
 export type RpkpsLengkap = NonNullable<Awaited<ReturnType<typeof muatRpkps>>>;
 
+/**
+ * Kolom `*En` ikut dipilih di mana pun teksnya TERCETAK.
+ *
+ * `naskahEn` (`src/lib/dokumen/naskah-en.ts`) menaikkan tiap kolom `*En` ke
+ * atas pasangan Indonesianya sebelum dokumen dicetak atau dipratinjau; kolom
+ * yang tidak ikut terbaca di sini tidak pernah punya kesempatan naik, dan
+ * gagalnya senyap — paragrafnya sekadar tetap berbahasa Indonesia. Menambahnya
+ * di sini TIDAK menyentuh `proyeksiIsi()`, jadi sidik ruang pertama tidak
+ * bergeser.
+ */
 export async function muatRpkps(id: string) {
   return prisma.rpkps.findUnique({
     where: { id },
@@ -30,7 +40,21 @@ export async function muatRpkps(id: string) {
               prodi: { select: { nama: true, namaEn: true, kode: true } },
             },
           },
-          cpl: { include: { cpl: { select: { id: true, kode: true, deskripsi: true } } } },
+          /*
+           * `deskripsiEn` ikut karena `proyeksiIsiEn` membacanya: tanpa kolom
+           * ini ia selalu jatuh ke cadangan bahasa Indonesia, dan CPL yang
+           * sudah diterjemahkan di kurikulum tidak pernah sampai ke naskah
+           * Inggris — tanpa galat, hanya paragraf yang tetap berbahasa
+           * Indonesia. Ia TIDAK menyentuh `proyeksiIsi`, jadi sidik ruang
+           * pertama tidak bergeser.
+           */
+          cpl: {
+            include: {
+              cpl: {
+                select: { id: true, kode: true, deskripsi: true, deskripsiEn: true },
+              },
+            },
+          },
           cpmk: {
             orderBy: { urutan: "asc" },
             include: {
@@ -61,7 +85,11 @@ export async function muatRpkps(id: string) {
         include: {
           butir: {
             orderBy: { nomor: "asc" },
-            include: { subCpmk: { select: { id: true, kode: true, rumusan: true } } },
+            include: {
+              subCpmk: {
+                select: { id: true, kode: true, rumusan: true, rumusanEn: true },
+              },
+            },
           },
         },
       },
@@ -71,13 +99,19 @@ export async function muatRpkps(id: string) {
           subCpmk: { include: { subCpmk: { select: { id: true, kode: true } } } },
           kriteria: { orderBy: { nomor: "asc" } },
           linimasa: { orderBy: { minggu: "asc" } },
-          komponenNilai: { select: { nama: true } },
+          komponenNilai: { select: { nama: true, namaEn: true } },
         },
       },
       pertemuan: {
         orderBy: { minggu: "asc" },
         include: {
-          subCpmk: { include: { subCpmk: { select: { id: true, kode: true, rumusan: true } } } },
+          subCpmk: {
+            include: {
+              subCpmk: {
+                select: { id: true, kode: true, rumusan: true, rumusanEn: true },
+              },
+            },
+          },
           aktivitas: { orderBy: { urutan: "asc" } },
           indikator: { orderBy: { urutan: "asc" } },
           pustaka: { include: { pustaka: { select: { nomor: true, jenis: true } } } },

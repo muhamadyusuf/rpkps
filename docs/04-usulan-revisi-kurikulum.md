@@ -1,8 +1,9 @@
 # Usulan Revisi Kurikulum (URK)
 
-> Status: **U1–U2 terpasang** (model data, domain + uji, alur usulan manual,
-> penerapan ke kurikulum, ledger revisi, pensiun berbasis TA, pratinjau dampak).
-> U3–U4 (draf AI dan pemicu relevansi) belum. Menyempurnakan sketsa tabel
+> Status: **U1–U3 terpasang** (model data, domain + uji, alur usulan manual,
+> penerapan ke kurikulum, ledger revisi, pensiun berbasis TA, pratinjau dampak,
+> dan draf AI butir usulan — lihat BAGIAN 9). U4 (pemicu relevansi dari sinyal
+> industri/DUDI/tracer) belum: sumber datanya belum ada. Menyempurnakan sketsa tabel
 > `usulan_revisi_kurikulum` pada [02 §6](./02-template-itts-dan-penyelarasan-industri.md)
 > dan menutup janji tombol "Usulkan revisi kurikulum" pada wizard §3.3 langkah 3.
 

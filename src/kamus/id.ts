@@ -188,6 +188,10 @@ export const id = {
   },
   dwibahasa: {
     unduhBahasaLain: "Unduh DOCX (English)",
+    unduhBahasaLabel: "Bahasa berkas",
+    unduhId: "Bahasa Indonesia",
+    unduhEn: "English",
+    unduhIdCatatan: "naskah yang sah",
     mode: "Bahasa",
     modeId: "Indonesia",
     modeEn: "English",
@@ -2194,6 +2198,29 @@ export const id = {
       historiJudul: "Histori revisi",
     },
 
+    /** Pratinjau dokumen di dalam aplikasi — halaman `/rpkps/{id}/pratinjau`. */
+    pratinjau: {
+      tombol: "Pratinjau",
+      judul: "Pratinjau naskah",
+      buka: "Buka pratinjau di samping",
+      tutup: "Tutup panel pratinjau",
+      penuh: "Buka pratinjau satu halaman penuh",
+      seret: "Geser untuk mengubah lebar panel pratinjau",
+      kembali: "Kembali ke RPKPS",
+      cetakPdf: "Cetak / simpan PDF",
+      bahasaDokumen: "Bahasa dokumen",
+      draf: "Pratinjau isi terkini — belum disahkan",
+      drafKeterangan:
+        "Yang tampil adalah data sekarang, bukan dokumen resmi. Sidik baru ada setelah pengesahan.",
+      resmi: "Salinan resmi versi {versi}",
+      resmiKeterangan:
+        "Isi yang ditandatangani — sama persis dengan berkas DOCX yang diunduh.",
+      bergeser:
+        "Data sumber sudah berubah sejak pengesahan. Pratinjau ini tetap menampilkan salinan resmi.",
+      catatanLembar:
+        "Lembar di layar tumbuh sesuai isinya; pemenggalan halaman yang sebenarnya ditentukan saat dicetak.",
+    },
+
     tugasEditor: {
       identitas: "Identitas tugas",
       namaTugas: "Nama tugas",
@@ -2297,6 +2324,11 @@ export const id = {
       kunciDipakai: "Kunci yang dipakai",
       pilihKunci: "Pilih kunci…",
       kunciBawaan: " (bawaan)",
+      arahan: "Arahan tambahan (opsional)",
+      arahanPetunjuk:
+        "Ceritakan apa yang hanya Anda ketahui tentang mata kuliah ini — cara kelas berjalan, konteks kasus yang dipakai, bentuk asesmen yang sudah disepakati tim. Arahan memandu ISI draf, bukan aturannya: pagu jam belajar, total bobot 100%, dan kode Sub-CPMK tetap ditentukan kurikulum. Tersimpan dan dipakai lagi pada penyusunan berikutnya.",
+      arahanContoh:
+        "Setengah pertemuan berlangsung di lab. Pakai studi kasus industri manufaktur. UAS berupa proyek akhir, bukan ujian tulis.",
       ringkasKesiapan: "{minggu} pertemuan efektif · {sub} Sub-CPMK · {pustaka} pustaka · {komponen} komponen nilai. Penyusunan berjalan tiga tahap berurutan — kerangka, isi pertemuan, lalu tugas dan kisi-kisi — dan biasanya memakan dua sampai lima menit.",
       gagalSusun: "Gagal menyusun draf.",
       melanggarAturan: "Draf melanggar aturan dokumen.",
@@ -3032,6 +3064,9 @@ export const id = {
     /** Lencana jumlah belum dibaca pada butir menu. */
     belumDibaca: "{jumlah} belum dibaca",
     bukaMenu: "Buka menu",
+    ciutkan: "Ciutkan menu jadi ikon",
+    lebarkan: "Lebarkan menu",
+    modul: "Modul",
   },
 } satisfies KamusBentuk;
 

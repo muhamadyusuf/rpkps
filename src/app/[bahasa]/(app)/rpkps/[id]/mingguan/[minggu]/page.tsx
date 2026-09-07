@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { wajibAktif } from "@/lib/otorisasi";
 import { wenangAtasRpkps } from "@/lib/rpkps/wenang";
+import { PratinjauSamping } from "../../pratinjau/samping";
 import { muatKebijakan, muatRpkps } from "@/lib/rpkps/muat";
 import { susunRencanaSemester } from "@/domain/beban-belajar/kalkulator";
 import { EditorPertemuan } from "./editor";
@@ -96,124 +97,126 @@ export default async function HalamanPertemuan({
   const k = await kamus();
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <ButtonLink variant="ghost" size="sm" href={`/rpkps/${id}/mingguan`}>
-          <ArrowLeft />
-          {k.rpkps.mingguDetail.kembali}
-        </ButtonLink>
-        <div className="flex gap-1">
-          {sebelum ? (
-            <ButtonLink variant="outline"
-              size="sm" href={`/rpkps/${id}/mingguan/${sebelum.minggu}`}>
-              <ArrowLeft />
-              {isi(k.rpkps.mingguDetail.minggu, { nomor: sebelum.minggu })}
-            </ButtonLink>
-          ) : null}
-          {sesudah ? (
-            <ButtonLink variant="outline"
-              size="sm" href={`/rpkps/${id}/mingguan/${sesudah.minggu}`}>
-              {isi(k.rpkps.mingguDetail.minggu, { nomor: sesudah.minggu })}
-              <ArrowRight />
-            </ButtonLink>
-          ) : null}
-        </div>
-      </div>
-
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-semibold tracking-tight">
-              {isi(k.rpkps.mingguDetail.minggu, { nomor: minggu })}
-            </h1>
-            {pertemuan.jenis !== "EFEKTIF" ? (
-              <Badge variant="secondary">{pertemuan.jenis}</Badge>
+    <PratinjauSamping rpkps={rpkps} jangkar={`naskah-minggu-${minggu}`}>
+      <div className="mx-auto max-w-6xl space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <ButtonLink variant="ghost" size="sm" href={`/rpkps/${id}/mingguan`}>
+            <ArrowLeft />
+            {k.rpkps.mingguDetail.kembali}
+          </ButtonLink>
+          <div className="flex gap-1">
+            {sebelum ? (
+              <ButtonLink variant="outline"
+                size="sm" href={`/rpkps/${id}/mingguan/${sebelum.minggu}`}>
+                <ArrowLeft />
+                {isi(k.rpkps.mingguDetail.minggu, { nomor: sebelum.minggu })}
+              </ButtonLink>
+            ) : null}
+            {sesudah ? (
+              <ButtonLink variant="outline"
+                size="sm" href={`/rpkps/${id}/mingguan/${sesudah.minggu}`}>
+                {isi(k.rpkps.mingguDetail.minggu, { nomor: sesudah.minggu })}
+                <ArrowRight />
+              </ButtonLink>
             ) : null}
           </div>
-          <p className="mt-1.5 text-sm text-muted-foreground">
-            {rpkps.mataKuliah.kode} — {namaMk(rpkps.mataKuliah, b)}
-          </p>
         </div>
+
+        <header className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-2xl font-semibold tracking-tight">
+                {isi(k.rpkps.mingguDetail.minggu, { nomor: minggu })}
+              </h1>
+              {pertemuan.jenis !== "EFEKTIF" ? (
+                <Badge variant="secondary">{pertemuan.jenis}</Badge>
+              ) : null}
+            </div>
+            <p className="mt-1.5 text-sm text-muted-foreground">
+              {rpkps.mataKuliah.kode} — {namaMk(rpkps.mataKuliah, b)}
+            </p>
+          </div>
+          {bisaSunting ? (
+            <PilihJenisPertemuan
+              rpkpsId={id}
+              minggu={minggu}
+              jenis={pertemuan.jenis}
+            />
+          ) : null}
+        </header>
+
+        {pertemuan.jenis !== "EFEKTIF" ? (
+          <div className="flex items-start gap-2.5 rounded-lg border bg-muted/40 p-4 text-sm">
+            <ListChecks className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+            <p className="text-muted-foreground">
+              {isi(k.rpkps.mingguDetail.ujianAwal, { jenis: pertemuan.jenis })}{" "}
+              <TautanDalamKalimat href={`/rpkps/${id}/kisi-kisi`}>
+                {k.rpkps.mingguDetail.ujianTautan}
+              </TautanDalamKalimat>
+              {k.rpkps.mingguDetail.ujianAkhir}
+            </p>
+          </div>
+        ) : null}
+
         {bisaSunting ? (
-          <PilihJenisPertemuan
+          <EditorPertemuan
+            pertemuanId={pertemuan.id}
+            capVersi={pertemuan.diubahPada.toISOString()}
             rpkpsId={id}
             minggu={minggu}
-            jenis={pertemuan.jenis}
+            pagu={pagu}
+            toleransiPersen={kebijakan.toleransiPertemuanPersen}
+            subCpmkTersedia={subCpmkTersedia}
+            komponenTersedia={rpkps.komponenNilai.map((k) => ({
+              id: k.id,
+              nama: k.nama,
+              bobot: Number(k.bobot),
+            }))}
+            pustakaTersedia={rpkps.pustaka.map((p) => ({
+              id: p.id,
+              nomor: p.nomor,
+              jenis: p.jenis,
+              teks: p.teks,
+            }))}
+            awal={{
+              topik: pertemuan.topik,
+              topikEn: pertemuan.topikEn,
+              subtopik: pertemuan.subtopik,
+              subtopikEn: pertemuan.subtopikEn,
+              metodeNarasi: pertemuan.metodeNarasi,
+              metodeNarasiEn: pertemuan.metodeNarasiEn,
+              aktivitasDosen: pertemuan.aktivitasDosen,
+              aktivitasDosenEn: pertemuan.aktivitasDosenEn,
+              aktivitasMahasiswa: pertemuan.aktivitasMahasiswa,
+              aktivitasMahasiswaEn: pertemuan.aktivitasMahasiswaEn,
+              tugasTerstruktur: pertemuan.tugasTerstruktur,
+              tugasTerstrukturEn: pertemuan.tugasTerstrukturEn,
+              penilaianJenis: pertemuan.penilaianJenis,
+              penilaianJenisEn: pertemuan.penilaianJenisEn,
+              penilaianSistem: pertemuan.penilaianSistem,
+              penilaianSistemEn: pertemuan.penilaianSistemEn,
+              bobot: Number(pertemuan.bobot),
+              komponenNilaiId: komponenUsulan,
+              subCpmkId: pertemuan.subCpmk.map((s) => s.subCpmkId),
+              indikator: pertemuan.indikator.map((i) => ({ teks: i.teks, teksEn: i.teksEn })),
+              aktivitas: pertemuan.aktivitas.map((a) => ({
+                nama: a.nama,
+                namaEn: a.namaEn,
+                kategori: a.kategori,
+                menit: a.menit,
+              })),
+              pustakaId: pertemuan.pustaka.map((p) => p.pustakaId),
+            }}
           />
-        ) : null}
-      </header>
-
-      {pertemuan.jenis !== "EFEKTIF" ? (
-        <div className="flex items-start gap-2.5 rounded-lg border bg-muted/40 p-4 text-sm">
-          <ListChecks className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-          <p className="text-muted-foreground">
-            {isi(k.rpkps.mingguDetail.ujianAwal, { jenis: pertemuan.jenis })}{" "}
-            <TautanDalamKalimat href={`/rpkps/${id}/kisi-kisi`}>
-              {k.rpkps.mingguDetail.ujianTautan}
-            </TautanDalamKalimat>
-            {k.rpkps.mingguDetail.ujianAkhir}
-          </p>
-        </div>
-      ) : null}
-
-      {bisaSunting ? (
-        <EditorPertemuan
-          pertemuanId={pertemuan.id}
-          capVersi={pertemuan.diubahPada.toISOString()}
-          rpkpsId={id}
-          minggu={minggu}
-          pagu={pagu}
-          toleransiPersen={kebijakan.toleransiPertemuanPersen}
-          subCpmkTersedia={subCpmkTersedia}
-          komponenTersedia={rpkps.komponenNilai.map((k) => ({
-            id: k.id,
-            nama: k.nama,
-            bobot: Number(k.bobot),
-          }))}
-          pustakaTersedia={rpkps.pustaka.map((p) => ({
-            id: p.id,
-            nomor: p.nomor,
-            jenis: p.jenis,
-            teks: p.teks,
-          }))}
-          awal={{
-            topik: pertemuan.topik,
-            topikEn: pertemuan.topikEn,
-            subtopik: pertemuan.subtopik,
-            subtopikEn: pertemuan.subtopikEn,
-            metodeNarasi: pertemuan.metodeNarasi,
-            metodeNarasiEn: pertemuan.metodeNarasiEn,
-            aktivitasDosen: pertemuan.aktivitasDosen,
-            aktivitasDosenEn: pertemuan.aktivitasDosenEn,
-            aktivitasMahasiswa: pertemuan.aktivitasMahasiswa,
-            aktivitasMahasiswaEn: pertemuan.aktivitasMahasiswaEn,
-            tugasTerstruktur: pertemuan.tugasTerstruktur,
-            tugasTerstrukturEn: pertemuan.tugasTerstrukturEn,
-            penilaianJenis: pertemuan.penilaianJenis,
-            penilaianJenisEn: pertemuan.penilaianJenisEn,
-            penilaianSistem: pertemuan.penilaianSistem,
-            penilaianSistemEn: pertemuan.penilaianSistemEn,
-            bobot: Number(pertemuan.bobot),
-            komponenNilaiId: komponenUsulan,
-            subCpmkId: pertemuan.subCpmk.map((s) => s.subCpmkId),
-            indikator: pertemuan.indikator.map((i) => ({ teks: i.teks, teksEn: i.teksEn })),
-            aktivitas: pertemuan.aktivitas.map((a) => ({
-              nama: a.nama,
-              namaEn: a.namaEn,
-              kategori: a.kategori,
-              menit: a.menit,
-            })),
-            pustakaId: pertemuan.pustaka.map((p) => p.pustakaId),
-          }}
-        />
-      ) : (
-        <div className="flex items-start gap-2.5 rounded-lg border bg-muted/40 p-4 text-sm">
-          <Lock className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-          <p className="text-muted-foreground">
-            {k.rpkps.terkunciSunting}
-          </p>
-        </div>
-      )}
-    </div>
+        ) : (
+          <div className="flex items-start gap-2.5 rounded-lg border bg-muted/40 p-4 text-sm">
+            <Lock className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+            <p className="text-muted-foreground">
+              {k.rpkps.terkunciSunting}
+            </p>
+          </div>
+        )}
+      </div>
+    </PratinjauSamping>
   );
 }
