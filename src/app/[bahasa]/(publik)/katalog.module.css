@@ -1,0 +1,458 @@
+.halaman {
+  display: grid;
+  min-width: 0;
+  gap: 2.5rem;
+}
+
+.kepalaHalaman {
+  display: grid;
+  gap: 1.5rem;
+  padding-block: 1rem 2.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.penanda {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.judul {
+  margin-top: 1.25rem;
+  font-size: clamp(2.5rem, 5.6vw, 4.5rem);
+  font-weight: 500;
+  line-height: 1.06;
+  letter-spacing: -0.06em;
+  text-wrap: balance;
+}
+
+.deskripsi {
+  max-width: 28rem;
+  align-self: end;
+  color: var(--muted-foreground);
+  line-height: 1.8;
+  text-wrap: pretty;
+}
+
+.jumlahHasil {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.jumlahHasil::before {
+  content: "";
+  width: 0.45rem;
+  height: 0.45rem;
+  background: var(--primary);
+}
+
+.angka {
+  min-width: 0;
+  padding: 1.25rem 1.5rem;
+  border-top: 1px solid var(--border);
+  background: var(--card);
+}
+
+.angkaNilai {
+  margin-top: 1rem;
+  font-family: var(--font-judul);
+  font-size: clamp(2.5rem, 4vw, 3.5rem);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.065em;
+  font-variant-numeric: tabular-nums;
+}
+
+.saringan {
+  padding: 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--card);
+}
+
+.barisSaringan {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 1rem;
+}
+
+.kolomCari {
+  flex: 2 1 14rem;
+  min-width: 0;
+}
+
+.kolomSaringan {
+  flex: 1 1 9rem;
+  min-width: 0;
+}
+
+.input {
+  height: 2.75rem;
+  min-width: 0;
+  border-radius: 0.25rem;
+  box-shadow: none;
+}
+
+.tombolSaringan {
+  height: 2.75rem;
+  border-radius: 0.25rem;
+  padding-inline: 1.25rem;
+  box-shadow: none;
+}
+
+.daftarSemester {
+  display: grid;
+  gap: 3.5rem;
+}
+
+.kelompokSemester {
+  display: grid;
+  min-width: 0;
+  gap: 1.5rem;
+}
+
+.kepalaSemester {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-content: start;
+  align-items: center;
+  column-gap: 1rem;
+  row-gap: 0.3rem;
+}
+
+.nomorSemester {
+  grid-row: span 2;
+  font-family: var(--font-judul);
+  font-size: 3.5rem;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: -0.08em;
+  font-variant-numeric: tabular-nums;
+}
+
+.jumlahSemester {
+  color: var(--muted-foreground);
+  font-size: 0.6875rem;
+}
+
+.gridMk {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.875rem;
+  min-width: 0;
+}
+
+.kartu {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 15rem;
+  padding: 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+  background: var(--card);
+  transition: border-color 180ms ease, background-color 180ms ease;
+}
+
+.kartu:hover {
+  border-color: var(--foreground);
+  background: var(--muted);
+}
+
+.kartu:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 4px;
+}
+
+.kodeMk {
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.semesterKartu {
+  flex-shrink: 0;
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  text-transform: uppercase;
+}
+
+.namaMk {
+  margin-top: 1.5rem;
+  padding-bottom: 1.5rem;
+  font-size: 1.1875rem;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: -0.035em;
+  overflow-wrap: anywhere;
+}
+
+.metadataMk {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin-top: auto;
+  padding-top: 1rem;
+  padding-right: 1.5rem;
+  border-top: 1px solid var(--border);
+  color: var(--muted-foreground);
+  font-size: 0.6875rem;
+}
+
+.panahKartu {
+  position: absolute;
+  right: 1.5rem;
+  bottom: 1.5rem;
+  width: 1rem;
+  height: 1rem;
+  color: var(--muted-foreground);
+  transition: transform 180ms ease, color 180ms ease;
+}
+
+.kartu:hover .panahKartu {
+  transform: translate(2px, -2px);
+  color: var(--foreground);
+}
+
+.kosong {
+  border: 1px dashed var(--border);
+  padding: 4rem 1.5rem;
+  text-align: center;
+}
+
+.kepalaProdi {
+  display: grid;
+  min-width: 0;
+  border-block: 1px solid var(--border);
+}
+
+.isiKepalaProdi {
+  min-width: 0;
+  padding-block: 2rem;
+}
+
+.judulProdi {
+  max-width: 13ch;
+  margin-top: 1.25rem;
+  font-size: clamp(2.5rem, 5.2vw, 4.75rem);
+  font-weight: 500;
+  line-height: 1.08;
+  letter-spacing: -0.06em;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+
+.deskripsiProdi {
+  max-width: 35rem;
+  margin-top: 1.25rem;
+  color: var(--muted-foreground);
+  font-size: 0.9375rem;
+  line-height: 1.8;
+  text-wrap: pretty;
+}
+
+.tautanSitus {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid var(--foreground);
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.tautanSitus:hover {
+  color: var(--primary);
+}
+
+.monogramProdi {
+  display: none;
+}
+
+.profil {
+  padding-block: 0.5rem;
+}
+
+.daftarProfil {
+  display: grid;
+  margin-top: 1.5rem;
+  gap: 1.5rem;
+}
+
+.kartuProfil {
+  min-width: 0;
+  padding-block: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.nomorProfil {
+  font-family: var(--font-judul);
+  font-size: 2.5rem;
+  font-weight: 400;
+  letter-spacing: -0.06em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.statistikProdi {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border: 1px solid var(--border);
+}
+
+.statistikProdi > div {
+  padding: 1.5rem;
+  border-top: 0;
+}
+
+.statistikProdi > div + div {
+  border-left: 1px solid var(--border);
+}
+
+@media (min-width: 40rem) {
+  .gridMk {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 48rem) {
+  .daftarProfil {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 3rem;
+  }
+
+  .kepalaHalaman {
+    grid-template-columns: 1.25fr 0.75fr;
+    gap: 3rem;
+    padding-block: 1rem 3rem;
+  }
+
+  .kepalaProdi {
+    grid-template-columns: 1.65fr 1fr;
+  }
+
+  .isiKepalaProdi {
+    padding: 3rem 3rem 3rem 0;
+  }
+
+  .monogramProdi {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    gap: 1rem;
+    padding: 2rem;
+    border-left: 1px solid var(--border);
+    background: var(--muted);
+    font-family: var(--font-judul);
+    font-size: clamp(3rem, 6.5vw, 6rem);
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: -0.07em;
+    overflow-wrap: anywhere;
+    text-align: center;
+  }
+
+  .monogramJenjang {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    color: var(--muted-foreground);
+  }
+}
+
+@media (min-width: 64rem) {
+  .kelompokSemester {
+    grid-template-columns: 8rem minmax(0, 1fr);
+    gap: 2rem;
+  }
+
+  .kepalaSemester {
+    grid-template-columns: 1fr;
+    gap: 0.6rem;
+    padding-top: 0.25rem;
+  }
+
+  .nomorSemester {
+    grid-row: auto;
+    margin-bottom: 0.5rem;
+    font-size: 4.5rem;
+  }
+
+  .gridMk {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 39.999rem) {
+  .halaman {
+    gap: 2rem;
+  }
+
+  .saringan {
+    padding: 1rem;
+  }
+
+  .kolomCari {
+    flex-basis: 100%;
+  }
+
+  .tombolSaringan {
+    flex-grow: 1;
+  }
+
+  .statistikProdi > div {
+    padding: 1rem 0.75rem;
+  }
+
+  .statistikProdi .angkaNilai {
+    font-size: 2.25rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kartu,
+  .panahKartu {
+    transition: none;
+  }
+
+  .kartu:hover .panahKartu {
+    transform: none;
+  }
+}
+
+@media print {
+  .kartu {
+    min-height: 0;
+    break-inside: avoid;
+  }
+
+  .panahKartu,
+  .monogramProdi {
+    display: none;
+  }
+
+  .kepalaProdi {
+    grid-template-columns: 1fr;
+  }
+}

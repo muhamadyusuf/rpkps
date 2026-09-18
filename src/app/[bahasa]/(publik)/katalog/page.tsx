@@ -11,6 +11,7 @@ import { PapanSaringan } from "./saringan";
 import { bacaSaringan } from "./saringan-alamat";
 import { kamus } from "@/lib/bahasa/server";
 import { isi } from "@/lib/bahasa/teks";
+import gaya from "../katalog.module.css";
 
 export async function generateMetadata(): Promise<Metadata> {
   const [institusi, k] = await Promise.all([muatInstitusi(), kamus()]);
@@ -38,12 +39,13 @@ export default async function HalamanKatalog({
   ]);
 
   return (
-    <div className="space-y-8">
-      <header className="max-w-2xl">
-        <h1 className="font-heading text-3xl font-semibold tracking-tight md:text-4xl">
-          {k.katalog.judul}
-        </h1>
-        <p className="mt-2 text-muted-foreground text-pretty">{k.katalog.keterangan}</p>
+    <div className={gaya.halaman}>
+      <header className={gaya.kepalaHalaman}>
+        <div>
+          <p className={gaya.penanda}>RPKPS / OBE</p>
+          <h1 className={gaya.judul}>{k.katalog.judul}</h1>
+        </div>
+        <p className={gaya.deskripsi}>{k.katalog.keterangan}</p>
       </header>
 
       <PapanSaringan
@@ -58,7 +60,7 @@ export default async function HalamanKatalog({
         }}
       />
 
-      <p className="font-mono text-xs tabular-nums text-muted-foreground">
+      <p className={gaya.jumlahHasil}>
         {isi(k.katalog.jumlahMk, { jumlah: butir.length })}
       </p>
 

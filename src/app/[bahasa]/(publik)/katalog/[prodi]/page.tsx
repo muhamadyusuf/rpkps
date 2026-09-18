@@ -16,6 +16,7 @@ import { PapanSaringan } from "../saringan";
 import { bacaSaringan } from "../saringan-alamat";
 import { kamus } from "@/lib/bahasa/server";
 import { isi } from "@/lib/bahasa/teks";
+import gaya from "../../katalog.module.css";
 
 export const dynamic = "force-dynamic";
 
@@ -80,48 +81,45 @@ export default async function HalamanProdi({
   const semesterTercakup = new Set(butir.map((b) => b.semester)).size;
 
   return (
-    <div className="space-y-8">
+    <div className={gaya.halaman}>
       <nav
         aria-label={k.katalog.prodi.remahRoti}
-        className="flex items-center gap-1 text-sm text-muted-foreground"
+        className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground"
       >
         <Tautan href="/katalog" className="transition-colors hover:text-foreground">
           {k.katalog.prodi.remahKatalog}
         </Tautan>
-        <ChevronRight className="size-3.5" />
+        <ChevronRight aria-hidden className="size-3.5 shrink-0" />
         <span className="text-foreground">{prodi.nama}</span>
       </nav>
 
-      <header className="panel siku rounded-2xl border bg-card px-6 py-8 md:px-10 md:py-10">
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="outline" className="font-mono text-[10px]">
-            {prodi.kode}
-          </Badge>
-          <Badge variant="secondary" className="font-mono text-[10px]">
-            {prodi.jenjang}
-          </Badge>
+      <header className={gaya.kepalaProdi}>
+        <div className={gaya.isiKepalaProdi}>
+          <div className={gaya.penanda}>
+            <span>{prodi.kode}</span>
+            <span aria-hidden>/</span>
+            <span>{prodi.jenjang}</span>
+          </div>
+          <h1 className={gaya.judulProdi}>{prodi.nama}</h1>
+          <p className={gaya.deskripsiProdi}>
+            {k.katalog.prodi.keterangan}
+          </p>
+
+          {situs ? (
+            <a href={situs} className={gaya.tautanSitus}>
+              {k.katalog.prodi.kunjungiSitus}
+              <ArrowUpRight aria-hidden className="size-4" />
+            </a>
+          ) : null}
         </div>
-
-        <h1 className="mt-3 font-heading text-3xl font-semibold tracking-tight text-balance md:text-4xl">
-          {prodi.nama}
-        </h1>
-        <p className="mt-2 max-w-2xl text-muted-foreground text-pretty">
-          {k.katalog.prodi.keterangan}
-        </p>
-
-        {situs ? (
-          <a
-            href={situs}
-            className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-primary transition-colors hover:underline"
-          >
-            {k.katalog.prodi.kunjungiSitus}
-            <ArrowUpRight className="size-4" />
-          </a>
-        ) : null}
+        <div aria-hidden className={gaya.monogramProdi}>
+          <span>{prodi.kode}</span>
+          <span className={gaya.monogramJenjang}>{prodi.jenjang}</span>
+        </div>
       </header>
 
       {profilLulusan.length > 0 ? (
-        <section>
+        <section className={gaya.profil}>
           <h2 className="font-heading text-xl font-semibold tracking-tight">
             {k.katalog.prodi.profilJudul}
           </h2>
@@ -129,14 +127,14 @@ export default async function HalamanProdi({
             {k.katalog.prodi.profilKeterangan}
           </p>
 
-          <ol className="mt-5 grid gap-3 md:grid-cols-2">
+          <ol className={gaya.daftarProfil}>
             {profilLulusan.map((p, i) => (
-              <li key={p.kode} className="panel rounded-xl border bg-card p-5">
+              <li key={p.kode} className={gaya.kartuProfil}>
                 <div className="flex items-baseline gap-2.5">
-                  <span className="font-mono text-2xl font-semibold tabular-nums text-cahaya/70">
+                  <span aria-hidden className={gaya.nomorProfil}>
                     {String(i + 1).padStart(2, "0")}
                   </span>
-                  <Badge variant="outline" className="font-mono text-[10px]">
+                  <Badge variant="outline" className="rounded-sm font-mono text-[10px]">
                     {p.kode}
                   </Badge>
                 </div>
@@ -145,7 +143,7 @@ export default async function HalamanProdi({
 
                 {p.cpl.length > 0 ? (
                   <div className="mt-4 border-t pt-3">
-                    <p className="label-teknis mb-2 text-muted-foreground/70">
+                    <p className="label-teknis mb-2 text-muted-foreground">
                       {k.katalog.prodi.ditopangCapaian}
                     </p>
                     <div className="flex flex-wrap gap-1.5">
@@ -153,7 +151,7 @@ export default async function HalamanProdi({
                         <span
                           key={c.kode}
                           title={c.deskripsi}
-                          className="rounded-md border border-border px-2 py-0.5 font-mono text-[11px] text-muted-foreground"
+                          className="border border-border px-2 py-0.5 font-mono text-[11px] text-muted-foreground"
                         >
                           {c.kode}
                         </span>
@@ -167,7 +165,7 @@ export default async function HalamanProdi({
         </section>
       ) : null}
 
-      <section className="grid gap-3 sm:grid-cols-3">
+      <section className={gaya.statistikProdi}>
         <KartuAngka label={k.katalog.prodi.angkaMk} nilai={butir.length} />
         <KartuAngka label={k.katalog.prodi.angkaSks} nilai={totalSks} />
         <KartuAngka label={k.katalog.prodi.angkaSemester} nilai={semesterTercakup} />

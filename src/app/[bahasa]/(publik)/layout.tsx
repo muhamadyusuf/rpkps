@@ -1,5 +1,5 @@
 import { Tautan } from "@/components/tautan";
-import { ArrowUpRight, LogIn } from "lucide-react";
+import { ArrowUpRight, LogIn, ShieldCheck } from "lucide-react";
 import { TandaAplikasi } from "@/components/lambang";
 import { TombolTema } from "@/components/pengalih-tema";
 import { TombolBahasa } from "@/components/pengalih-bahasa";
@@ -9,6 +9,7 @@ import { situsProdi } from "@/lib/publik/tautan";
 import { NavigasiPublik } from "./navigasi-publik";
 import { kamus } from "@/lib/bahasa/server";
 import { isi } from "@/lib/bahasa/teks";
+import gaya from "./publik.module.css";
 
 /**
  * Kerangka halaman publik.
@@ -16,8 +17,8 @@ import { isi } from "@/lib/bahasa/teks";
  * Sengaja berbeda dari layout aplikasi: tanpa rel samping, satu bilah atas
  * yang ramping, dan ruang yang lebih longgar. Pembaca di sini datang dari
  * tautan luar dan hanya membaca satu dokumen — bukan berpindah antar modul.
- * Rupa tetap "Kisi & Cahaya"; kisi dan pendar sian sudah dipasang global di
- * `body::before/::after`.
+ * Token visual terlingkup pada pembungkus ini agar aplikasi internal dan
+ * dokumen cetak tetap memakai gaya masing-masing.
  */
 export default async function LayoutPublik({
   children,
@@ -31,19 +32,20 @@ export default async function LayoutPublik({
   ]);
 
   return (
-    <div className="flex min-h-dvh flex-col">
-      <header className="material sticky top-0 z-40 border-b print:hidden">
-        <div className="mx-auto flex h-14 w-full max-w-7xl items-center gap-3 px-4 md:px-6">
-          <Tautan href="/" className="rounded-lg focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none">
+    <div className={`${gaya.shell} flex min-h-dvh flex-col`}>
+      <a href="#konten-publik" className={gaya.skip}>{k.publikHalaman.kerangka.lewati}</a>
+      <header className={`${gaya.header} sticky top-0 z-40 print:hidden`}>
+        <div className={`${gaya.headerInner} mx-auto flex w-full max-w-7xl items-center px-4 md:px-6`}>
+          <Tautan href="/" className={`${gaya.brand} focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none`}>
             <TandaAplikasi />
           </Tautan>
 
-          <NavigasiPublik className="ml-2 hidden sm:flex" />
+          <NavigasiPublik className={`${gaya.navigation} hidden sm:flex`} />
 
           <div className="ml-auto flex items-center gap-1">
             <TombolBahasa />
             <TombolTema />
-            <ButtonLink variant="outline" size="sm" href="/dashboard">
+            <ButtonLink variant="default" size="sm" href="/dashboard" className="ml-2" aria-label={k.publik.masuk}>
               <LogIn />
               <span className="hidden sm:inline">{k.publik.masuk}</span>
             </ButtonLink>
@@ -52,15 +54,15 @@ export default async function LayoutPublik({
 
         {/* Pada ponsel navigasi turun satu baris agar lambang dan tombol
             Masuk tidak berdesakan di bilah yang sama. */}
-        <NavigasiPublik className="border-t px-3 py-1.5 sm:hidden" />
+        <NavigasiPublik className={`${gaya.navigation} border-t px-3 sm:hidden`} />
       </header>
 
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 md:px-6 md:py-12">
+      <main id="konten-publik" tabIndex={-1} className={`${gaya.main} mx-auto w-full max-w-7xl flex-1 px-4 outline-none md:px-6`}>
         {children}
       </main>
 
-      <footer className="panel mt-8 border-t print:hidden">
-        <div className="mx-auto grid w-full max-w-7xl gap-8 px-4 py-10 md:grid-cols-3 md:px-6">
+      <footer className={`${gaya.footer} print:hidden`}>
+        <div className={`${gaya.footerInner} mx-auto grid w-full max-w-7xl gap-8 px-4 md:px-6`}>
           <div>
             <TandaAplikasi />
             <p className="mt-3 max-w-xs text-sm text-muted-foreground">
@@ -136,7 +138,8 @@ export default async function LayoutPublik({
         </div>
 
         <div className="border-t">
-          <p className="mx-auto w-full max-w-7xl px-4 py-4 text-xs text-muted-foreground md:px-6">
+          <p className={`${gaya.footerNote} mx-auto w-full max-w-7xl px-4 text-xs text-muted-foreground md:px-6`}>
+            <ShieldCheck className="mt-0.5 size-4 shrink-0 text-cahaya" aria-hidden />
             {k.publikHalaman.kerangka.footerSidik}
           </p>
         </div>

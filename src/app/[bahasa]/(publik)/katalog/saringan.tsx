@@ -4,8 +4,10 @@ import { Input } from "@/components/ui/input";
 import { labelTahunAkademik } from "@/domain/rpkps/publik";
 import type { ProdiPublik } from "@/lib/publik/muat";
 import { cn } from "@/lib/utils";
-import { kamus } from "@/lib/bahasa/server";
+import { bahasaAktif, kamus } from "@/lib/bahasa/server";
+import { jalur } from "@/lib/bahasa/jalur";
 import { isi } from "@/lib/bahasa/teks";
+import gaya from "../katalog.module.css";
 
 /**
  * Penyaring katalog sebagai formulir GET biasa.
@@ -30,15 +32,16 @@ export async function PapanSaringan({
   daftarTahunAkademik: { kode: string }[];
   nilai: { cari?: string; prodi?: string; ta?: string; semester?: string };
 }) {
-  const k = await kamus();
+  const [k, b] = await Promise.all([kamus(), bahasaAktif()]);
 
   return (
     <form
-      action={action}
-      className="panel rounded-xl border bg-card p-3 md:p-4 print:hidden"
+      action={jalur(action, b)}
+      method="get"
+      className={cn(gaya.saringan, "print:hidden")}
     >
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="min-w-56 flex-1">
+      <div className={gaya.barisSaringan}>
+        <div className={gaya.kolomCari}>
           <Label htmlFor="cari">{k.publikHalaman.saringan.cari}</Label>
           <div className="relative">
             <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -48,13 +51,13 @@ export async function PapanSaringan({
               name="cari"
               defaultValue={nilai.cari ?? ""}
               placeholder={k.publikHalaman.saringan.cariPlaceholder}
-              className="pl-9"
+              className={cn(gaya.input, "pl-9")}
             />
           </div>
         </div>
 
         {daftarProdi.length > 0 ? (
-          <div className="min-w-44">
+          <div className={gaya.kolomSaringan}>
             <Label htmlFor="prodi">{k.publikHalaman.saringan.prodi}</Label>
             <Pilihan id="prodi" nama="prodi" nilai={nilai.prodi}>
               <option value="">{k.publikHalaman.saringan.semuaProdi}</option>
@@ -67,7 +70,7 @@ export async function PapanSaringan({
           </div>
         ) : null}
 
-        <div className="min-w-40">
+        <div className={gaya.kolomSaringan}>
           <Label htmlFor="ta">{k.publikHalaman.saringan.tahunAkademik}</Label>
           <Pilihan id="ta" nama="ta" nilai={nilai.ta}>
             <option value="">{k.publikHalaman.saringan.semuaTahun}</option>
@@ -79,7 +82,7 @@ export async function PapanSaringan({
           </Pilihan>
         </div>
 
-        <div className="min-w-32">
+        <div className={gaya.kolomSaringan}>
           <Label htmlFor="semester">{k.publikHalaman.saringan.semester}</Label>
           <Pilihan id="semester" nama="semester" nilai={nilai.semester}>
             <option value="">{k.publikHalaman.saringan.semuaSemester}</option>
@@ -91,8 +94,8 @@ export async function PapanSaringan({
           </Pilihan>
         </div>
 
-        <Button type="submit" variant="outline">
-          <SlidersHorizontal />
+        <Button type="submit" className={gaya.tombolSaringan}>
+          <SlidersHorizontal aria-hidden />
           {k.publikHalaman.saringan.terapkan}
         </Button>
       </div>
@@ -110,7 +113,7 @@ function Label({
   return (
     <label
       htmlFor={htmlFor}
-      className="label-teknis mb-1.5 block text-muted-foreground/80"
+      className="label-teknis mb-2.5 block text-muted-foreground"
     >
       {children}
     </label>
@@ -139,9 +142,9 @@ function Pilihan({
         name={nama}
         defaultValue={nilai ?? ""}
         className={cn(
-          "h-9 w-full appearance-none rounded-lg border border-input bg-card py-1 pr-8 pl-3 text-sm transition-[color,box-shadow,border-color] duration-200 outline-none",
+          "w-full appearance-none border border-input bg-card py-1 pr-8 pl-3 text-sm transition-[color,box-shadow,border-color] duration-200 outline-none",
           "hover:border-cahaya/35 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/25",
-          "dark:bg-input/30",
+          gaya.input,
         )}
       >
         {children}
