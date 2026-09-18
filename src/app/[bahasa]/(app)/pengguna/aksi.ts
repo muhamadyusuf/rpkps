@@ -6,7 +6,16 @@ import { prisma } from "@/lib/prisma";
 import { wajibPeran } from "@/lib/otorisasi";
 import { Peran, StatusPengguna } from "@/generated/prisma";
 import { kamusAksi } from "@/lib/bahasa/server";
+import { isi as sisip } from "@/lib/bahasa/teks";
 import { pesanZod } from "@/lib/bahasa/zod";
+import { firebaseUidUndangan } from "@/lib/sesi";
+import { PERAN_INSTITUSI } from "@/domain/pengguna/peran";
+import {
+  rakitPenggunaImpor,
+  type BarisPenggunaSiap,
+  type GalatBarisPengguna,
+} from "@/domain/pengguna/impor";
+import { bacaBerkasPengguna } from "@/lib/pengguna/excel";
 
 /** String kosong dari form dianggap "tidak diisi", bukan string kosong. */
 const opsional = z
@@ -111,8 +120,86 @@ export async function ubahStatus(
   return { ok: true, pesan: kam.aksi.umum.statusDiperbarui };
 }
 
-/** Peran bercakupan institusi (tanpa prodi). */
-const PERAN_INSTITUSI: Peran[] = ["ADMIN", "GPM", "ASESOR"];
+const SkemaTambahPengguna = z.object({
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .email("@aksi.periksa.emailTidakValid"),
+  nama: z.string().trim().min(2, "@aksi.periksa.namaMinimal"),
+  peran: z.nativeEnum(Peran).nullable(),
+  prodiId: opsional,
+});
+
+/**
+ * Admin membuat akun langsung, lengkap dengan peran — pemiliknya tidak perlu
+ * mendaftar sendiri lalu menunggu diverifikasi. Baris `Pengguna` dibuat
+ * berstatus AKTIF dengan uid Firebase sementara (`firebaseUidUndangan`);
+ * `siapkanPengguna` menautkannya ke uid Firebase yang asli pada percobaan
+ * masuk pertama pemiliknya, dicocokkan lewat email.
+ */
+export async function tambahPengguna(data: FormData): Promise<HasilAksi> {
+  const kam = await kamusAksi();
+  const sesi = await wajibPeran("ADMIN");
+
+  const peranMentah = data.get("peran");
+  const parsed = SkemaTambahPengguna.safeParse({
+    email: data.get("email"),
+    nama: data.get("nama"),
+    peran: peranMentah ? peranMentah : null,
+    prodiId: data.get("prodiId"),
+  });
+  if (!parsed.success) {
+    return { ok: false, pesan: pesanZod(parsed.error, kam, kam.aksi.umum.dataTidakValid) };
+  }
+
+  const { email, nama, peran, prodiId } = parsed.data;
+
+  const sudahAda = await prisma.pengguna.findUnique({
+    where: { email },
+    select: { id: true },
+  });
+  if (sudahAda) {
+    return { ok: false, pesan: kam.aksi.pengguna.emailSudahTerdaftar };
+  }
+
+  if (peran) {
+    const butuhProdi = !PERAN_INSTITUSI.includes(peran);
+    if (butuhProdi && !prodiId) {
+      return { ok: false, pesan: kam.aksi.pengguna.peranButuhProdi };
+    }
+  }
+
+  const pengguna = await prisma.pengguna.create({
+    data: {
+      firebaseUid: firebaseUidUndangan(),
+      email,
+      nama,
+      status: "AKTIF",
+      penugasan: peran
+        ? {
+            create: {
+              peran,
+              prodiId: !PERAN_INSTITUSI.includes(peran) ? prodiId : null,
+            },
+          }
+        : undefined,
+    },
+  });
+
+  await prisma.logAudit.create({
+    data: {
+      penggunaId: sesi.id,
+      aksi: "PENGGUNA_DITAMBAHKAN",
+      entitas: "pengguna",
+      entitasId: pengguna.id,
+      ringkasan: `${sesi.email} menambahkan pengguna ${email}`,
+    },
+  });
+
+  segarkan("/pengguna");
+  return { ok: true, pesan: sisip(kam.aksi.pengguna.penggunaDitambahkan, { email }) };
+}
 
 export async function tambahPeran(
   penggunaId: string,
@@ -192,3 +279,168 @@ export async function hapusPeran(penugasanId: string): Promise<HasilAksi> {
   segarkan("/pengguna");
   return { ok: true, pesan: kam.aksi.pengguna.peranDihapus };
 }
+
+const UKURAN_MAKS_PENGGUNA = 5 * 1024 * 1024; // 5 MB
+
+export interface HasilPraTinjauPengguna {
+  ok: boolean;
+  pesan?: string;
+  siap?: BarisPenggunaSiap[];
+  galat?: GalatBarisPengguna[];
+}
+
+/**
+ * Membaca berkas impor pengguna dan memvalidasinya TANPA menyimpan apa pun.
+ * Email yang sudah terdaftar di basis data dipindah menjadi galat baris di
+ * sini — pemeriksaan format murni (`rakitPenggunaImpor`) tidak menyentuh
+ * basis data.
+ */
+export async function praTinjauImporPengguna(data: FormData): Promise<HasilPraTinjauPengguna> {
+  const kam = await kamusAksi();
+  await wajibPeran("ADMIN");
+
+  const berkas = data.get("berkas");
+  if (!(berkas instanceof File) || berkas.size === 0) {
+    return { ok: false, pesan: kam.aksi.berkas.pilihExcel };
+  }
+  if (berkas.size > UKURAN_MAKS_PENGGUNA) {
+    return { ok: false, pesan: kam.aksi.berkas.ukuranMelebihi5mb };
+  }
+  if (!berkas.name.toLowerCase().endsWith(".xlsx")) {
+    return { ok: false, pesan: kam.aksi.berkas.harusXlsx };
+  }
+
+  let mentah;
+  try {
+    mentah = await bacaBerkasPengguna(await berkas.arrayBuffer());
+  } catch {
+    return { ok: false, pesan: kam.aksi.berkas.takTerbaca };
+  }
+  if (mentah.length === 0) {
+    return { ok: false, pesan: kam.aksi.lain.imporLembarKosong };
+  }
+
+  const prodi = await prisma.prodi.findMany({
+    where: { aktif: true },
+    select: { id: true, kode: true },
+  });
+
+  const { siap, galat } = rakitPenggunaImpor(mentah, prodi);
+
+  if (siap.length > 0) {
+    const sudahAda = await prisma.pengguna.findMany({
+      where: { email: { in: siap.map((b) => b.email) } },
+      select: { email: true },
+    });
+    const sudahAdaSet = new Set(sudahAda.map((p) => p.email.toLowerCase()));
+    const siapAkhir: BarisPenggunaSiap[] = [];
+    for (const b of siap) {
+      if (sudahAdaSet.has(b.email)) {
+        galat.push({ baris: b.baris, pesan: `Email "${b.email}" sudah terdaftar.` });
+      } else {
+        siapAkhir.push(b);
+      }
+    }
+    galat.sort((a, b) => a.baris - b.baris);
+    return { ok: true, siap: siapAkhir, galat };
+  }
+
+  return { ok: true, siap, galat };
+}
+
+export interface HasilSimpanImporPengguna {
+  ok: boolean;
+  pesan: string;
+  jumlahDitambahkan?: number;
+  jumlahDilewati?: number;
+}
+
+/**
+ * Menyimpan baris pengguna hasil impor.
+ *
+ * Divalidasi ULANG di sini, bukan sekadar percaya pada hasil pratinjau —
+ * data yang dikirim klien tidak boleh dipercaya begitu saja. Baris yang
+ * emailnya sudah terdaftar (mis. dua orang mengimpor berkas yang tumpang
+ * tindih) dilewati, bukan menggagalkan seluruh impor.
+ */
+export async function simpanImporPengguna(
+  baris: BarisPenggunaSiap[],
+): Promise<HasilSimpanImporPengguna> {
+  const kam = await kamusAksi();
+  const sesi = await wajibPeran("ADMIN");
+
+  if (!Array.isArray(baris) || baris.length === 0) {
+    return { ok: false, pesan: kam.aksi.pengguna.imporTanpaBarisSiap };
+  }
+
+  const emailUnik = Array.from(new Set(baris.map((b) => String(b.email).trim().toLowerCase())));
+  const sudahAda = await prisma.pengguna.findMany({
+    where: { email: { in: emailUnik } },
+    select: { email: true },
+  });
+  const sudahAdaSet = new Set(sudahAda.map((p) => p.email.toLowerCase()));
+
+  const prodiId = Array.from(
+    new Set(baris.map((b) => b.prodiId).filter((id): id is string => Boolean(id))),
+  );
+  const prodiValid = new Set(
+    (
+      await prisma.prodi.findMany({ where: { id: { in: prodiId } }, select: { id: true } })
+    ).map((p) => p.id),
+  );
+
+  const diproses: BarisPenggunaSiap[] = [];
+  const emailDiproses = new Set<string>();
+  for (const b of baris) {
+    const email = String(b.email).trim().toLowerCase();
+    if (!email || sudahAdaSet.has(email) || emailDiproses.has(email)) continue;
+    if (b.prodiId && !prodiValid.has(b.prodiId)) continue;
+    diproses.push({ ...b, email });
+    emailDiproses.add(email);
+  }
+
+  const dilewati = baris.length - diproses.length;
+  if (diproses.length === 0) {
+    return { ok: false, pesan: kam.aksi.pengguna.imporTanpaBarisSiap };
+  }
+
+  await prisma.$transaction(
+    diproses.map((b) =>
+      prisma.pengguna.create({
+        data: {
+          firebaseUid: firebaseUidUndangan(),
+          email: b.email,
+          nama: b.nama,
+          status: "AKTIF",
+          penugasan: b.peran
+            ? {
+                create: {
+                  peran: b.peran,
+                  prodiId: !PERAN_INSTITUSI.includes(b.peran) ? b.prodiId : null,
+                },
+              }
+            : undefined,
+        },
+      }),
+    ),
+  );
+
+  await prisma.logAudit.create({
+    data: {
+      penggunaId: sesi.id,
+      aksi: "PENGGUNA_DIIMPOR",
+      entitas: "pengguna",
+      ringkasan: `${sesi.email} mengimpor ${diproses.length} pengguna`,
+    },
+  });
+
+  segarkan("/pengguna");
+
+  const pesan =
+    dilewati > 0
+      ? sisip(kam.aksi.pengguna.imporSelesaiSebagian, { jumlah: diproses.length, dilewati })
+      : sisip(kam.aksi.pengguna.imporSelesai, { jumlah: diproses.length });
+
+  return { ok: true, pesan, jumlahDitambahkan: diproses.length, jumlahDilewati: dilewati };
+}
+

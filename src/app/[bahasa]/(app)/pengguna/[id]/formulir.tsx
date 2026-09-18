@@ -25,7 +25,7 @@ import type { Peran, StatusPengguna } from "@/generated/prisma";
  * sini melainkan di `kamus.enum.peran` — daftar ini hanya menyimpan urutan
  * dan apakah peran itu butuh prodi.
  */
-const SEMUA_PERAN: { nilai: Peran; butuhProdi: boolean }[] = [
+export const SEMUA_PERAN: { nilai: Peran; butuhProdi: boolean }[] = [
   { nilai: "ADMIN", butuhProdi: false },
   { nilai: "GPM", butuhProdi: false },
   { nilai: "ASESOR", butuhProdi: false },

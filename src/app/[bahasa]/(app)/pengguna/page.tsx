@@ -1,5 +1,6 @@
 import { Tautan } from "@/components/tautan";
 import { Badge } from "@/components/ui/badge";
+import { ButtonLink } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -9,6 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Upload } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { wajibPeran } from "@/lib/otorisasi";
 import { kamus } from "@/lib/bahasa/server";
@@ -16,6 +18,7 @@ import { isi } from "@/lib/bahasa/teks";
 import { KotakCari } from "@/components/kotak-cari";
 import { Paginasi } from "@/components/paginasi";
 import { bacaHalaman, bacaKata, hitungHalaman, UKURAN_HALAMAN } from "@/lib/paginasi";
+import { FormulirTambahPengguna } from "./formulir-tambah";
 
 export const dynamic = "force-dynamic";
 export async function generateMetadata() {
@@ -49,9 +52,14 @@ export default async function HalamanPengguna({
   // Jumlah yang menunggu verifikasi dihitung atas SELURUH pengguna, tidak
   // mengikuti pencarian: peringatan itu tentang antrean kerja admin, bukan
   // tentang daftar yang sedang dilihatnya.
-  const [jumlah, menunggu] = await Promise.all([
+  const [jumlah, menunggu, prodi] = await Promise.all([
     prisma.pengguna.count({ where: saring }),
     prisma.pengguna.count({ where: { status: "MENUNGGU_VERIFIKASI" } }),
+    prisma.prodi.findMany({
+      where: { aktif: true },
+      orderBy: { nama: "asc" },
+      select: { id: true, nama: true, kode: true },
+    }),
   ]);
 
   const halaman = hitungHalaman(jumlah, bacaHalaman(mentah.hal), UKURAN_HALAMAN);
@@ -92,6 +100,22 @@ export default async function HalamanPengguna({
           </CardHeader>
         </Card>
       ) : null}
+
+      <Card>
+        <CardHeader className="flex flex-row items-start justify-between gap-4">
+          <div>
+            <CardTitle className="text-base">{k.pengguna.tambah.judul}</CardTitle>
+            <CardDescription>{k.pengguna.tambah.keterangan}</CardDescription>
+          </div>
+          <ButtonLink variant="outline" size="sm" href="/pengguna/impor">
+            <Upload />
+            {k.pengguna.imporTombol}
+          </ButtonLink>
+        </CardHeader>
+        <CardContent>
+          <FormulirTambahPengguna prodi={prodi} />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardContent className="pt-6">
