@@ -77,6 +77,10 @@
   padding-bottom: 72px;
 }
 
+.dokumen {
+  overflow-wrap: anywhere;
+}
+
 .navigation a {
   border-radius: 0;
   padding: 10px 14px;
@@ -130,6 +134,16 @@
   .main { padding-top: 28px; padding-bottom: 48px; }
   .footerInner { grid-template-columns: 1fr; gap: 28px; padding-top: 36px; }
   .shell section[id] { scroll-margin-top: 8rem; }
+  .dokumen header [data-slot="button"] {
+    max-width: 100%;
+    min-height: 2.5rem;
+    height: auto;
+    padding-block: 0.5rem;
+    white-space: normal;
+    text-align: left;
+  }
+  .pitaSidik > p { flex-basis: calc(100% - 40px); }
+  .riwayat li { flex-direction: column; gap: 0.5rem; }
 }
 
 @media print {

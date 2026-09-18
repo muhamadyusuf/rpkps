@@ -16,7 +16,7 @@ import { Paginasi } from "@/components/paginasi";
 import { kamus } from "@/lib/bahasa/server";
 import { isi } from "@/lib/bahasa/teks";
 import { prisma } from "@/lib/prisma";
-import { cakupanProdi, punyaPeranDiProdi, wajibAktif } from "@/lib/otorisasi";
+import { cakupanKurikulum, punyaPeranDiProdi, wajibAktif } from "@/lib/otorisasi";
 import { bacaHalaman, bacaKata, hitungHalaman } from "@/lib/paginasi";
 import {
   daftarCalonKoordinator,
@@ -65,7 +65,7 @@ export default async function HalamanKoordinatorMk({
   });
   if (!kurikulum) notFound();
 
-  const cakupan = cakupanProdi(sesi);
+  const cakupan = cakupanKurikulum(sesi);
   if (cakupan !== null && !cakupan.includes(kurikulum.prodiId)) notFound();
 
   // GPM sengaja hanya membaca: perannya mengawasi mutu, bukan membagi beban

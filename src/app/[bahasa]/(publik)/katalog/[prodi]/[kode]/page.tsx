@@ -29,6 +29,7 @@ import { TombolCetak } from "./tombol-cetak";
 import { teksRiwayat } from "@/lib/bahasa/riwayat";
 import { segalaBahasa } from "@/lib/bahasa/jalur";
 import { BAHASA } from "@/kamus";
+import gaya from "../../../publik.module.css";
 
 export const dynamic = "force-dynamic";
 
@@ -135,7 +136,7 @@ export default async function HalamanDokumenPublik({
   ];
 
   return (
-    <div className="space-y-8">
+    <div className={`${gaya.dokumen} space-y-8`}>
       <nav
         aria-label={k.dokumenPublik.remahRoti}
         className="flex flex-wrap items-center gap-1 text-sm text-muted-foreground print:hidden"
@@ -334,7 +335,7 @@ export default async function HalamanDokumenPublik({
               keterangan={k.dokumenPublik.bagian.riwayatKeterangan}
             >
               <Panel>
-                <ol className="space-y-3">
+                <ol className={`${gaya.riwayat} space-y-3`}>
                   {rpkps.riwayat.map((r, i) => (
                     <li key={i} className="flex gap-3 border-b pb-3 text-sm last:border-0 last:pb-0">
                       <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
@@ -383,7 +384,7 @@ function PitaSidik({
   b: Bahasa;
 }) {
   return (
-    <div className="panel flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border bg-card px-4 py-3">
+    <div className={`${gaya.pitaSidik} panel flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border bg-card px-4 py-3`}>
       <ShieldCheck className="size-5 shrink-0 text-success" />
       <p className="min-w-0 flex-1 text-sm">
         <span className="font-medium">

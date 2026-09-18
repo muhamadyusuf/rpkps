@@ -16,7 +16,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { prisma } from "@/lib/prisma";
-import { cakupanProdi, punyaPeran, wajibAktif } from "@/lib/otorisasi";
+import { bolehKelolaKurikulum, cakupanKurikulum, cakupanProdi, wajibAktif } from "@/lib/otorisasi";
 import { bolehSuntingKurikulum } from "@/domain/kurikulum/sunting";
 import { muatKurikulumInput } from "@/lib/kurikulum/usulan";
 import { validasiKurikulum } from "@/domain/kurikulum/validator";
@@ -87,10 +87,12 @@ export default async function HalamanDetailKurikulum({
 
   if (!kurikulum) notFound();
 
-  const cakupan = cakupanProdi(sesi);
+  const cakupan = cakupanKurikulum(sesi);
   if (cakupan !== null && !cakupan.includes(kurikulum.prodiId)) notFound();
 
-  const bolehKelola = punyaPeran(sesi, "ADMIN", "KAPRODI");
+  const bolehKelola = bolehKelolaKurikulum(sesi, kurikulum.prodiId);
+  const cakupanUsulan = cakupanProdi(sesi);
+  const bolehLihatUsulan = cakupanUsulan === null || cakupanUsulan.includes(kurikulum.prodiId);
 
   /*
    * G1 (docs/15 §2.2). Halaman memutuskan apa yang DIRENDER; aksinya memeriksa
@@ -255,9 +257,11 @@ export default async function HalamanDetailKurikulum({
                   ) : null}
                 </div>
                 <p className="mt-1.5">
-                  <Tautan href={`/usulan/${r.usulan.id}`} className="hover:underline">
-                    {r.usulan.judul}
-                  </Tautan>
+                  {bolehLihatUsulan ? (
+                    <Tautan href={`/usulan/${r.usulan.id}`} className="hover:underline">
+                      {r.usulan.judul}
+                    </Tautan>
+                  ) : r.usulan.judul}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {r.ringkasan}

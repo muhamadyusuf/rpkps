@@ -3,7 +3,7 @@
 import { segarkan } from "@/lib/bahasa/segarkan";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { cakupanProdi, punyaPeran, punyaPeranDiProdi, wajibPeran } from "@/lib/otorisasi";
+import { bolehBuatRpkpsDiProdi, punyaPeran, punyaPeranDiProdi, wajibPeran } from "@/lib/otorisasi";
 import { pesanTerkunci, wenangRpkps } from "@/lib/rpkps/wenang";
 import {
   muatKebijakan,
@@ -73,8 +73,7 @@ export async function buatRpkps(
   });
   if (!mk) return { ok: false, pesan: kam.aksi.takAda.mataKuliah };
 
-  const cakupan = cakupanProdi(sesi);
-  if (cakupan !== null && !cakupan.includes(mk.kurikulum.prodiId)) {
+  if (!bolehBuatRpkpsDiProdi(sesi, mk.kurikulum.prodiId)) {
     return { ok: false, pesan: kam.aksi.wenang.atasProdi };
   }
 

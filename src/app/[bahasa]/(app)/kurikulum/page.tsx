@@ -4,13 +4,15 @@ import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { prisma } from "@/lib/prisma";
-import { cakupanProdi, punyaPeran, wajibAktif } from "@/lib/otorisasi";
+import { bolehKelolaKurikulum, cakupanKurikulum, cakupanProdi, punyaPeran, wajibAktif } from "@/lib/otorisasi";
 import { bacaSaringanUnit, muatUnit, prodiTersaring } from "@/lib/unit";
 import { SaringanUnit } from "@/components/saringan-unit";
 import { TombolStatusKurikulum } from "./tombol";
 import { TombolKurikulumKosong } from "./kosong";
 import { kamus } from "@/lib/bahasa/server";
 import { isi } from "@/lib/bahasa/teks";
+import { Paginasi } from "@/components/paginasi";
+import { bacaHalaman, hitungHalaman } from "@/lib/paginasi";
 
 export const dynamic = "force-dynamic";
 export async function generateMetadata() {
@@ -29,13 +31,13 @@ export default async function HalamanKurikulum({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const sesi = await wajibAktif();
-  const cakupan = cakupanProdi(sesi);
+  const cakupan = cakupanKurikulum(sesi);
+  const cakupanKelola = cakupanProdi(sesi);
   const bolehImpor = punyaPeran(sesi, "ADMIN", "KAPRODI");
   const k = await kamus();
 
   /*
-   * Saringan unit penyelenggara. Bagi ADMIN dan GPM daftar ini bercakupan
-   * institusi — seluruh prodi sekaligus — sehingga tanpa penyaring, menemukan
+   * Dosen juga dapat membaca kurikulum seluruh prodi. Tanpa penyaring, menemukan
    * kurikulum sebuah prodi berarti membaca seluruh halaman. `prodiTersaring`
    * menerjemahkan kode dari alamat menjadi id DARI DAFTAR yang sudah dibatasi
    * cakupan, jadi kode di luar wewenang tidak pernah menjadi id yang lolos.
@@ -50,15 +52,20 @@ export default async function HalamanKurikulum({
   // ada yang boleh menyusun — daftar prodi tidak berguna bagi pembaca biasa.
   const prodi = bolehImpor
     ? await prisma.prodi.findMany({
-        where: { aktif: true, ...(cakupan === null ? {} : { id: { in: cakupan } }) },
+        where: { aktif: true, ...(cakupanKelola === null ? {} : { id: { in: cakupanKelola } }) },
         orderBy: { nama: "asc" },
         select: { id: true, nama: true, kode: true },
       })
     : [];
 
+  const where = batasProdi === null ? {} : { prodiId: { in: batasProdi } };
+  const jumlah = await prisma.kurikulum.count({ where });
+  const halaman = hitungHalaman(jumlah, bacaHalaman(mentah.hal));
   const daftar = await prisma.kurikulum.findMany({
-    where: batasProdi === null ? {} : { prodiId: { in: batasProdi } },
-    orderBy: [{ tahun: "desc" }, { nama: "asc" }],
+    where,
+    orderBy: [{ tahun: "desc" }, { nama: "asc" }, { id: "asc" }],
+    skip: halaman.lewati,
+    take: halaman.ambil,
     include: {
       prodi: { select: { nama: true, kode: true } },
       _count: { select: { cpl: true, mataKuliah: true } },
@@ -142,7 +149,7 @@ export default async function HalamanKurikulum({
                       })}
                     </p>
                   </div>
-                  {bolehImpor ? (
+                  {bolehKelolaKurikulum(sesi, kur.prodiId) ? (
                     <TombolStatusKurikulum id={kur.id} status={kur.status} />
                   ) : null}
                 </div>
@@ -151,6 +158,7 @@ export default async function HalamanKurikulum({
           ))}
         </div>
       )}
+      <Paginasi halaman={halaman} basis="/kurikulum" params={saringan} />
     </div>
   );
 }

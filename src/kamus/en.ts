@@ -828,7 +828,7 @@ export const en: Kamus = {
     metaJudul: "Course catalogue",
     metaDeskripsi: "Browse every published RPKPS of {institusi} by study programme, academic year, and semester.",
     judul: "Course catalogue",
-    keterangan: "Every RPKPS ratified by a Head of Study Programme, across programmes and academic years. Each card shows the most recent publication for that course; earlier years can be opened from the document page.",
+    keterangan: "Every RPKPS ratified by Quality Assurance, across programmes and academic years. Each card shows the most recent publication for that course; earlier years can be opened from the document page.",
     jumlahMk: "{jumlah} courses",
     prodi: {
       metaTidakDitemukan: "Study programme not found",

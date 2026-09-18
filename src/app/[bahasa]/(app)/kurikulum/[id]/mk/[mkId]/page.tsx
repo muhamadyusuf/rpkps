@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { prisma } from "@/lib/prisma";
-import { cakupanProdi, punyaPeran, wajibAktif } from "@/lib/otorisasi";
+import { bolehKelolaKurikulum, cakupanKurikulum, cakupanProdi, wajibAktif } from "@/lib/otorisasi";
 import { bolehSuntingKurikulum } from "@/domain/kurikulum/sunting";
 import { PengelolaCapaian } from "./capaian";
 import { infoLevel, type LevelBloom } from "@/domain/kurikulum/bloom";
@@ -34,6 +34,7 @@ export default async function HalamanMataKuliah({
 }) {
   const sesi = await wajibAktif();
   const { id, mkId } = await params;
+  const cakupanUsulan = cakupanProdi(sesi);
 
   const [mk, kebijakanBaris, usulanTerbuka, penugasan] = await Promise.all([
     prisma.mataKuliah.findUnique({
@@ -76,6 +77,7 @@ export default async function HalamanMataKuliah({
     prisma.usulanRevisi.findMany({
       where: {
         mataKuliahId: mkId,
+        ...(cakupanUsulan === null ? {} : { kurikulum: { prodiId: { in: cakupanUsulan } } }),
         status: { in: ["DRAF", "DIAJUKAN", "DIREVISI"] },
       },
       orderBy: { diubahPada: "desc" },
@@ -104,13 +106,14 @@ export default async function HalamanMataKuliah({
 
   if (!mk || mk.kurikulum.id !== id) notFound();
 
-  const cakupan = cakupanProdi(sesi);
+  const cakupan = cakupanKurikulum(sesi);
   if (cakupan !== null && !cakupan.includes(mk.kurikulum.prodiId)) notFound();
 
   // G1 (docs/15 §2.2). Diperiksa ulang di tiap aksi — halaman hanya memutuskan
   // apa yang dirender.
   const bolehSunting =
-    punyaPeran(sesi, "ADMIN", "KAPRODI") && bolehSuntingKurikulum(mk.kurikulum.status).boleh;
+    bolehKelolaKurikulum(sesi, mk.kurikulum.prodiId) && bolehSuntingKurikulum(mk.kurikulum.status).boleh;
+  const bolehUsulan = cakupanUsulan === null || cakupanUsulan.includes(mk.kurikulum.prodiId);
 
   // Pagu waktu dihitung langsung dari kebijakan yang ada, supaya konsekuensi
   // pemecahan sks teori/praktik terlihat sejak level kurikulum.
@@ -183,10 +186,12 @@ export default async function HalamanMataKuliah({
           {k.kurikulum.mk.readOnlyAwal} <strong>{k.kurikulum.mk.readOnlyTebal}</strong>{" "}
           {k.kurikulum.mk.readOnlyAkhir}
         </p>
-        <ButtonLink size="sm" variant="outline" href={`/usulan/baru?mk=${mk.id}`}>
-          <GitPullRequestArrow />
-          {k.kurikulum.mk.usulkanRevisi}
-        </ButtonLink>
+        {bolehUsulan ? (
+          <ButtonLink size="sm" variant="outline" href={`/usulan/baru?mk=${mk.id}`}>
+            <GitPullRequestArrow />
+            {k.kurikulum.mk.usulkanRevisi}
+          </ButtonLink>
+        ) : null}
       </div>
       )}
 

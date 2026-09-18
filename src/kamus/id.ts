@@ -886,7 +886,7 @@ export const id = {
     metaJudul: "Katalog mata kuliah",
     metaDeskripsi: "Telusuri seluruh RPKPS terbit {institusi} berdasarkan program studi, tahun akademik, dan semester.",
     judul: "Katalog mata kuliah",
-    keterangan: "Seluruh RPKPS yang sudah disahkan Ketua Program Studi, lintas program studi dan tahun akademik. Kartu menunjukkan penerbitan terbaru tiap mata kuliah; versi tahun sebelumnya dapat dibuka dari halaman dokumen.",
+    keterangan: "Seluruh RPKPS yang sudah disahkan Penjaminan Mutu, lintas program studi dan tahun akademik. Kartu menunjukkan penerbitan terbaru tiap mata kuliah; versi tahun sebelumnya dapat dibuka dari halaman dokumen.",
     jumlahMk: "{jumlah} mata kuliah",
     prodi: {
       metaTidakDitemukan: "Program studi tidak ditemukan",

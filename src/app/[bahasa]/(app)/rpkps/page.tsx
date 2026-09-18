@@ -13,7 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { prisma } from "@/lib/prisma";
-import { cakupanProdi, wajibAktif } from "@/lib/otorisasi";
+import { bolehBuatRpkpsDiProdi, cakupanKurikulum, wajibAktif } from "@/lib/otorisasi";
 import { saringDaftarRpkps } from "@/lib/rpkps/wenang";
 import { nilaiTenggatDokumen } from "@/domain/rpkps/tenggat";
 import { capRonde } from "@/domain/rpkps/paraf";
@@ -54,7 +54,7 @@ export default async function HalamanRpkps({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const sesi = await wajibAktif();
-  const cakupan = cakupanProdi(sesi);
+  const cakupan = cakupanKurikulum(sesi);
 
   const mentah = await searchParams;
   const kata = bacaKata(mentah.q);
@@ -63,7 +63,7 @@ export default async function HalamanRpkps({
   /*
    * Saringan unit penyelenggara, sama seperti daftar kurikulum. Prodi yang
    * dipilih MEMPERSEMPIT, tidak memperluas: `prodiTersaring` hanya mengenal id
-   * dari daftar yang sudah dibatasi cakupan pengguna, dan penyaringnya dipasang
+   * dari daftar kurikulum yang boleh dibaca, dan penyaringnya dipasang
    * sebagai syarat AND di samping `saringDaftarRpkps` — termasuk di atas cabang
    * kepengampuan lintas prodi, karena memilih sebuah prodi berarti meminta
    * prodi itu saja.
@@ -208,7 +208,10 @@ export default async function HalamanRpkps({
           },
           orderBy: [{ semester: "asc" }, { kode: "asc" }],
           take: UKURAN_HALAMAN,
-          select: { id: true, kode: true, nama: true, namaEn: true, semester: true },
+          select: {
+            id: true, kode: true, nama: true, namaEn: true, semester: true,
+            kurikulum: { select: { id: true, nama: true, prodiId: true, prodi: { select: { nama: true } } } },
+          },
         })
       : [],
   ]);
@@ -495,10 +498,12 @@ export default async function HalamanRpkps({
                       {mk.kode} — {namaMk(mk, b)}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {isi(k.rpkps.semester, { nomor: mk.semester })}
+                      {mk.kurikulum.prodi.nama} · {mk.kurikulum.nama} · {isi(k.rpkps.semester, { nomor: mk.semester })}
                     </p>
                   </div>
-                  <TombolBuatRpkps mataKuliahId={mk.id} tahunAkademikId={tahunAktif.id} />
+                  {bolehBuatRpkpsDiProdi(sesi, mk.kurikulum.prodiId) ? (
+                    <TombolBuatRpkps mataKuliahId={mk.id} tahunAkademikId={tahunAktif.id} />
+                  ) : null}
                 </div>
               ))}
             </div>

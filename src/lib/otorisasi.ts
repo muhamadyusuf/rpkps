@@ -3,46 +3,21 @@ import { redirect } from "next/navigation";
 import { sesiSaatIni, type PenggunaSesi } from "@/lib/sesi";
 import { jalurAktif } from "@/lib/bahasa/server";
 import type { Peran } from "@/generated/prisma";
+import { punyaPeran } from "@/domain/otorisasi";
 
 /**
- * Otorisasi berbasis peran DAN cakupan prodi.
- * Peran tanpa prodi (prodiId null) berarti cakupan institusi.
- *
- * Nama peran yang dibaca manusia TIDAK di sini melainkan di
- * `kamus.enum.peran` — otorisasi memutuskan siapa boleh apa, bukan
- * bagaimana perannya dieja dalam bahasa yang sedang dipakai.
+ * Pemeriksaan sesi tetap di server; keputusan peran dan cakupan murni hidup
+ * di domain agar dapat diuji tanpa cookie, Firebase, atau basis data.
  */
-
-export function punyaPeran(sesi: PenggunaSesi | null, ...peran: Peran[]): boolean {
-  if (!sesi) return false;
-  return peran.some((p) => sesi.daftarPeran.includes(p));
-}
-
-/** ADMIN dan GPM bercakupan institusi, sehingga berlaku untuk semua prodi. */
-export function punyaPeranDiProdi(
-  sesi: PenggunaSesi | null,
-  prodiId: string,
-  ...peran: Peran[]
-): boolean {
-  if (!sesi) return false;
-  return sesi.penugasan.some(
-    (p) => peran.includes(p.peran) && (p.prodiId === null || p.prodiId === prodiId),
-  );
-}
-
-export function adalahAdmin(sesi: PenggunaSesi | null): boolean {
-  return punyaPeran(sesi, "ADMIN");
-}
-
-/** Prodi yang boleh dikelola pengguna. null = semua prodi. */
-export function cakupanProdi(sesi: PenggunaSesi | null): string[] | null {
-  if (!sesi) return [];
-  if (punyaPeran(sesi, "ADMIN", "GPM", "ASESOR")) return null;
-  const daftar = sesi.penugasan
-    .map((p) => p.prodiId)
-    .filter((id): id is string => id !== null);
-  return [...new Set(daftar)];
-}
+export {
+  punyaPeran,
+  punyaPeranDiProdi,
+  adalahAdmin,
+  cakupanProdi,
+  cakupanKurikulum,
+  bolehBuatRpkpsDiProdi,
+  bolehKelolaKurikulum,
+} from "@/domain/otorisasi";
 
 export async function wajibMasuk(): Promise<PenggunaSesi> {
   const sesi = await sesiSaatIni();

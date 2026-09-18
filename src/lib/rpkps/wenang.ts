@@ -20,8 +20,9 @@ import type { Kamus } from "@/kamus";
  *
  * Kepengampuan adalah JALUR AKSES TERSENDIRI, bukan tambahan di atas cakupan
  * prodi: ditunjuk sebagai pengampu berarti boleh menyunting RPKPS itu, dan
- * hanya RPKPS itu. Cakupan prodi tetap mengatur segala yang lain — daftar
- * kurikulum, usulan revisi, agregasi evaluasi prodi.
+ * hanya RPKPS itu. Cakupan prodi tetap mengatur usulan revisi dan agregasi
+ * evaluasi prodi. Membaca kurikulum serta membuat RPKPS baru lintas prodi
+ * punya cakupan tersendiri di `cakupanKurikulum` (docs/21).
  */
 
 export type BarisPengampu = { penggunaId: string; peran?: PeranPengampu };
