@@ -38,6 +38,7 @@ Konsep lengkap ada di `docs/` — **baca sebelum menambah fitur**:
 | `docs/18-penyuntingan-gambar-visual.md` | Penyunting diagram visual: lapisan pegangan di atas `<img>`, suntingan menulis ulang KODE (bukan piksel), pembekuan Mermaid ke SVG, potong/putar raster. V1–V5 terpasang. |
 | `docs/19-penyuntingan-naskah-dan-kesiapan-terbit.md` | AI sebagai EDITOR: usulan kutipan→pengganti yang disetujui dosen satu per satu, tinjauan lintas bab, pemeriksaan naskah mekanis, kesiapan terbit + sinopsis/kata kunci + blok KDT. E1–E6 terpasang. |
 | `docs/20-arahan-dosen-pada-draf-ai.md` | Arahan bebas dosen pada penyusunan draf RPKPS oleh AI: medan `Rpkps.arahanAi`, amplop `<arahan_dosen>` di ketiga tahap, kedudukannya terhadap aturan. AD1–AD5 terpasang. |
+| `docs/21-identitas-program-studi.md` | Identitas prodi: logo, visi & misi, alamat, telepon, surel, situs. Kop lembaga pada RPKPS, buku ajar, dan portofolio; bagian Visi & Misi di katalog publik. I1–I9 terpasang. |
 
 ## Aturan yang mengikat
 
@@ -421,6 +422,39 @@ Konsep lengkap ada di `docs/` — **baca sebelum menambah fitur**:
   pratinjau bukan otorisasi (docs/04 §9.9). `CPMK_PENSIUN` dan `SUB_PENSIUN`
   di luar `JENIS_BOLEH_AI` selamanya. Penjaganya
   `src/lib/ai/skema-draf-usulan.test.ts` dan `uji/integrasi.ts` §16.
+- **Identitas prodi adalah KERTASNYA, bukan naskahnya.** Logo, visi & misi,
+  alamat, telepon, surel, dan situs tidak boleh masuk `proyeksiIsi()`,
+  `proyeksiIsiEn()`, maupun `rpkps_snapshot` — alasannya sama dengan profil
+  lulusan, `arahanAi`, dan hasil evaluasi: proyeksi adalah dasar sidik
+  SHA-256. Karena itu kop DICETAK DARI DATA HIDUP, bahkan saat badan dokumen
+  datang dari salinan beku: prodi yang pindah gedung mencetak alamat barunya
+  di seluruh RPKPS terbit tanpa menggeser satu sidik pun. Kop dirakit SEKALI
+  di `src/lib/dokumen/kop.ts` (murni) + `muat-kop.ts` (pembaca) dan dipakai
+  ketiga pencetak — RPKPS, buku ajar, portofolio; menyalinnya per pencetak
+  berakhir sebagai tiga berkas resmi satu prodi dengan tiga alamat berbeda.
+  Penjaganya `src/lib/dokumen/kop.test.ts` (docs/21 §2.5).
+- **Logo disimpan sebagai BITA, dan jenisnya diputuskan dari bita ajaib.**
+  `File.type` datang dari peramban dan dapat dikarang, sedangkan bita itulah
+  yang ditanam ke berkas DOCX — Word menolak seluruh dokumen bila isinya
+  ternyata bukan gambar, dan kegagalannya muncul jauh dari sebabnya.
+  Aturannya murni di `src/domain/kurikulum/identitas-prodi.ts`. **SVG tidak
+  diterima sebagai logo**: SVG adalah data tidak tepercaya, dan `svg-aman.ts`
+  ada untuk bahan ajar karena harganya sepadan di sana — untuk satu logo,
+  tidak. Rute `/api/prodi/[id]/logo` dan `/api/institusi/logo` adalah pintu
+  KETIGA tanpa login: ia tidak boleh memanggil `lib/publik/muat.ts` maupun
+  `lib/berbagi/muat.ts`, dan keduanya tidak memanggilnya. Penjaganya
+  `src/lib/prodi/logo.test.ts`.
+- **Kontak prodi tidak berpasangan `*En`; visi dan misi berpasangan, tetapi
+  di luar `medanRpkps`.** Alamat pos bukan prosa — "Jalan" yang diterjemahkan
+  menjadi "Street" membuat surat tidak sampai. Sebaliknya `visi`/`misi` wajib
+  punya `visiEn`/`misiEn`, dan keduanya TIDAK boleh masuk `medanRpkps` /
+  `pasanganTerjemahan`: visi prodi bukan isi RPKPS, dan memasukkannya ke
+  penyebut kelengkapan terjemahan mengulang persis bug docs/11 §8.7. Larik
+  `misi` ditulis UTUH, tidak per indeks (docs/11 §8.6).
+- **Situs prodi datang dari kolom `prodi.situs`, bukan dari konstanta.**
+  `SITUS_PRODI` di `src/lib/publik/tautan.ts` sudah dihapus, bukan disimpan
+  sebagai cadangan. Nilainya berakhir sebagai `href` di katalog publik, jadi
+  ia selalu melewati `rapikanSitus` — yang menolak skema selain http/https.
 - Domain `src/domain/` harus murni: tanpa Prisma, tanpa React, agar dapat diuji.
 - Bahasa antarmuka dan penamaan domain: Indonesia. Tabel database snake_case
   lewat `@@map`/`@map`.

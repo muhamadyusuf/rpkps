@@ -25,6 +25,7 @@ async function main() {
       namaEn: "Tangerang Selatan Institute of Technology",
       namaSingkat: "ITTS",
       situs: "https://itts.ac.id",
+      alamat: "Jl. Raya Puspiptek, Setu, Tangerang Selatan, Banten 15314",
     },
   });
   console.log(`✓ Institusi: ${institusi.namaSingkat}`);
@@ -51,6 +52,17 @@ async function main() {
       jenjang: "S1",
       gelar: "S.Kom.",
       fakultasId: fakultas.id,
+      /*
+       * Identitas prodi (docs/21). `situs` dulunya konstanta SITUS_PRODI di
+       * src/lib/publik/tautan.ts; ia pindah ke sini bersama migrasi
+       * 20260921000000_identitas_prodi, dan konstantanya dihapus.
+       *
+       * Visi dan misi sengaja TIDAK diisi contoh: keduanya rumusan resmi
+       * prodi, dan kalimat karangan yang ikut terpasang pada setiap seed
+       * adalah kalimat yang suatu hari terbit di katalog publik.
+       */
+      situs: "https://ti.itts.ac.id",
+      alamat: "Gedung A Lt. 3, Jl. Raya Puspiptek, Setu, Tangerang Selatan 15314",
     },
   });
   console.log(`✓ Prodi: ${prodi.nama}`);

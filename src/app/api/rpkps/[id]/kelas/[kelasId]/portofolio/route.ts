@@ -8,6 +8,7 @@ import { ambilSnapshotEvaluasi } from "@/lib/evaluasi/evaluasi-inti";
 import { kePesertaCapaian, keSumberPeta } from "@/domain/evaluasi/pemetaan";
 import { susunPetaAsesmen } from "@/domain/evaluasi/peta-asesmen";
 import { hitungCapaian } from "@/domain/evaluasi/capaian";
+import { muatKopCetak } from "@/lib/dokumen/muat-kop";
 import { buatPortofolioMk } from "@/lib/dokumen/portofolio-docx";
 
 export const runtime = "nodejs";
@@ -73,6 +74,9 @@ export async function GET(
       })
     : null;
 
+  // Kop dari data HIDUP, bukan dari salinan beku (docs/21 §2.5).
+  const kop = await muatKopCetak(rpkps.mataKuliah.kurikulum.prodiId);
+
   const buffer = await buatPortofolioMk({
     mk: {
       kode: rpkps.mataKuliah.kode,
@@ -113,7 +117,7 @@ export async function GET(
     sidik: snapshot?.sidik ?? null,
     ditutupPada: evaluasi?.ditutupPada ?? null,
     ditutupOleh: evaluasi?.ditutupOleh?.nama ?? null,
-  });
+  }, "id", kop);
 
   const namaBerkas =
     `Portofolio ${rpkps.mataKuliah.kode} kelas ${kelas.kode} - ${kelas.rpkps.tahunAkademik.kode}${

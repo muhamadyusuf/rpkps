@@ -14,6 +14,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import { hitungKata, taksiranHalaman } from "@/domain/bahan-ajar/naskah";
 import { muatBuku, type BukuLengkap } from "./muat";
+import { muatKopCetak } from "@/lib/dokumen/muat-kop";
 
 /**
  * Menyiapkan berkas buku ajar beserta nama berkasnya — docs/16 §4.
@@ -167,8 +168,14 @@ export async function siapkanUnduhanBuku(
   const buku = keBukuCetak(baris, await bitaGambar(baris));
   if (opsi.bab !== undefined && !buku.bab.some((b) => b.nomor === opsi.bab)) return null;
 
+  // Kop dari data HIDUP, dan dalam bahasa berkasnya (docs/21 §2.5).
+  const kop = await muatKopCetak(
+    baris.rpkps.mataKuliah.kurikulum.prodi.id,
+    buku.bahasa,
+  );
+
   return {
-    buffer: await buatBukuAjarDocx(buku, opsi),
+    buffer: await buatBukuAjarDocx(buku, opsi, kop),
     namaBerkas: namaBerkasBuku(buku, opsi),
   };
 }

@@ -5,7 +5,8 @@ import { muatRpkps, type RpkpsLengkap } from "@/lib/rpkps/muat";
 import { ambilSnapshot, cairkanSnapshot, type IsiSnapshot } from "@/lib/rpkps/snapshot";
 import { naskahEn } from "@/lib/dokumen/naskah-en";
 import type { CapTandaTangan } from "@/lib/dokumen/rpkps-docx";
-import { muatKopCetak, muatKopTampil, type KopLembaga } from "@/lib/dokumen/kop";
+import { muatKopCetak, muatKopTampil } from "@/lib/dokumen/muat-kop";
+import type { KopLembaga } from "@/lib/dokumen/kop";
 
 /**
  * Merakit satu naskah RPKPS yang siap dicetak — dan siap dipratinjau.

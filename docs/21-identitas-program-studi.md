@@ -1,7 +1,7 @@
 # Identitas Program Studi
 
-> Status: **DISETUJUI (21 September 2026), sedang dipasang.** Empat keputusan
-> BAGIAN 7 sudah diambil dan sudah dituangkan ke dalam BAGIAN 2–6.
+> Status: **TERPASANG (21 September 2026).** I1–I9 seluruhnya berjalan, dan
+> keempat keputusan BAGIAN 7 sudah diambil.
 >
 > Menjawab satu permintaan: *"Tambahkan fitur untuk menambahkan logo program
 > studi, visi & misi, alamat prodi, telp, website, email."*
@@ -91,7 +91,8 @@ Aturan penerimaan berkas, ditegakkan server:
 | Dimensi | 128–2000 px kedua sisi | Di bawah 128 px kop tercetak buram; di atas 2000 px tidak ada gunanya. |
 | Dimensi disimpan | ya (`logoLebar`, `logoTinggi`) | Supaya pencetak dapat menghitung tinggi tampil pada lebar tetap tanpa membongkar bita. |
 
-Penyajiannya lewat satu rute: `GET /api/prodi/[id]/logo`.
+Penyajiannya lewat dua rute — `GET /api/prodi/[id]/logo` dan
+`GET /api/institusi/logo` — yang keduanya menyalurkan `src/lib/prodi/logo.ts`.
 
 ```
 Content-Type: image/png | image/jpeg
@@ -126,9 +127,9 @@ alamat, telepon, surel, situs. Visi & misi tampil di:
 2. **Halaman identitas prodi** di dalam aplikasi (§3), sebagai pratinjau
    sekaligus formulirnya.
 
-*Bila nanti diputuskan visi & misi harus ikut tercetak*, tempatnya adalah
-**Halaman Pengesahan**, di atas blok tanda tangan — bukan bagian A–J. Itu
-keputusan yang belum diambil di konsep ini (§7).
+Keputusan §7.1 menegaskan ini: visi & misi TIDAK tercetak. Bila suatu saat
+ITTS mensyaratkannya, tempatnya **Halaman Pengesahan** di atas blok tanda
+tangan — bukan bagian A–J baru.
 
 ### I4 — Kontak tidak berpasangan `*En`
 
@@ -349,18 +350,18 @@ Daftar ini yang masuk ke AGENTS.md bila konsep disetujui.
 
 ---
 
-## BAGIAN 6 — Urutan kerja
+## BAGIAN 6 — Urutan kerja (selesai)
 
 | # | Langkah | Berkas |
 |---|---|---|
 | 1 | Skema + migrasi | `prisma/schema.prisma`, `prisma/migrations/2026…_identitas_prodi/` |
-| 2 | Domain murni: pemeriksaan logo (bita ajaib, ukuran, dimensi) dan perapian kontak | `src/domain/kurikulum/identitas-prodi.ts` + uji |
-| 3 | Wewenang | `src/lib/prodi/wenang.ts` |
+| 2 | Domain murni: pemeriksaan logo (bita ajaib, ukuran, dimensi) dan perapian kontak | `src/domain/kurikulum/identitas-prodi.ts` + `identitas-prodi.test.ts` |
+| 3 | Wewenang | `bolehSuntingIdentitasProdi` di `src/domain/otorisasi.ts` — bukan berkas baru: seluruh keputusan wewenang sudah tinggal di sana, dan berkas kedua hanya menambah tempat yang harus tetap sejalan |
 | 4 | Aksi server + Zod berkunci | `src/app/[bahasa]/(app)/master/aksi-identitas.ts` |
 | 5 | Rute logo + ujinya | `src/app/api/prodi/[id]/logo/route.ts`, `src/lib/prodi/logo.test.ts` |
 | 6 | Halaman + formulir | `src/app/[bahasa]/(app)/master/prodi/[id]/` |
 | 7 | Kamus `id.ts`/`en.ts` | `src/kamus/` |
-| 8 | Kop DOCX + pratinjau | `rpkps-docx.ts`, `rakit-naskah.ts`, `siapkan-unduhan.ts`, `naskah.tsx`, `label.ts` |
+| 8 | Kop DOCX + pratinjau, tiga pencetak | `kop.ts`, `muat-kop.ts`, `kop-docx.ts`, `rpkps-docx.ts`, `buku-ajar-docx.ts`, `portofolio-docx.ts`, `rakit-naskah.ts`, `naskah.tsx`, `label.ts` |
 | 9 | Katalog publik + pensiunkan `SITUS_PRODI` | `lib/publik/muat.ts`, `lib/publik/tautan.ts`, `katalog/[prodi]/page.tsx` |
 | 10 | Seed + AGENTS.md | `prisma/seed.ts`, `AGENTS.md` |
 

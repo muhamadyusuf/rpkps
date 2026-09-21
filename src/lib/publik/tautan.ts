@@ -1,17 +1,14 @@
 /**
- * Tautan keluar ke situs resmi tiap program studi.
+ * Tautan yang dirakit untuk katalog publik.
  *
- * Sengaja konstanta, bukan kolom baru di tabel `prodi`: daftarnya pendek,
- * jarang berubah, dan menambah kolom berarti migrasi plus formulir admin untuk
- * satu URL. Kunci memakai `Prodi.kode`.
+ * Situs resmi tiap program studi DULU konstanta di berkas ini
+ * (`SITUS_PRODI`), dengan alasan "daftarnya pendek dan menambah kolom berarti
+ * migrasi plus formulir admin untuk satu URL". Alasan itu gugur begitu ada
+ * lima medan identitas lain yang membutuhkan formulir yang sama, jadi sejak
+ * docs/21 alamatnya hidup di kolom `prodi.situs` dan konstantanya dihapus —
+ * bukan dibiarkan berdampingan sebagai cadangan. Dua daftar yang tidak
+ * sinkron lebih buruk daripada satu daftar.
  */
-export const SITUS_PRODI: Readonly<Record<string, string>> = {
-  TI: "https://ti.itts.ac.id",
-};
-
-export function situsProdi(kode: string): string | null {
-  return SITUS_PRODI[kode.toUpperCase()] ?? null;
-}
 
 /**
  * Alamat kanonik situs, dipakai untuk `metadataBase`, sitemap, dan kartu

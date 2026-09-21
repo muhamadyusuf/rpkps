@@ -13,6 +13,8 @@ import type { CapaianButir, NilaiMahasiswa } from "@/domain/evaluasi/capaian";
 import type { Asesmen } from "@/domain/evaluasi/peta-asesmen";
 import type { Bahasa } from "@/kamus";
 import { labelDokumen, type LabelDokumen } from "./label";
+import { kopPenuh } from "./kop-docx";
+import type { KopLembaga } from "./kop";
 
 /**
  * Portofolio mata kuliah — bundel bukti yang lazim diminta asesor per MK per
@@ -58,9 +60,16 @@ export interface SumberPortofolio {
 export async function buatPortofolioMk(
   s: SumberPortofolio,
   bahasa: Bahasa = "id",
+  /**
+   * Kop lembaga (docs/21). Dari data HIDUP, bahkan untuk evaluasi yang sudah
+   * ditutup: identitas prodi tidak ikut ruang sidik mana pun, jadi prodi yang
+   * pindah gedung tidak menggeser sidik satu pun portofolio beku.
+   */
+  kop: KopLembaga | null = null,
 ): Promise<Buffer> {
   const L = labelDokumen(bahasa);
   const isi: (Paragraph | Table)[] = [
+    ...(kop ? kopPenuh(kop, bahasa) : []),
     paragraf(L.portofolio.portofolioMataKuliah, {
       tebal: true,
       ukuran: UKURAN_JUDUL,

@@ -186,6 +186,7 @@ function Kop({ kop, bahasa }: { kop: KopLembaga; bahasa: Bahasa }) {
       style={{ borderBottom: `1px solid ${GARIS}` }}
     >
       {kop.logoInstitusi ? (
+        // eslint-disable-next-line @next/next/no-img-element -- bita dilayani rute lambang, bukan berkas statis yang dapat dioptimasi
         <img
           src={kop.logoInstitusi.url}
           alt=""
@@ -204,6 +205,7 @@ function Kop({ kop, bahasa }: { kop: KopLembaga; bahasa: Bahasa }) {
         ) : null}
       </div>
       {kop.logoProdi ? (
+        // eslint-disable-next-line @next/next/no-img-element -- bita dilayani rute lambang, bukan berkas statis yang dapat dioptimasi
         <img
           src={kop.logoProdi.url}
           alt=""

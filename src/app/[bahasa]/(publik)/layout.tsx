@@ -5,7 +5,6 @@ import { TombolTema } from "@/components/pengalih-tema";
 import { TombolBahasa } from "@/components/pengalih-bahasa";
 import { ButtonLink } from "@/components/ui/button";
 import { daftarProdiPublik, muatInstitusi } from "@/lib/publik/muat";
-import { situsProdi } from "@/lib/publik/tautan";
 import { NavigasiPublik } from "./navigasi-publik";
 import { kamus } from "@/lib/bahasa/server";
 import { isi } from "@/lib/bahasa/teks";
@@ -99,7 +98,7 @@ export default async function LayoutPublik({
             </p>
             <ul className="space-y-1.5 text-sm">
               {prodi
-                .map((p) => ({ p, situs: situsProdi(p.kode) }))
+                .map((p) => ({ p, situs: p.situs }))
                 .filter((x): x is { p: (typeof prodi)[number]; situs: string } =>
                   Boolean(x.situs),
                 )

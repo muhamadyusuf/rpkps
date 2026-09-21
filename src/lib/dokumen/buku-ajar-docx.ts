@@ -6,6 +6,7 @@ import {
   PageNumber,
   Packer,
   Paragraph,
+  Table,
   TableOfContents,
   TextRun,
   convertMillimetersToTwip,
@@ -23,6 +24,8 @@ import {
   FONT_BUKU,
 } from "./buku-gaya";
 import { labelDokumen, type LabelDokumen } from "./label";
+import { kopPenuh } from "./kop-docx";
+import type { KopLembaga } from "./kop";
 import {
   tempatkanGambar,
   urutanCetakGambar,
@@ -113,6 +116,11 @@ export interface OpsiCetakBuku {
 export async function buatBukuAjarDocx(
   buku: BukuUntukCetak,
   opsi: OpsiCetakBuku = {},
+  /**
+   * Kop lembaga di puncak halaman judul (docs/21). Dari data HIDUP: identitas
+   * prodi tidak ikut ruang sidik mana pun. `null` berarti dicetak tanpa kop.
+   */
+  kop: KopLembaga | null = null,
 ): Promise<Buffer> {
   const L = labelDokumen(buku.bahasa);
   const kunci = opsi.kunci ?? true;
@@ -130,7 +138,7 @@ export async function buatBukuAjarDocx(
         properties: sifatHalamanAwal(),
         footers: { default: kakiHalaman() },
         children: [
-          ...halamanJudul(buku),
+          ...halamanJudul(buku, kop),
           ...halamanHakCipta(buku, L),
           ...(opsi.bab === undefined ? halamanPrakata(buku, L) : []),
           ...(opsi.bab === undefined ? daftarIsi(L) : []),
@@ -168,9 +176,20 @@ function kakiHalaman(): Footer {
   });
 }
 
-function halamanJudul(buku: BukuUntukCetak): Paragraph[] {
-  const baris: Paragraph[] = [
-    new Paragraph({ spacing: { before: 2400 }, children: [] }),
+function halamanJudul(
+  buku: BukuUntukCetak,
+  kop: KopLembaga | null,
+): (Paragraph | Table)[] {
+  /*
+   * Kop di PUNCAK halaman judul, bukan sebagai kepala halaman berulang: buku
+   * bukan surat, dan lambang yang terulang di setiap halaman isi mengubah
+   * naskah menjadi formulir. Jaraknya menyusut bila kop ada, supaya judul
+   * tetap jatuh di sepertiga atas halaman.
+   */
+  const berkop = kop !== null;
+  const baris: (Paragraph | Table)[] = [
+    ...(kop ? kopPenuh(kop, buku.bahasa) : []),
+    new Paragraph({ spacing: { before: berkop ? 1600 : 2400 }, children: [] }),
     paragrafBuku(buku.judul, { tebal: true, ukuran: 44, rata: AlignmentType.CENTER }),
   ];
 

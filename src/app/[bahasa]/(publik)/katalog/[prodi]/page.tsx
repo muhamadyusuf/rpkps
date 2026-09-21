@@ -10,12 +10,12 @@ import {
   muatInstitusi,
   profilLulusanProdi,
 } from "@/lib/publik/muat";
-import { situsProdi, urlSitus } from "@/lib/publik/tautan";
+import { urlSitus } from "@/lib/publik/tautan";
 import { KartuAngka, KatalogPerSemester } from "../../komponen";
 import { PapanSaringan } from "../saringan";
 import { bacaSaringan } from "../saringan-alamat";
-import { kamus } from "@/lib/bahasa/server";
-import { isi } from "@/lib/bahasa/teks";
+import { bahasaAktif, kamus } from "@/lib/bahasa/server";
+import { isi, namaMk, pilihDaftar, pilihTeks } from "@/lib/bahasa/teks";
 import gaya from "../../katalog.module.css";
 
 export const dynamic = "force-dynamic";
@@ -69,14 +69,22 @@ export default async function HalamanProdi({
   // Prodi ditentukan alamat, jadi apa pun yang dikirim lewat `?prodi=` diabaikan.
   const saringan = { ...bacaSaringan(mentah), prodi: prodi.kode };
 
-  const [tahunAkademik, butir, profilLulusan, k] = await Promise.all([
+  const [tahunAkademik, butir, profilLulusan, k, b] = await Promise.all([
     daftarTahunAkademikPublik(),
     daftarRpkpsPublik(saringan),
     profilLulusanProdi(prodi.kode),
     kamus(),
+    bahasaAktif(),
   ]);
 
-  const situs = situsProdi(prodi.kode);
+  const situs = prodi.situs;
+  /*
+   * Cadangan satu arah: pembaca Inggris melihat teks Indonesia bila
+   * terjemahannya belum ada, tidak pernah sebaliknya (docs/11 §5.4).
+   */
+  const namaProdi = namaMk(prodi, b);
+  const visi = pilihTeks(prodi.visi, prodi.visiEn, b);
+  const misi = pilihDaftar(prodi.misi, prodi.misiEn, b);
   const totalSks = butir.reduce((s, b) => s + b.sksTeori + b.sksPraktik, 0);
   const semesterTercakup = new Set(butir.map((b) => b.semester)).size;
 
@@ -100,7 +108,7 @@ export default async function HalamanProdi({
             <span aria-hidden>/</span>
             <span>{prodi.jenjang}</span>
           </div>
-          <h1 className={gaya.judulProdi}>{prodi.nama}</h1>
+          <h1 className={gaya.judulProdi}>{namaProdi}</h1>
           <p className={gaya.deskripsiProdi}>
             {k.katalog.prodi.keterangan}
           </p>
@@ -112,11 +120,53 @@ export default async function HalamanProdi({
             </a>
           ) : null}
         </div>
-        <div aria-hidden className={gaya.monogramProdi}>
-          <span>{prodi.kode}</span>
-          <span className={gaya.monogramJenjang}>{prodi.jenjang}</span>
+        <div className={gaya.monogramProdi}>
+          {prodi.logoVersi ? (
+            // eslint-disable-next-line @next/next/no-img-element -- bita dilayani rute sendiri, bukan berkas statis yang dapat dioptimasi
+            <img
+              src={`/api/prodi/${prodi.id}/logo?v=${prodi.logoVersi}`}
+              alt={isi(k.katalog.prodi.lambangAlt, { nama: namaProdi })}
+              className={gaya.lambangProdi}
+            />
+          ) : (
+            <span aria-hidden>{prodi.kode}</span>
+          )}
+          <span aria-hidden className={gaya.monogramJenjang}>
+            {prodi.jenjang}
+          </span>
         </div>
       </header>
+
+      {visi.teks || misi.teks.length > 0 ? (
+        <section className={gaya.visiMisi}>
+          {visi.teks ? (
+            <div>
+              <h2 className="font-heading text-xl font-semibold tracking-tight">
+                {k.katalog.prodi.visiJudul}
+              </h2>
+              <p className={gaya.visiTeks}>{visi.teks}</p>
+            </div>
+          ) : null}
+
+          {misi.teks.length > 0 ? (
+            <div>
+              <h2 className="font-heading text-xl font-semibold tracking-tight">
+                {k.katalog.prodi.misiJudul}
+              </h2>
+              <ol className={gaya.daftarMisi}>
+                {misi.teks.map((butir, i) => (
+                  <li key={i} className={gaya.butirMisi}>
+                    <span aria-hidden className={gaya.nomorMisi}>
+                      {String(i + 1).padStart(2, "0")}
+                    </span>
+                    <span>{butir}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
 
       {profilLulusan.length > 0 ? (
         <section className={gaya.profil}>

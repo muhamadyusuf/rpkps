@@ -1,6 +1,3 @@
-import "server-only";
-import { prisma } from "@/lib/prisma";
-import { pilihTeks } from "@/lib/bahasa/teks";
 import { labelDokumen } from "@/lib/dokumen/label";
 import type { Bahasa } from "@/kamus";
 
@@ -13,6 +10,12 @@ import type { Bahasa } from "@/kamus";
  * pelan-pelan — persis yang sudah dicegah `rakit-naskah.ts` untuk isi
  * dokumen, dan kegagalannya sama tidak terlihatnya: tidak ada galat, hanya
  * tiga berkas resmi dari satu prodi dengan tiga alamat yang berbeda.
+ *
+ * Berkas ini MURNI — tanpa Prisma, tanpa `server-only`. Pembacaan basis
+ * datanya ada di `muat-kop.ts`. Pemisahan itu bukan selera: bentuk kop dan
+ * perakitan baris kontaknya dipakai pencetak DOCX, yang diuji di luar Next,
+ * dan satu `import "server-only"` yang ikut terbawa membuat seluruh uji
+ * pencetak gagal dengan galat yang tidak menyebut sebabnya.
  *
  * ## Kop TIDAK PERNAH dibekukan
  *
@@ -67,123 +70,4 @@ export function barisKontak(kop: KopLembaga, bahasa: Bahasa): string | null {
     kop.situs?.replace(/^https?:\/\//, ""),
   ].filter((b): b is string => !!b && b.trim().length > 0);
   return bagian.length > 0 ? bagian.join(" · ") : null;
-}
-
-const PILIH = {
-  id: true,
-  nama: true,
-  namaEn: true,
-  jenjang: true,
-  alamat: true,
-  telepon: true,
-  surel: true,
-  situs: true,
-  logoLebar: true,
-  logoTinggi: true,
-  diubahPada: true,
-} as const;
-
-const PILIH_INSTITUSI = {
-  id: true,
-  nama: true,
-  namaEn: true,
-  logoLebar: true,
-  logoTinggi: true,
-  diubahPada: true,
-} as const;
-
-type BarisProdi = {
-  id: string;
-  nama: string;
-  namaEn: string | null;
-  jenjang: string;
-  alamat: string | null;
-  telepon: string | null;
-  surel: string | null;
-  situs: string | null;
-  logoLebar: number | null;
-  logoTinggi: number | null;
-  diubahPada: Date;
-  logo?: Uint8Array | null;
-};
-
-type BarisInstitusi = {
-  id: string;
-  nama: string;
-  namaEn: string | null;
-  logoLebar: number | null;
-  logoTinggi: number | null;
-  diubahPada: Date;
-  logo?: Uint8Array | null;
-};
-
-function logoKop(
-  jalur: string,
-  baris: { logoLebar: number | null; logoTinggi: number | null; diubahPada: Date; logo?: Uint8Array | null },
-): LogoKop | null {
-  if (!baris.logoLebar || !baris.logoTinggi) return null;
-  return {
-    // Penanda versi supaya penggantian logo langsung terlihat meski rutenya
-    // boleh di-cache lama.
-    url: `${jalur}?v=${baris.diubahPada.getTime()}`,
-    lebar: baris.logoLebar,
-    tinggi: baris.logoTinggi,
-    ...(baris.logo ? { bita: Buffer.from(baris.logo) } : {}),
-  };
-}
-
-function rakit(
-  institusi: BarisInstitusi | null,
-  prodi: BarisProdi | null,
-  bahasa: Bahasa,
-): KopLembaga {
-  const L = labelDokumen(bahasa);
-  const namaProdi = prodi
-    ? `${L.kopProgramStudi} ${pilihTeks(prodi.nama, prodi.namaEn, bahasa).teks} (${prodi.jenjang})`
-    : "";
-  return {
-    institusi: institusi
-      ? pilihTeks(institusi.nama, institusi.namaEn, bahasa).teks
-      : L.institutTeknologiTangerangSelatan,
-    prodi: namaProdi,
-    alamat: prodi?.alamat ?? null,
-    telepon: prodi?.telepon ?? null,
-    surel: prodi?.surel ?? null,
-    situs: prodi?.situs ?? null,
-    logoInstitusi: institusi ? logoKop("/api/institusi/logo", institusi) : null,
-    logoProdi: prodi ? logoKop(`/api/prodi/${prodi.id}/logo`, prodi) : null,
-  };
-}
-
-/**
- * Kop untuk DILIHAT — pratinjau naskah, kepala halaman. Tanpa bita: gambarnya
- * diambil peramban lewat rutenya sendiri.
- */
-export async function muatKopTampil(
-  prodiId: string,
-  bahasa: Bahasa = "id",
-): Promise<KopLembaga> {
-  const [institusi, prodi] = await Promise.all([
-    prisma.institusi.findFirst({ select: PILIH_INSTITUSI }),
-    prisma.prodi.findUnique({ where: { id: prodiId }, select: PILIH }),
-  ]);
-  return rakit(institusi, prodi, bahasa);
-}
-
-/**
- * Kop untuk DICETAK — membawa bita kedua lambang, karena `docx` menanam
- * gambar ke dalam berkasnya.
- */
-export async function muatKopCetak(
-  prodiId: string,
-  bahasa: Bahasa = "id",
-): Promise<KopLembaga> {
-  const [institusi, prodi] = await Promise.all([
-    prisma.institusi.findFirst({ select: { ...PILIH_INSTITUSI, logo: true } }),
-    prisma.prodi.findUnique({
-      where: { id: prodiId },
-      select: { ...PILIH, logo: true },
-    }),
-  ]);
-  return rakit(institusi, prodi, bahasa);
 }

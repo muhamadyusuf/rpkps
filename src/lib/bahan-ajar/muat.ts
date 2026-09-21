@@ -115,7 +115,7 @@ const PILIH_BUKU = {
           semester: true,
           sksTeori: true,
           sksPraktik: true,
-          kurikulum: { select: { prodi: { select: { nama: true } } } },
+          kurikulum: { select: { prodi: { select: { id: true, nama: true } } } },
         },
       },
       tahunAkademik: { select: { kode: true } },

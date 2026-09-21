@@ -24,10 +24,25 @@ import { rantaiPengesahan, type SlotPengesah } from "@/domain/rpkps/paraf";
  */
 
 export type ProdiPublik = {
+  id: string;
   kode: string;
   nama: string;
+  namaEn: string | null;
   jenjang: JenjangProdi;
   jumlah: number;
+  /** Identitas prodi (docs/21). Kosong berarti belum diisi, bukan galat. */
+  visi: string | null;
+  visiEn: string | null;
+  misi: string[];
+  misiEn: string[];
+  situs: string | null;
+  /**
+   * Cap waktu untuk penanda versi `<img>`; `null` berarti prodi ini belum
+   * punya lambang. BITA-nya tidak ikut: kartu katalog hanya butuh tahu ada
+   * atau tidak, dan sepuluh prodi berlambang setengah megabita adalah lima
+   * megabita yang dikirim percuma pada tiap render (docs/21 §3.3).
+   */
+  logoVersi: number | null;
 };
 
 export type ButirKatalog = {
@@ -145,9 +160,18 @@ export const daftarProdiPublik = cache(async (): Promise<ProdiPublik[]> => {
     },
     orderBy: { kode: "asc" },
     select: {
+      id: true,
       kode: true,
       nama: true,
+      namaEn: true,
       jenjang: true,
+      visi: true,
+      visiEn: true,
+      misi: true,
+      misiEn: true,
+      situs: true,
+      logoLebar: true,
+      diubahPada: true,
       kurikulum: {
         select: {
           mataKuliah: {
@@ -163,10 +187,18 @@ export const daftarProdiPublik = cache(async (): Promise<ProdiPublik[]> => {
   // tiga tahun berturut-turut tetap satu kartu di katalog. Dijumlahkan di sini
   // karena Prisma tidak bisa `_count` relasi tiga tingkat dengan penyaring.
   return prodi.map((p) => ({
+    id: p.id,
     kode: p.kode,
     nama: p.nama,
+    namaEn: p.namaEn,
     jenjang: p.jenjang,
     jumlah: p.kurikulum.reduce((total, k) => total + k.mataKuliah.length, 0),
+    visi: p.visi,
+    visiEn: p.visiEn,
+    misi: p.misi,
+    misiEn: p.misiEn,
+    situs: p.situs,
+    logoVersi: p.logoLebar ? p.diubahPada.getTime() : null,
   }));
 });
 

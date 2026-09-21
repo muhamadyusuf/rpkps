@@ -13,7 +13,7 @@ import {
   muatInstitusi,
   terakhirDisahkan,
 } from "@/lib/publik/muat";
-import { jalurRpkpsPublik, situsProdi, urlSitus } from "@/lib/publik/tautan";
+import { jalurRpkpsPublik, urlSitus } from "@/lib/publik/tautan";
 import { KartuAngka } from "./komponen";
 import { bahasaAktif, kamus } from "@/lib/bahasa/server";
 import { jalur } from "@/lib/bahasa/jalur";
@@ -56,7 +56,7 @@ export default async function BerandaPublik() {
         <KepalaBagian nomor="01" judul={k.publikHalaman.prodi.judul} keterangan={k.publikHalaman.prodi.keterangan} />
         <div className={gaya.daftarProdi}>
           {prodi.map((p, i) => {
-            const situs = situsProdi(p.kode);
+            const situs = p.situs;
             return (
               <div key={p.kode} className={gaya.prodi}>
                 <span className={gaya.nomorProdi} aria-hidden>{String(i + 1).padStart(2, "0")}</span>
