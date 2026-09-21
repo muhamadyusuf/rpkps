@@ -51,6 +51,7 @@ export async function PratinjauSamping({
     tutup: p.tutup,
     penuh: p.penuh,
     seret: p.seret,
+    memuat: k.komponen.muat.aria,
   };
 
   if (!terbuka) {
@@ -66,7 +67,7 @@ export async function PratinjauSamping({
     );
   }
 
-  const { naskah, riwayat, ttd, sidik } = await rakitDariRpkps(rpkps, { bahasa: b });
+  const { naskah, riwayat, ttd, sidik, kop } = await rakitDariRpkps(rpkps, { bahasa: b });
 
   return (
     <PanelBelah
@@ -83,6 +84,7 @@ export async function PratinjauSamping({
           ttd={ttd}
           riwayat={riwayat}
           sidik={sidik}
+          kop={kop}
           bahasa={b}
         />
       }

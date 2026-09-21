@@ -62,24 +62,35 @@ export function bacaKata(nilai: string | string[] | undefined): string {
   return (teks ?? "").trim().replace(/\s+/g, " ").slice(0, MAKS_KATA);
 }
 
+/** Nama parameter halaman bawaan. */
+export const KUNCI_HALAMAN = "hal";
+
 /**
  * Alamat halaman lain dengan seluruh saringan lain dipertahankan.
  *
  * Menyusun ulang query string, bukan menambahkan `?hal=` di belakang: tanpa
  * itu, berpindah halaman dua kali menghasilkan alamat bertumpuk dan pencarian
  * yang sedang aktif hilang di tengah jalan.
+ *
+ * `kunci` ada karena satu halaman boleh memuat LEBIH DARI SATU daftar
+ * berhalaman — daftar RPKPS dan daftar mata kuliah yang belum punya RPKPS ada
+ * pada lembar yang sama. Keduanya memakai nama parameter sendiri, dan nomor
+ * halaman daftar yang satu diteruskan lewat `params` saat daftar yang lain
+ * berpindah; tanpa itu, membuka halaman 2 daftar bawah diam-diam melempar
+ * daftar atas kembali ke halaman 1.
  */
 export function tautanHalaman(
   basis: string,
   params: Record<string, string | undefined>,
   halaman: number,
+  kunci: string = KUNCI_HALAMAN,
 ): string {
   const q = new URLSearchParams();
-  for (const [kunci, nilai] of Object.entries(params)) {
-    if (nilai !== undefined && nilai !== "") q.set(kunci, nilai);
+  for (const [nama, nilai] of Object.entries(params)) {
+    if (nilai !== undefined && nilai !== "") q.set(nama, nilai);
   }
-  if (halaman > 1) q.set("hal", String(halaman));
-  else q.delete("hal");
+  if (halaman > 1) q.set(kunci, String(halaman));
+  else q.delete(kunci);
   const teks = q.toString();
   return teks ? `${basis}?${teks}` : basis;
 }

@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { NaskahRpkps } from "./naskah";
+import type { KopLembaga } from "@/lib/dokumen/kop";
 import { labelDokumen } from "@/lib/dokumen/label";
 import { naskahEn } from "@/lib/dokumen/naskah-en";
 import type { RpkpsLengkap } from "@/lib/rpkps/muat";
@@ -137,6 +138,21 @@ function contoh(): RpkpsLengkap {
 const RIWAYAT = [{ versi: 1, dibuatPada: new Date("2025-06-02"), deskripsi: "Dibuat" }];
 
 /**
+ * Kop selengkap-lengkapnya TANPA lambang: bita gambar tidak dibutuhkan untuk
+ * memeriksa susunan DOM, dan prodi tanpa logo adalah keadaan normal (docs/21 §4).
+ */
+const KOP: KopLembaga = {
+  institusi: "Institut Teknologi Tangerang Selatan",
+  prodi: "Program Studi Teknologi Informasi (S1)",
+  alamat: "Jl. Raya Puspiptek, Tangerang Selatan",
+  telepon: "(021) 1234 5678",
+  surel: "ti@itts.ac.id",
+  situs: "https://ti.itts.ac.id",
+  logoInstitusi: null,
+  logoProdi: null,
+};
+
+/**
  * Merender naskah sambil menyita `console.error`/`console.warn` React —
  * keluhan susunan DOM, bukan kunci ganda (lihat catatan di atas).
  */
@@ -155,6 +171,7 @@ function renderTanpaKeluhan(bahasa: "id" | "en"): string[] {
         ttd: [],
         riwayat: RIWAYAT,
         sidik: null,
+        kop: KOP,
         bahasa,
       }),
     );
@@ -190,6 +207,7 @@ describe("perenderan naskah", () => {
           ttd: [],
           riwayat: RIWAYAT,
           sidik: null,
+          kop: KOP,
           bahasa: "id" as const,
         }),
       );
@@ -198,6 +216,51 @@ describe("perenderan naskah", () => {
     }
     assert.ok(html.includes("Menyusun ERD."), "rumusan Sub-CPMK CPMK-1 hilang");
     assert.ok(html.includes("Menormalisasi."), "rumusan Sub-CPMK CPMK-2 hilang");
+  });
+
+  /**
+   * Kolom Referensi bagian H harus menyebut KELOMPOKNYA, bukan nomor
+   * telanjang. Minggu 1 pada contoh merujuk Sumber Utama [1] sekaligus Sumber
+   * Belajar Daring [1] — dua bahan yang sama sekali berbeda yang dulu
+   * sama-sama tercetak sebagai "• [1]", sehingga pembaca tidak punya cara
+   * tahu daftar mana di bagian G yang harus dibuka.
+   */
+  it("kolom Referensi menyebut kelompok pustakanya", () => {
+    const galatAsli = console.error;
+    console.error = () => {};
+    let html: string;
+    try {
+      html = renderToStaticMarkup(
+        createElement(NaskahRpkps, {
+          r: contoh(),
+          L: labelDokumen("id"),
+          ttd: [],
+          riwayat: RIWAYAT,
+          sidik: null,
+          kop: KOP,
+          bahasa: "id" as const,
+        }),
+      );
+    } finally {
+      console.error = galatAsli;
+    }
+
+    for (const singkat of ["Utama", "Daring"]) {
+      assert.ok(
+        html.includes(`>${singkat}</p>`),
+        `kolom Referensi tidak menyebut kelompok "${singkat}"`,
+      );
+    }
+    /*
+      Judul bagian G tetap persis seperti templat ITTS — itulah yang
+      disambung kolom Referensi, dan menambahinya berarti menyunting
+      dokumen resminya demi kenyamanan sebuah kolom.
+    */
+    assert.ok(html.includes("Sumber Utama :"), "judul Sumber Utama berubah");
+    assert.ok(
+      html.includes("Sumber Belajar Daring :"),
+      "judul Sumber Belajar Daring berubah",
+    );
   });
 });
 
@@ -221,6 +284,7 @@ describe("naskah berbahasa Inggris", () => {
         ttd: [],
         riwayat: RIWAYAT,
         sidik: null,
+        kop: KOP,
         bahasa: "en" as const,
       }),
     );

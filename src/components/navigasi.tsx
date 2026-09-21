@@ -60,9 +60,10 @@ function sedangAktif(pathname: string, href: string) {
 }
 
 /**
- * Rel navigasi. Modul yang sedang dibuka ditandai batang cahaya di tepi kiri
+ * Rel navigasi. Modul yang sedang dibuka ditandai batang aksen di tepi kiri
  * bilah — bukan blok warna penuh — supaya daftar tetap tenang dan mata langsung
- * tahu posisinya di dalam aplikasi.
+ * tahu posisinya di dalam aplikasi. Batangnya rata, tanpa pendar: bentuk yang
+ * sama dipakai penanda bilah halaman depan.
  */
 export function NavigasiSamping({
   menu,
@@ -114,7 +115,7 @@ export function NavigasiSamping({
                 "before:absolute before:top-1/2 before:h-5 before:w-0.5 before:-translate-y-1/2 before:rounded-r-full before:bg-cahaya before:transition-opacity before:duration-200 before:content-['']",
                 ciut ? "before:-left-2" : "before:-left-2.5",
                 aktif
-                  ? "bg-cahaya/10 text-foreground before:opacity-100 before:shadow-[0_0_10px_var(--cahaya)]"
+                  ? "bg-cahaya/10 text-foreground before:opacity-100"
                   : "text-muted-foreground before:opacity-0 hover:bg-sidebar-accent hover:text-foreground active:scale-[0.985]",
               )}
             >
@@ -184,7 +185,7 @@ export function NavigasiPonsel({ menu }: { menu: readonly ButirMenu[] }) {
             className={cn(
               "flex shrink-0 items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-all duration-200 ease-presisi",
               aktif
-                ? "border-cahaya/45 bg-cahaya/12 text-foreground shadow-cahaya"
+                ? "border-cahaya/45 bg-cahaya/12 text-foreground"
                 : "border-border bg-muted/50 text-muted-foreground active:scale-95",
             )}
           >

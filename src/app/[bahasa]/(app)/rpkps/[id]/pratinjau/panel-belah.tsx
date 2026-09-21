@@ -1,8 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronsLeft, ChevronsRight, FileText, Maximize2 } from "lucide-react";
+import {
+  ChevronsLeft,
+  ChevronsRight,
+  FileText,
+  Loader2,
+  Maximize2,
+} from "lucide-react";
 import { TautanIkon, TombolIkon } from "@/components/tombol-ikon";
 import {
   jepitLebar,
@@ -26,6 +32,12 @@ import {
  * cookie saat dilepas: menulis cookie tiap gerakan tetikus berarti ratusan
  * penulisan per seretan, dan tidak satu pun dibutuhkan sampai halaman berikut
  * dimuat.
+ *
+ * Membuka panel adalah satu perjalanan penuh ke basis data yang jauh —
+ * `rakitDariRpkps` membaca salinan beku, tanda tangan, dan riwayat sekaligus.
+ * Karena itu bingkainya dipasang SEKETIKA berisi kerangka, dan naskahnya
+ * menyusul saat pohon server tiba: tombol yang diam selama dua detik terbaca
+ * sebagai aplikasi yang menggantung, bukan sebagai aplikasi yang bekerja.
  */
 export function PanelBelah({
   terbuka,
@@ -48,11 +60,18 @@ export function PanelBelah({
     tutup: string;
     penuh: string;
     seret: string;
+    memuat: string;
   };
   kiri: React.ReactNode;
   kanan: React.ReactNode;
 }) {
   const router = useRouter();
+  /**
+   * `router.refresh()` dibungkus transisi supaya React menahan `menunggu`
+   * sampai pohon server yang baru benar-benar terpasang — bukan sampai
+   * permintaannya terkirim.
+   */
+  const [menunggu, mulai] = useTransition();
   const [lebar, setLebar] = useState(lebarAwal);
   /** Lebar terkini selama seretan — dibaca saat penunjuk dilepas. */
   const lebarKini = useRef(lebarAwal);
@@ -73,8 +92,15 @@ export function PanelBelah({
     simpan({ terbuka: !terbuka, lebar });
     // Naskah hanya dimuat server ketika panel terbuka, jadi membukanya perlu
     // satu perjalanan — dan menutupnya membebaskan kueri itu untuk seterusnya.
-    router.refresh();
+    mulai(() => router.refresh());
   }, [lebar, router, simpan, terbuka]);
+
+  /**
+   * Bingkai panel mengikuti niat pengguna, isinya mengikuti server. Selagi
+   * keduanya belum sejalan, `kanan` masih `null` dan yang tampil adalah
+   * kerangka — bukan bidang kosong yang terbaca sebagai gagal memuat.
+   */
+  const tampak = terbuka || menunggu;
 
   /**
    * Seretan pemisah. `setPointerCapture` dipakai supaya penunjuk yang melaju
@@ -151,7 +177,7 @@ export function PanelBelah({
     const pengamat = new ResizeObserver(hitung);
     pengamat.observe(wadah);
     return () => pengamat.disconnect();
-  }, [terbuka]);
+  }, [tampak]);
 
   /**
    * Melompat ke bagian naskah yang sedang disunting — minggu ini, tugas ini.
@@ -164,7 +190,7 @@ export function PanelBelah({
     sasaran?.scrollIntoView({ block: "center" });
   }, [jangkar, terbuka]);
 
-  if (!terbuka) {
+  if (!tampak) {
     return (
       <div className="flex min-w-0 items-start gap-2">
         <div className="min-w-0 flex-1">{kiri}</div>
@@ -212,7 +238,7 @@ export function PanelBelah({
         onKeyDown={tombolSeret}
         className="group/pemisah relative hidden w-3 shrink-0 cursor-col-resize touch-none lg:block print:hidden"
       >
-        <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border transition-colors group-hover/pemisah:bg-cahaya/60 group-focus-visible/pemisah:bg-cahaya" />
+        <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-transparent bg-border transition-colors group-hover/pemisah:bg-cahaya/60 group-focus-visible/pemisah:bg-cahaya" />
       </div>
 
       <aside
@@ -221,26 +247,95 @@ export function PanelBelah({
       >
         <div className="sticky top-6 flex max-h-[calc(100dvh-3rem)] flex-col rounded-xl border bg-muted/40">
           <header className="flex shrink-0 items-center gap-2 border-b px-3 py-2">
-            <FileText className="size-4 shrink-0 text-muted-foreground" />
+            {menunggu ? (
+              <Loader2 className="size-4 shrink-0 animate-spin text-cahaya" />
+            ) : (
+              <FileText className="size-4 shrink-0 text-muted-foreground" />
+            )}
             <p className="min-w-0 flex-1 truncate text-sm font-medium">{label.judul}</p>
-            <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
-              {Math.round(skala * 100)}%
-            </span>
+            {/* Angka zoom menghilang selagi memuat: ia dihitung dari lebar
+                wadah, dan menampilkan persentase atas kerangka berarti
+                menampilkan angka yang belum berarti apa-apa. */}
+            {kanan ? (
+              <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+                {Math.round(skala * 100)}%
+              </span>
+            ) : null}
             <TautanIkon href={jalurPenuh} petunjuk={label.penuh}>
               <Maximize2 />
             </TautanIkon>
-            <TombolIkon petunjuk={label.tutup} onClick={alihkan}>
-              <ChevronsRight />
+            {/* Dimatikan selagi menunggu: klik kedua pada tombol yang sama
+                hanya mengantre satu penyegaran lagi di belakang yang pertama,
+                dan membuat panel berkedip buka-tutup saat keduanya tiba. */}
+            <TombolIkon
+              petunjuk={label.tutup}
+              petunjukMati={label.memuat}
+              onClick={alihkan}
+              disabled={menunggu}
+            >
+              {menunggu ? <Loader2 className="animate-spin" /> : <ChevronsRight />}
             </TombolIkon>
           </header>
 
           <div ref={gulung} className="min-h-0 grow overflow-auto p-1">
-            <div style={{ zoom: skala }}>
-              {kanan}
-            </div>
+            {kanan ? (
+              <div style={{ zoom: skala }}>{kanan}</div>
+            ) : (
+              <KerangkaNaskah label={label.memuat} />
+            )}
           </div>
         </div>
       </aside>
+    </div>
+  );
+}
+
+/**
+ * Kerangka selembar naskah selagi pohon server dirakit.
+ *
+ * Bentuknya meniru halaman sampul RPKPS — kop, judul, lalu tabel identitas —
+ * bukan pemintal di tengah bidang: yang membuat tunggu terasa pendek adalah
+ * mengenali apa yang sedang datang, bukan tahu bahwa sesuatu sedang datang.
+ */
+function KerangkaNaskah({ label }: { label: string }) {
+  return (
+    <div
+      role="status"
+      aria-busy
+      aria-label={label}
+      className="mx-auto w-full max-w-[794px] animate-pulse space-y-6 rounded-md border bg-card p-8"
+    >
+      <div className="flex items-center gap-3 border-b pb-5">
+        <div className="size-10 shrink-0 rounded bg-muted" />
+        <div className="min-w-0 flex-1 space-y-2">
+          <div className="h-3 w-2/3 rounded bg-muted" />
+          <div className="h-2.5 w-1/2 rounded bg-muted/70" />
+        </div>
+      </div>
+
+      <div className="space-y-2.5">
+        <div className="mx-auto h-5 w-1/2 rounded bg-muted" />
+        <div className="mx-auto h-3 w-1/3 rounded bg-muted/70" />
+      </div>
+
+      <div className="space-y-px overflow-hidden rounded border">
+        {[0, 1, 2, 3, 4].map((i) => (
+          <div key={i} className="flex gap-px">
+            <div className="h-7 w-1/3 shrink-0 bg-muted/70" />
+            <div className="h-7 flex-1 bg-muted/40" />
+          </div>
+        ))}
+      </div>
+
+      <div className="space-y-2">
+        {[0, 1, 2].map((i) => (
+          <div
+            key={i}
+            className="h-3 rounded bg-muted/70"
+            style={{ width: `${92 - i * 14}%` }}
+          />
+        ))}
+      </div>
     </div>
   );
 }

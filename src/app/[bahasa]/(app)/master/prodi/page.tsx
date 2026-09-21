@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { ButtonLink } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -11,6 +12,8 @@ import {
 import { prisma } from "@/lib/prisma";
 import { wajibPeran } from "@/lib/otorisasi";
 import { FormulirProdi, SakelarProdi } from "../formulir";
+import { KartuLogo } from "./[id]/formulir-identitas";
+import { Tautan } from "@/components/tautan";
 import { kamus } from "@/lib/bahasa/server";
 
 export const dynamic = "force-dynamic";
@@ -22,13 +25,25 @@ export default async function HalamanProdi() {
   await wajibPeran("ADMIN");
   const k = await kamus();
 
-  const daftar = await prisma.prodi.findMany({
-    orderBy: [{ aktif: "desc" }, { nama: "asc" }],
-    include: {
-      fakultas: { select: { kode: true } },
-      _count: { select: { penugasan: true } },
-    },
-  });
+  /*
+   * Lambang tidak ikut ditarik — hanya penanda ada-tidaknya. Sepuluh prodi
+   * dengan lambang setengah megabita berarti lima megabita yang dikirim
+   * hanya untuk merender sebuah tabel; bitanya dilayani rutenya sendiri
+   * (docs/21 §2.2).
+   */
+  const [daftar, institusi] = await Promise.all([
+    prisma.prodi.findMany({
+      orderBy: [{ aktif: "desc" }, { nama: "asc" }],
+      include: {
+        fakultas: { select: { kode: true } },
+        _count: { select: { penugasan: true } },
+      },
+      omit: { logo: true },
+    }),
+    prisma.institusi.findFirst({
+      select: { nama: true, logoLebar: true, diubahPada: true },
+    }),
+  ]);
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -43,6 +58,20 @@ export default async function HalamanProdi() {
           {k.master.prodi.keterangan}
         </p>
       </header>
+
+      {institusi ? (
+        <KartuLogo
+          judul={k.master.institusi.judul}
+          keterangan={k.master.institusi.keterangan}
+          nama={institusi.nama}
+          urlLogo={
+            institusi.logoLebar
+              ? `/api/institusi/logo?v=${institusi.diubahPada.getTime()}`
+              : null
+          }
+          milik={{ jenis: "institusi" }}
+        />
+      ) : null}
 
       <Card>
         <CardHeader>
@@ -69,7 +98,12 @@ export default async function HalamanProdi() {
               {daftar.map((p) => (
                 <TableRow key={p.id} className={p.aktif ? undefined : "opacity-50"}>
                   <TableCell className="font-medium">
-                    {p.nama}
+                    <Tautan
+                      href={`/master/prodi/${p.id}`}
+                      className="underline-offset-4 hover:underline"
+                    >
+                      {p.nama}
+                    </Tautan>
                     {p.gelar ? (
                       <span className="ml-2 text-xs text-muted-foreground">{p.gelar}</span>
                     ) : null}
@@ -81,7 +115,10 @@ export default async function HalamanProdi() {
                   <TableCell className="text-right text-sm tabular-nums">
                     {p._count.penugasan}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="space-x-1 text-right">
+                    <ButtonLink href={`/master/prodi/${p.id}`} variant="ghost" size="sm">
+                      {k.master.identitas.buka}
+                    </ButtonLink>
                     <SakelarProdi id={p.id} aktif={p.aktif} />
                   </TableCell>
                 </TableRow>

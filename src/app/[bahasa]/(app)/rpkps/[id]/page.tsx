@@ -223,10 +223,10 @@ export default async function HalamanRpkpsDetail({
               halaman ini adalah membaca dokumennya, dan mengunduh DOCX hanya
               untuk itu adalah jalan memutar lewat Word.
             */}
-            <ButtonLink variant="outline" href={`/rpkps/${id}/pratinjau`}>
+            {/* <ButtonLink variant="outline" href={`/rpkps/${id}/pratinjau`}>
               <Eye />
               {k.rpkps.pratinjau.tombol}
-            </ButtonLink>
+            </ButtonLink> */}
             {/*
               Satu tombol, dua bahasa berkas. Dokumennya sama; yang berbeda
               hanya naskahnya, jadi keduanya butir dari satu menu — bukan dua

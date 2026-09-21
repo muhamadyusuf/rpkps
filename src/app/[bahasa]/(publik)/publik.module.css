@@ -1,59 +1,12 @@
-/* Seluruh identitas publik terlingkup; aplikasi dan cetakan tetap memakai
-   token globalnya sendiri. Tidak ada dependensi animasi atau JavaScript. */
+/* Palet publik sudah menjadi palet aplikasi — keduanya token yang sama di
+   `globals.css`, supaya halaman masuk dan layar admin tidak menjadi tema
+   kedua yang kebetulan mirip. Yang tersisa di sini hanyalah bentuk kerangka
+   publik: bilah ramping, ruang yang lebih longgar, kaki halaman tiga kolom.
+   Tidak ada dependensi animasi atau JavaScript. */
 @media screen {
   .shell {
-    --background: #f5f5ef;
-    --foreground: #20251f;
-    --card: #fcfcf8;
-    --card-foreground: var(--foreground);
-    --muted: #eaece4;
-    --muted-foreground: #656b60;
-    --secondary: #eceee5;
-    --secondary-foreground: #343c2e;
-    --accent: #e9eddf;
-    --accent-foreground: #262e20;
-    --primary: #283423;
-    --primary-foreground: #f6f8f0;
-    --border: #d8ddd1;
-    --input: #bdc5b6;
-    --ring: #658045;
-    --cahaya: #526d35;
-    --panel-kilau: transparent;
-    --cahaya-siku: transparent;
-    --bayang-sm: none;
-    --bayang-cahaya: none;
-    --public-lime: #d0ed81;
     background: var(--background);
     color: var(--foreground);
-  }
-
-  :global(.dark) .shell {
-    --background: #161a17;
-    --foreground: #ecefe5;
-    --card: #1d231f;
-    --card-foreground: var(--foreground);
-    --muted: #262e27;
-    --muted-foreground: #a5afa0;
-    --secondary: #2b342b;
-    --secondary-foreground: #dce4d3;
-    --accent: #2d382b;
-    --accent-foreground: #ecf0e5;
-    --primary: #d0ed81;
-    --primary-foreground: #202a15;
-    --border: #343e33;
-    --input: #4f5d49;
-    --ring: #bbd789;
-    --cahaya: #c4df93;
-  }
-
-  .shell :global(.panel)::before,
-  .shell :global(.siku)::after {
-    display: none;
-  }
-
-  .shell :global(.siku) {
-    border-radius: 3px;
-    border-inline-start: 3px solid var(--cahaya);
   }
 }
 

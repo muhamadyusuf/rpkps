@@ -19,6 +19,12 @@ export async function generateMetadata() {
   return { title: (await kamus()).usulan.metaJudul };
 }
 
+/**
+ * Nama parameter halaman untuk antrean keputusan. Bukan `hal` — itu milik
+ * riwayat di bawahnya, dan keduanya ada pada lembar yang sama.
+ */
+const KUNCI_HALAMAN_MENUNGGU = "halantre";
+
 export default async function HalamanUsulan({
   searchParams,
 }: {
@@ -54,33 +60,62 @@ export default async function HalamanUsulan({
   };
 
   /**
-   * Yang menunggu keputusan ditarik TERPISAH dan tidak dihalamankan.
+   * Yang menunggu keputusan ditarik TERPISAH dari riwayatnya.
    *
    * Dahulu seluruh usulan dimuat sekaligus lalu diurutkan menurut status di
    * memori, sehingga yang diajukan selalu berada di atas. Begitu daftarnya
    * dihalamankan, urutan itu mustahil dipertahankan — urutan enum di Postgres
    * bukan urutan kepentingan. Memisahkannya justru lebih jujur: yang menunggu
    * keputusan adalah daftar kerja, sisanya riwayat.
+   *
+   * Keduanya dihalamankan, masing-masing dengan parameternya sendiri. Antrean
+   * keputusan dulu hanya dipotong `take` tanpa `skip` dan tanpa hitungan —
+   * dan karena jumlahnya diambil dari `menunggu.length`, dua kalimat di layar
+   * MELAPORKAN ANGKA YANG SALAH begitu antreannya melewati satu halaman:
+   * "25 usulan menunggu Anda" pada antrean berisi tiga puluh.
    */
-  const [menunggu, jumlahRiwayat] = await Promise.all([
-    prisma.usulanRevisi.findMany({
-      where: { ...saring, status: "DIAJUKAN" },
-      orderBy: [{ diajukanPada: "asc" }],
-      take: UKURAN_HALAMAN,
-      include: isiBaris,
-    }),
-    prisma.usulanRevisi.count({ where: { ...saring, status: { not: "DIAJUKAN" } } }),
+  const saringMenunggu = { ...saring, status: "DIAJUKAN" as const };
+  const saringRiwayat = { ...saring, status: { not: "DIAJUKAN" as const } };
+
+  const [jumlahMenunggu, jumlahRiwayat] = await Promise.all([
+    prisma.usulanRevisi.count({ where: saringMenunggu }),
+    prisma.usulanRevisi.count({ where: saringRiwayat }),
   ]);
 
+  const halamanMenunggu = hitungHalaman(
+    jumlahMenunggu,
+    bacaHalaman(mentah[KUNCI_HALAMAN_MENUNGGU]),
+    UKURAN_HALAMAN,
+  );
   const halaman = hitungHalaman(jumlahRiwayat, bacaHalaman(mentah.hal), UKURAN_HALAMAN);
 
-  const riwayat = await prisma.usulanRevisi.findMany({
-    where: { ...saring, status: { not: "DIAJUKAN" } },
-    orderBy: [{ diubahPada: "desc" }],
-    skip: halaman.lewati,
-    take: halaman.ambil,
-    include: isiBaris,
-  });
+  const [menunggu, riwayat] = await Promise.all([
+    prisma.usulanRevisi.findMany({
+      where: saringMenunggu,
+      orderBy: [{ diajukanPada: "asc" }],
+      skip: halamanMenunggu.lewati,
+      take: halamanMenunggu.ambil,
+      include: isiBaris,
+    }),
+    prisma.usulanRevisi.findMany({
+      where: saringRiwayat,
+      orderBy: [{ diubahPada: "desc" }],
+      skip: halaman.lewati,
+      take: halaman.ambil,
+      include: isiBaris,
+    }),
+  ]);
+
+  /** Tautan antrean membawa halaman riwayat, dan sebaliknya. */
+  const paramMenunggu = {
+    q: kata,
+    hal: halaman.halaman > 1 ? String(halaman.halaman) : undefined,
+  };
+  const paramRiwayat = {
+    q: kata,
+    [KUNCI_HALAMAN_MENUNGGU]:
+      halamanMenunggu.halaman > 1 ? String(halamanMenunggu.halaman) : undefined,
+  };
 
   const pemutus = punyaPeran(sesi, "ADMIN", "KAPRODI");
   const k = await kamus();
@@ -110,7 +145,7 @@ export default async function HalamanUsulan({
           <GitPullRequestArrow className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
           <p className="text-muted-foreground">
             <strong className="text-foreground">
-              {isi(k.usulan.menungguAnda, { jumlah: menunggu.length })}
+              {isi(k.usulan.menungguAnda, { jumlah: jumlahMenunggu })}
             </strong>{" "}
             {k.usulan.menungguAndaAkhir}
           </p>
@@ -131,11 +166,18 @@ export default async function HalamanUsulan({
       {menunggu.length > 0 ? (
         <section className="space-y-3">
           <h2 className="label-teknis text-muted-foreground/80">
-            {isi(k.usulan.menungguJudul, { jumlah: menunggu.length })}
+            {isi(k.usulan.menungguJudul, { jumlah: jumlahMenunggu })}
           </h2>
           {menunggu.map((u) => (
             <KartuUsulan key={u.id} usulan={u} k={k} b={b} />
           ))}
+          <Paginasi
+            halaman={halamanMenunggu}
+            basis="/usulan"
+            params={paramMenunggu}
+            satuan="usulan"
+            kunci={KUNCI_HALAMAN_MENUNGGU}
+          />
         </section>
       ) : null}
 
@@ -150,7 +192,7 @@ export default async function HalamanUsulan({
           <Paginasi
             halaman={halaman}
             basis="/usulan"
-            params={{ q: kata }}
+            params={paramRiwayat}
             satuan="usulan"
           />
         </section>

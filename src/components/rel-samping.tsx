@@ -55,25 +55,63 @@ export function RelSamping({
         ciut ? "w-16" : "w-64",
       )}
     >
-      {/* Rel kiri. Tepi kanannya bukan garis rata: ada pendar sian yang
-        meluruh dari atas ke bawah, menandai rel sebagai sisi "instrumen".
+      {/* Tepi kanan rel adalah satu garis rata, sama seperti bilah halaman
+        depan — dulu ada pendar yang meluruh dari atas ke bawah, dan pada palet
+        kertas pendar itu terbaca sebagai noda, bukan sebagai cahaya.
 
         `print:hidden` di atas, bukan per halaman: sejak ada pratinjau dokumen,
         halaman aplikasi ikut dicetak dan disimpan sebagai PDF — dan yang
         dicetak harus dokumennya, bukan antarmukanya. Aturan `@media print`
         selebihnya ada di globals.css. */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-y-0 -right-px w-px bg-[linear-gradient(180deg,var(--cahaya),transparent_45%)] opacity-30"
-      />
 
+      {/*
+        Sakelar lebar berbagi baris dengan lambang, di kepala rel — tempat
+        pengguna mencarinya lebih dulu. Ia selalu berupa ikon saja: labelnya
+        sudah ada pada `aria-label` dan tooltip, dan teks di sini akan
+        menyaingi nama aplikasi di sebelahnya.
+
+        Pada rel selebar ikon tidak ada dua tempat: 64px tidak memuat lambang
+        dan tombol berdampingan. Karena itu keduanya menjadi SATU tombol —
+        lambang yang berubah menjadi ikon "lebarkan" saat disorot atau
+        difokus. Pergantiannya hanya opasitas di atas tumpukan yang sama,
+        jadi tidak ada yang bergeser saat kursor lewat.
+      */}
       <div
         className={cn(
-          "flex h-14 shrink-0 items-center border-b border-sidebar-border",
-          ciut ? "justify-center px-2" : "gap-2 px-4",
+          "flex h-16 shrink-0 items-center border-b border-sidebar-border",
+          ciut ? "justify-center px-2" : "gap-2 px-3",
         )}
       >
-        {ciut ? <Lambang className="size-7" /> : <TandaAplikasi />}
+        {ciut ? null : <TandaAplikasi />}
+
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <button
+                type="button"
+                onClick={alihkan}
+                aria-expanded={!ciut}
+                aria-label={ciut ? k.kerangka.lebarkan : k.kerangka.ciutkan}
+                className={cn(
+                  "group relative flex size-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none",
+                  ciut ? "" : "ml-auto",
+                )}
+              />
+            }
+          >
+            {ciut ? (
+              <>
+                <Lambang className="size-7 transition-opacity duration-150 group-hover:opacity-0 group-focus-visible:opacity-0" />
+                <PanelLeftOpen className="absolute size-4 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100" />
+              </>
+            ) : (
+              <PanelLeftClose className="size-4" />
+            )}
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            {ciut ? k.kerangka.lebarkan : k.kerangka.ciutkan}
+          </TooltipContent>
+        </Tooltip>
       </div>
 
       <NavigasiSamping menu={menu} ciut={ciut} />
@@ -102,7 +140,7 @@ export function RelSamping({
             <PengalihBahasa />
             <PengalihTema />
 
-            <div className="panel rounded-lg border border-border bg-card px-3 py-2.5">
+            <div className="rounded-md border border-border bg-card px-3 py-2.5">
               <p className="label-teknis mb-1.5 text-muted-foreground/70">
                 {k.kerangka.sesi}
               </p>
@@ -128,43 +166,6 @@ export function RelSamping({
             <TombolKeluar className="w-full justify-start" />
           </>
         )}
-
-        {/*
-          Sakelar lebar di kaki rel, bukan di kepalanya: kepala rel adalah
-          tempat lambang, dan tombol yang berbagi baris dengannya terbaca
-          seperti bagian dari lambang itu. Di kaki, ia berada di antara
-          pengaturan tampilan lain — di mana memang tempatnya.
-        */}
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <button
-                type="button"
-                onClick={alihkan}
-                aria-expanded={!ciut}
-                aria-label={ciut ? k.kerangka.lebarkan : k.kerangka.ciutkan}
-                className={cn(
-                  "flex items-center rounded-lg text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none",
-                  ciut
-                    ? "size-9 justify-center"
-                    : "w-full gap-2 px-2.5 py-1.5 text-xs",
-                )}
-              />
-            }
-          >
-            {ciut ? (
-              <PanelLeftOpen className="size-4" />
-            ) : (
-              <>
-                <PanelLeftClose className="size-4 shrink-0" />
-                <span className="truncate">{k.kerangka.ciutkan}</span>
-              </>
-            )}
-          </TooltipTrigger>
-          <TooltipContent side="right">
-            {ciut ? k.kerangka.lebarkan : k.kerangka.ciutkan}
-          </TooltipContent>
-        </Tooltip>
       </div>
     </aside>
   );

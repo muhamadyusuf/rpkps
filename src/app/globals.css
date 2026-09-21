@@ -5,19 +5,20 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ---------------------------------------------------------------------------
-   Bahasa rupa: "Kisi & Cahaya".
+   Bahasa rupa: "Kisi & Cahaya", palet kertas.
 
-   Bukan brosur, melainkan panel instrumen. Kanvas biru-hitam dengan kisi
-   cetak-biru yang nyaris tak terlihat, panel bertepi setipis rambut dengan
-   satu garis kilau di sisi atas — seolah ada cahaya yang menimpanya dari
-   depan. Satu aksen sian dipakai hemat: hanya untuk hal yang sedang aktif,
-   terpilih, atau meminta perhatian. Angka selalu monospace tabular supaya
-   kolom jam dan sks berbaris rapi.
+   Susunannya tidak berubah — kisi cetak-biru yang nyaris tak terlihat, panel
+   bertepi setipis rambut, satu aksen yang dipakai hemat, angka monospace
+   tabular, Space Grotesk untuk judul. Yang berubah adalah bahannya: kanvas
+   biru-hitam diganti kertas hangat dan aksen sian diganti lumut/limau, yaitu
+   palet yang sudah dipakai halaman depan publik. Satu produk, satu rupa —
+   halaman masuk dan seluruh layar admin memakai token yang sama dengan
+   katalog publik, bukan tema kedua yang kebetulan mirip.
 
    Tiga aturan yang menjaga rupa ini tetap tenang:
-   1. Cahaya sian tidak pernah jadi hiasan. Kalau tidak menandakan status,
-      jangan dipakai.
-   2. Kedalaman datang dari tepi dan kisi, bukan dari bayangan tebal.
+   1. Aksen tidak pernah jadi hiasan. Kalau tidak menandakan status, jangan
+      dipakai.
+   2. Kedalaman datang dari tepi dan kisi, bukan dari bayangan atau pendar.
    3. Gelap adalah rumahnya, tapi terang bukan sisa — keduanya disusun penuh.
 
    Tema mengikuti pilihan pengguna lewat next-themes (kelas .dark pada <html>).
@@ -93,148 +94,147 @@
     var(--font-jetbrains-mono, "JetBrains Mono"), ui-monospace, "SF Mono",
     SFMono-Regular, Menlo, "Cascadia Mono", monospace;
 
-  --radius: 0.625rem;
+  /* Sudut ketat: pada palet kertas, lengkung yang lebar membuat panel terbaca
+     sebagai gelembung aplikasi, bukan sebagai bidang cetak. */
+  --radius: 0.3rem;
 
-  --background: oklch(0.977 0.004 248);
-  --foreground: oklch(0.205 0.022 258);
-  --card: oklch(1 0 0);
+  --background: #f5f5ef;
+  --foreground: #20251f;
+  --card: #fcfcf8;
   --card-foreground: var(--foreground);
-  --popover: oklch(1 0 0);
+  --popover: #fcfcf8;
   --popover-foreground: var(--foreground);
 
-  /* Sian dalam — cukup gelap untuk memikul teks putih (kontras ±4.9:1). */
-  --primary: oklch(0.47 0.105 220);
-  --primary-foreground: oklch(1 0 0);
+  /* Lumut tua — cukup gelap untuk memikul teks kertas. */
+  --primary: #283423;
+  --primary-foreground: #f6f8f0;
 
-  --secondary: oklch(0.945 0.008 248);
-  --secondary-foreground: oklch(0.27 0.024 258);
-  --muted: oklch(0.955 0.006 248);
-  --muted-foreground: oklch(0.505 0.02 252);
-  --accent: oklch(0.94 0.014 220);
-  --accent-foreground: oklch(0.27 0.03 240);
+  --secondary: #eceee5;
+  --secondary-foreground: #343c2e;
+  --muted: #eaece4;
+  --muted-foreground: #656b60;
+  --accent: #e9eddf;
+  --accent-foreground: #262e20;
 
-  --destructive: oklch(0.545 0.204 25);
-  --destructive-foreground: oklch(1 0 0);
-  --success: oklch(0.52 0.11 168);
-  --success-foreground: oklch(0.34 0.08 168);
-  --warning: oklch(0.55 0.14 68);
-  --warning-foreground: oklch(0.4 0.1 62);
+  /* Status tetap terbaca sebagai status, tetapi dalam keluarga bumi yang sama
+     — bukan merah/kuning layar yang meloncat keluar dari halaman. */
+  --destructive: #a1341f;
+  --destructive-foreground: #fdf6f2;
+  --success: #2f6b4a;
+  --success-foreground: #23503a;
+  --warning: #8a5a12;
+  --warning-foreground: #6b460f;
 
-  --border: oklch(0.53 0.035 248 / 18%);
-  --input: oklch(0.53 0.035 248 / 24%);
-  --ring: oklch(0.57 0.125 212);
+  --border: #d8ddd1;
+  --input: #bdc5b6;
+  --ring: #658045;
 
-  --chart-1: oklch(0.62 0.13 212);
-  --chart-2: oklch(0.58 0.12 168);
-  --chart-3: oklch(0.66 0.14 68);
-  --chart-4: oklch(0.55 0.2 25);
-  --chart-5: oklch(0.55 0.16 288);
+  --chart-1: #526d35;
+  --chart-2: #2f6b4a;
+  --chart-3: #8a5a12;
+  --chart-4: #a1341f;
+  --chart-5: #4a5c6b;
 
-  --sidebar: oklch(0.992 0.002 248);
+  --sidebar: #f0f1e9;
   --sidebar-foreground: var(--foreground);
   --sidebar-primary: var(--primary);
-  --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.945 0.012 220);
-  --sidebar-accent-foreground: oklch(0.27 0.03 240);
-  --sidebar-border: oklch(0.53 0.035 248 / 14%);
+  --sidebar-primary-foreground: #f6f8f0;
+  --sidebar-accent: #e4e8da;
+  --sidebar-accent-foreground: #262e20;
+  --sidebar-border: #d8ddd1;
   --sidebar-ring: var(--ring);
 
-  /* Cahaya: sian murni yang tidak pernah dipakai sebagai latar teks, hanya
-     sebagai pendar tepi, garis aktif, dan bloom latar. Turunan beralfa ditulis
-     eksplisit — bukan lewat color-mix() — supaya peramban tanpa dukungan
-     color-mix tidak jatuh ke sian pekat tanpa transparansi. */
-  --cahaya: oklch(0.6 0.135 209);
-  --cahaya-bloom: oklch(0.6 0.135 209 / 14%);
-  --cahaya-siku: oklch(0.6 0.135 209 / 65%);
-  --cahaya-sorot: oklch(0.6 0.135 209 / 26%);
-  --palang: oklch(0.205 0.022 258 / 16%);
-  --palang-sorot: oklch(0.6 0.135 209 / 55%);
+  /* Cahaya: aksen lumut yang menandai hal yang sedang aktif, terpilih, atau
+     meminta perhatian. Turunan beralfa ditulis eksplisit — bukan lewat
+     color-mix() — supaya peramban tanpa dukungan color-mix tidak jatuh ke
+     warna pekat tanpa transparansi. */
+  --cahaya: #526d35;
+  --cahaya-bloom: transparent;
+  --cahaya-siku: #526d35;
+  --cahaya-sorot: #526d3540;
+  --palang: #20251f2e;
+  --palang-sorot: #526d3599;
 
-  /* Kisi cetak-biru dan kilau tepi panel. */
-  --kisi: oklch(0.45 0.05 248 / 8%);
+  /* Kisi cetak-biru dan kilau tepi panel. Pada palet kertas keduanya hampir
+     padam: yang memberi kedalaman di sini adalah tepi hairline. */
+  --kisi: #20251f0d;
   --kisi-ukuran: 32px;
-  --panel-kilau: oklch(0.55 0.09 216 / 22%);
+  --panel-kilau: transparent;
 
   /* Material bilah navigasi — tembus pandang, dipadukan backdrop-filter. */
-  --material: oklch(1 0 0 / 76%);
-  --material-tepi: oklch(0.53 0.035 248 / 16%);
+  --material: #f5f5efc4;
+  --material-tepi: #d8ddd1;
 
-  --bayang-sm: 0 1px 2px oklch(0.28 0.04 252 / 0.06);
-  --bayang:
-    0 1px 2px oklch(0.28 0.04 252 / 0.05),
-    0 8px 24px -8px oklch(0.28 0.04 252 / 0.12);
-  --bayang-lg:
-    0 2px 4px oklch(0.28 0.04 252 / 0.05),
-    0 20px 48px -12px oklch(0.28 0.04 252 / 0.18);
-  --bayang-cahaya: 0 0 0 1px oklch(0.57 0.125 212 / 0.28),
-    0 4px 20px -4px oklch(0.57 0.125 212 / 0.3);
+  --bayang-sm: none;
+  --bayang: 0 1px 2px #20251f0d, 0 10px 28px -16px #20251f33;
+  --bayang-lg: 0 2px 4px #20251f0d, 0 24px 52px -20px #20251f40;
+  --bayang-cahaya: 0 0 0 1px #526d3559;
 }
 
 .dark {
   color-scheme: dark;
 
-  --background: oklch(0.155 0.018 258);
-  --foreground: oklch(0.955 0.006 248);
-  --card: oklch(0.204 0.019 258);
+  --background: #161a17;
+  --foreground: #ecefe5;
+  --card: #1d231f;
   --card-foreground: var(--foreground);
-  --popover: oklch(0.232 0.021 258);
+  --popover: #242b25;
   --popover-foreground: var(--foreground);
 
-  /* Sian penuh #22D3EE — bersinar di atas kanvas gelap, memikul teks gelap. */
-  --primary: oklch(0.79 0.128 205);
-  --primary-foreground: oklch(0.17 0.03 250);
+  /* Limau penuh — bersinar di atas kanvas lumut gelap, memikul teks gelap. */
+  --primary: #d0ed81;
+  --primary-foreground: #202a15;
 
-  --secondary: oklch(0.268 0.022 258);
-  --secondary-foreground: oklch(0.955 0.006 248);
-  --muted: oklch(0.252 0.02 258);
-  --muted-foreground: oklch(0.7 0.024 252);
-  --accent: oklch(0.3 0.032 240);
-  --accent-foreground: oklch(0.965 0.008 220);
+  --secondary: #2b342b;
+  --secondary-foreground: #dce4d3;
+  --muted: #262e27;
+  --muted-foreground: #a5afa0;
+  --accent: #2d382b;
+  --accent-foreground: #ecf0e5;
 
-  --destructive: oklch(0.7 0.185 20);
-  --destructive-foreground: oklch(0.17 0.03 250);
-  --success: oklch(0.79 0.145 168);
-  --success-foreground: oklch(0.86 0.11 168);
-  --warning: oklch(0.83 0.135 78);
-  --warning-foreground: oklch(0.89 0.1 82);
+  --destructive: #e8917a;
+  --destructive-foreground: #20251f;
+  --success: #8fd0a5;
+  --success-foreground: #a8ddb9;
+  --warning: #e0bd6b;
+  --warning-foreground: #ead093;
 
-  --border: oklch(0.75 0.045 240 / 15%);
-  --input: oklch(0.75 0.045 240 / 20%);
-  --ring: oklch(0.79 0.128 205);
+  --border: #343e33;
+  --input: #4f5d49;
+  --ring: #bbd789;
 
-  --chart-1: oklch(0.79 0.128 205);
-  --chart-2: oklch(0.79 0.145 168);
-  --chart-3: oklch(0.83 0.135 78);
-  --chart-4: oklch(0.7 0.185 20);
-  --chart-5: oklch(0.72 0.15 292);
+  --chart-1: #c4df93;
+  --chart-2: #8fd0a5;
+  --chart-3: #e0bd6b;
+  --chart-4: #e8917a;
+  --chart-5: #9fb8c9;
 
-  --sidebar: oklch(0.178 0.019 258);
+  --sidebar: #131714;
   --sidebar-foreground: var(--foreground);
   --sidebar-primary: var(--primary);
-  --sidebar-primary-foreground: oklch(0.17 0.03 250);
-  --sidebar-accent: oklch(0.272 0.028 246);
-  --sidebar-accent-foreground: oklch(0.965 0.008 220);
-  --sidebar-border: oklch(0.75 0.045 240 / 12%);
+  --sidebar-primary-foreground: #202a15;
+  --sidebar-accent: #2a332a;
+  --sidebar-accent-foreground: #ecf0e5;
+  --sidebar-border: #343e33;
   --sidebar-ring: var(--ring);
 
-  --cahaya: oklch(0.79 0.128 205);
-  --cahaya-bloom: oklch(0.79 0.128 205 / 16%);
-  --cahaya-siku: oklch(0.79 0.128 205 / 65%);
-  --cahaya-sorot: oklch(0.79 0.128 205 / 32%);
-  --palang: oklch(0.955 0.006 248 / 16%);
-  --palang-sorot: oklch(0.79 0.128 205 / 55%);
+  --cahaya: #c4df93;
+  --cahaya-bloom: transparent;
+  --cahaya-siku: #c4df93;
+  --cahaya-sorot: #c4df9340;
+  --palang: #ecefe529;
+  --palang-sorot: #c4df9399;
 
-  --kisi: oklch(0.8 0.06 232 / 7%);
-  --panel-kilau: oklch(0.9 0.07 216 / 30%);
+  --kisi: #ecefe50f;
+  --panel-kilau: transparent;
 
-  --material: oklch(0.185 0.019 258 / 72%);
-  --material-tepi: oklch(0.75 0.045 240 / 14%);
+  --material: #161a17bd;
+  --material-tepi: #343e33;
 
-  --bayang-sm: 0 1px 2px oklch(0 0 0 / 0.35);
-  --bayang: 0 1px 2px oklch(0 0 0 / 0.3), 0 8px 24px -8px oklch(0 0 0 / 0.5);
-  --bayang-lg: 0 2px 4px oklch(0 0 0 / 0.3), 0 20px 48px -12px oklch(0 0 0 / 0.6);
-  --bayang-cahaya: 0 0 0 1px oklch(0.79 0.128 205 / 0.35),
-    0 4px 24px -4px oklch(0.79 0.128 205 / 0.28);
+  --bayang-sm: none;
+  --bayang: 0 1px 2px #00000059, 0 10px 28px -16px #0000008c;
+  --bayang-lg: 0 2px 4px #00000059, 0 24px 52px -20px #000000a6;
+  --bayang-cahaya: 0 0 0 1px #c4df9359;
 }
 
 @layer base {
@@ -256,10 +256,11 @@
     text-rendering: optimizeLegibility;
   }
 
-  /* Kisi cetak-biru. Dipasang sekali di ::before badan halaman supaya tidak
-     ikut tergulir dan tidak menambah satu pun simpul DOM. Topengnya membuat
-     kisi paling terlihat di kepala halaman lalu meluruh — kesan "bidang
-     kerja" tanpa mengganggu keterbacaan tabel di bawah. */
+  /* Kisi. Dipasang sekali di ::before badan halaman supaya tidak ikut
+     tergulir dan tidak menambah satu pun simpul DOM. Topengnya membuat kisi
+     paling terlihat di kepala halaman lalu meluruh — kesan "bidang kerja"
+     tanpa mengganggu keterbacaan tabel di bawah. Pada palet kertas ia sengaja
+     nyaris tak terlihat: yang memikul kedalaman adalah tepi hairline. */
   body::before {
     content: "";
     position: fixed;
@@ -279,22 +280,6 @@
       ellipse 120% 70% at 50% -10%,
       #000 15%,
       transparent 75%
-    );
-  }
-
-  /* Pendar sian tipis di kepala halaman — satu-satunya sumber "cahaya". */
-  body::after {
-    content: "";
-    position: fixed;
-    inset-inline: 0;
-    top: 0;
-    height: 60vh;
-    z-index: -1;
-    pointer-events: none;
-    background: radial-gradient(
-      60rem 26rem at 50% -14%,
-      var(--cahaya-bloom),
-      transparent 70%
     );
   }
 
@@ -358,9 +343,11 @@
     }
   }
 
-  /* Tanda tangan rupa ini: satu garis kilau setipis rambut di sisi atas
-     panel, meredup ke kedua ujungnya. Membuat kartu terbaca sebagai bidang
-     yang tertimpa cahaya, bukan kotak putih yang ditempel. */
+  /* `panel` dulu menggambar satu garis kilau di sisi atas kartu — tanda
+     tangan palet biru-hitam. Pada kertas, garis itu terbaca sebagai cacat
+     cetak, jadi ia dipensiunkan; kelasnya tetap ada sebagai kait posisi
+     karena dipakai puluhan kartu, dan `--panel-kilau` tetap ada supaya satu
+     tema turunan masih bisa menghidupkannya. */
   .panel {
     position: relative;
   }
@@ -387,35 +374,27 @@
     background-size: var(--kisi-ukuran) var(--kisi-ukuran);
   }
 
-  /* Siku penanda di dua sudut berseberangan — dipakai hemat, hanya pada
-     bidang utama sebuah halaman. Keempat goresnya digambar sebagai latar
-     majemuk pada satu ::after, supaya ::before tetap bebas untuk `panel`. */
+  /* Penanda bidang utama sebuah halaman: satu palang aksen di tepi kiri,
+     bukan empat gores sudut. Bentuknya diambil dari halaman depan publik,
+     tempat panel ditandai oleh potongan tepi — bukan oleh pendar.
+
+     Digambar sebagai ::after, BUKAN sebagai `border-inline-start`: setiap
+     bidang yang memakai `siku` juga memakai utilitas `border` Tailwind, dan
+     utilitas berada di lapisan cascade yang menang atas lapisan `components`
+     ini — palangnya akan diam-diam menyusut kembali menjadi 1px. */
   .siku {
     position: relative;
-    --siku-warna: var(--cahaya-siku);
-    --siku-panjang: 0.875rem;
   }
   .siku::after {
     content: "";
     position: absolute;
-    inset: -1px;
+    inset-block: 0;
+    inset-inline-start: 0;
+    width: 3px;
     pointer-events: none;
-    background-image:
-      linear-gradient(var(--siku-warna), var(--siku-warna)),
-      linear-gradient(var(--siku-warna), var(--siku-warna)),
-      linear-gradient(var(--siku-warna), var(--siku-warna)),
-      linear-gradient(var(--siku-warna), var(--siku-warna));
-    background-repeat: no-repeat;
-    background-size:
-      var(--siku-panjang) 1px,
-      1px var(--siku-panjang),
-      var(--siku-panjang) 1px,
-      1px var(--siku-panjang);
-    background-position:
-      left top,
-      left top,
-      right bottom,
-      right bottom;
+    background: var(--cahaya-siku);
+    border-start-start-radius: inherit;
+    border-end-start-radius: inherit;
   }
 
   /* Label teknis: monospace, huruf besar, spasi lebar. Dipakai untuk nama
@@ -462,17 +441,17 @@
     /* Lencana dan tombol ikut dipaksa terang. Tanpa ini, `bg-secondary` dan
        `bg-primary` tetap memakai nilai tema gelap dan tercetak sebagai balok
        hitam yang menghabiskan toner. */
-    --secondary: #f4f4f5;
+    --secondary: #f2f3ec;
     --secondary-foreground: #27272a;
-    --primary: #0e7490;
+    --primary: #283423;
     --primary-foreground: #fff;
-    --accent: #f4f4f5;
+    --accent: #f2f3ec;
     --accent-foreground: #27272a;
-    --success: #0f766e;
-    --warning: #b45309;
-    --destructive: #b91c1c;
+    --success: #2f6b4a;
+    --warning: #8a5a12;
+    --destructive: #a1341f;
 
-    --cahaya: #0e7490;
+    --cahaya: #3f5429;
     --panel-kilau: transparent;
     --kisi: transparent;
     --cahaya-bloom: transparent;
@@ -480,8 +459,7 @@
     --cahaya-sorot: transparent;
   }
 
-  body::before,
-  body::after {
+  body::before {
     display: none !important;
   }
 

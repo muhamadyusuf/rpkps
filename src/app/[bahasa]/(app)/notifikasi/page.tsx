@@ -1,7 +1,9 @@
 import { Bell, BellOff, Check } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { wajibAktif } from "@/lib/otorisasi";
-import { muatNotifikasi } from "@/lib/notifikasi/muat";
+import { hitungBelumDibaca, hitungNotifikasi, muatNotifikasi } from "@/lib/notifikasi/muat";
+import { Paginasi } from "@/components/paginasi";
+import { bacaHalaman, hitungHalaman } from "@/lib/paginasi";
 import { bahasaAktif, kamus } from "@/lib/bahasa/server";
 import { tanggal } from "@/lib/bahasa/format";
 import { bukaNotifikasi, tandaiSemuaDibaca } from "./aksi";
@@ -18,20 +20,37 @@ export async function generateMetadata() {
 /** Sepanjang riwayat yang masih layak dibaca sekali duduk. */
 const BATAS = 50;
 
-export default async function HalamanNotifikasi() {
+export default async function HalamanNotifikasi({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const sesi = await wajibAktif();
+  const mentah = await searchParams;
+
   /*
-   * Preferensi surel dibaca berdampingan dengan daftarnya, bukan sesudahnya:
-   * keduanya saling bebas, dan basis datanya jauh.
+   * Preferensi surel dan kedua hitungan dibaca berdampingan, bukan
+   * berurutan: semuanya saling bebas, dan basis datanya jauh.
+   *
+   * `belum` datang dari BASIS DATA, bukan dari daftar yang sudah dipotong.
+   * Dulu ia dihitung sebagai `daftar.filter(...).length` atas 50 baris
+   * pertama, jadi pada kotak masuk yang lebih panjang angkanya berhenti di 50
+   * — dan berselisih dengan lencana di rel samping, yang memang menghitung
+   * di basis data. Dua angka untuk satu hal, dan yang salah justru yang
+   * dilihat sambil menekan "tandai semua".
    */
-  const [daftar, akun] = await Promise.all([
-    muatNotifikasi(sesi.id, BATAS),
+  const [jumlah, belum, akun] = await Promise.all([
+    hitungNotifikasi(sesi.id),
+    hitungBelumDibaca(sesi.id),
     prisma.pengguna.findUnique({
       where: { id: sesi.id },
       select: { surelNotifikasi: true },
     }),
   ]);
-  const belum = daftar.filter((n) => n.dibacaPada === null).length;
+
+  const halaman = hitungHalaman(jumlah, bacaHalaman(mentah.hal), BATAS);
+  const daftar = await muatNotifikasi(sesi.id, halaman.ambil, halaman.lewati);
+
   const k = await kamus();
   const b = await bahasaAktif();
 
@@ -116,6 +135,8 @@ export default async function HalamanNotifikasi() {
           })}
         </ul>
       )}
+
+      <Paginasi halaman={halaman} basis="/notifikasi" params={{}} satuan="baris" />
     </div>
   );
 }

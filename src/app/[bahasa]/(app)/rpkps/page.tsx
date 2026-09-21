@@ -35,6 +35,12 @@ export async function generateMetadata() {
 const ARSIP_TAMPIL = 10;
 
 /**
+ * Nama parameter halaman untuk daftar "belum punya RPKPS". Bukan `hal` —
+ * itu milik daftar RPKPS di atasnya, dan keduanya ada pada lembar yang sama.
+ */
+const KUNCI_HALAMAN_BELUM = "halbelum";
+
+/**
  * Rupa lencana status. Diangkat ke konstanta saat peta semester menjadi
  * tampilan kedua: dua rangkaian ternary yang harus selalu sama adalah dua
  * tempat yang akan berbeda pada perubahan berikutnya.
@@ -146,15 +152,56 @@ export default async function HalamanRpkps({
     _count: { select: { pertemuan: true } },
   };
 
+  /**
+   * Mata kuliah yang belum punya RPKPS tahun ini.
+   *
+   * Satu bentuk saringan untuk menghitung DAN untuk mengambil. Sebelumnya ia
+   * ditulis sekali saja, langsung di dalam `findMany` dengan `take` tanpa
+   * `skip` — daftarnya terpotong diam-diam di baris ke-25 dan sisanya tidak
+   * dapat dicapai dari mana pun. Bagi ADMIN dan GPM yang bercakupan
+   * institusi, "sisanya" itu bisa berarti ratusan mata kuliah.
+   */
+  const saringBelum = tahunAktif
+    ? {
+        kurikulum: { status: "BERLAKU" as const, ...filterProdi },
+        cpmk: { some: {} },
+        // Disaring di database, bukan di memori: sebelumnya seluruh mata
+        // kuliah berkurikulum berlaku dimuat hanya untuk membuang yang
+        // sudah punya RPKPS tahun ini.
+        rpkps: { none: { tahunAkademikId: tahunAktif.id } },
+        ...(kata
+          ? {
+              OR: [
+                { kode: { contains: kata, mode: "insensitive" as const } },
+                { nama: { contains: kata, mode: "insensitive" as const } },
+                { namaEn: { contains: kata, mode: "insensitive" as const } },
+              ],
+            }
+          : {}),
+      }
+    : null;
+
   // Jumlah dihitung lebih dulu supaya nomor halaman dapat dijepit sebelum
   // menjadi `skip`: halaman 999 pada daftar 30 baris harus mendarat di halaman
-  // terakhir, bukan mengembalikan tabel kosong.
-  const [jumlahAktif, jumlahArsip] = await Promise.all([
+  // terakhir, bukan mengembalikan tabel kosong. Ketiganya saling bebas, jadi
+  // satu gelombang — bukan tiga perjalanan berurutan ke basis data yang jauh.
+  const [jumlahAktif, jumlahArsip, jumlahBelum] = await Promise.all([
     prisma.rpkps.count({ where: saringAktif }),
     prisma.rpkps.count({ where: saringArsip }),
+    saringBelum ? prisma.mataKuliah.count({ where: saringBelum }) : 0,
   ]);
 
   const halaman = hitungHalaman(jumlahAktif, bacaHalaman(mentah.hal), UKURAN_HALAMAN);
+  /*
+    Daftar kedua pada lembar yang sama, jadi nomor halamannya memakai
+    parameter sendiri. Keduanya saling diteruskan lewat `params` supaya
+    berpindah halaman di daftar yang satu tidak menggeser daftar yang lain.
+  */
+  const halamanBelum = hitungHalaman(
+    jumlahBelum,
+    bacaHalaman(mentah[KUNCI_HALAMAN_BELUM]),
+    UKURAN_HALAMAN,
+  );
 
   /*
    * Urutannya mengikuti tampilan, dan itu disengaja. Peta dibaca sebagai
@@ -187,27 +234,12 @@ export default async function HalamanRpkps({
       take: ARSIP_TAMPIL,
       include: isiBaris,
     }),
-    tahunAktif
+    saringBelum
       ? prisma.mataKuliah.findMany({
-          where: {
-            kurikulum: { status: "BERLAKU", ...filterProdi },
-            cpmk: { some: {} },
-            // Disaring di database, bukan di memori: sebelumnya seluruh mata
-            // kuliah berkurikulum berlaku dimuat hanya untuk membuang yang
-            // sudah punya RPKPS tahun ini.
-            rpkps: { none: { tahunAkademikId: tahunAktif.id } },
-            ...(kata
-              ? {
-                  OR: [
-                    { kode: { contains: kata, mode: "insensitive" as const } },
-                    { nama: { contains: kata, mode: "insensitive" as const } },
-                    { namaEn: { contains: kata, mode: "insensitive" as const } },
-                  ],
-                }
-              : {}),
-          },
+          where: saringBelum,
           orderBy: [{ semester: "asc" }, { kode: "asc" }],
-          take: UKURAN_HALAMAN,
+          skip: halamanBelum.lewati,
+          take: halamanBelum.ambil,
           select: {
             id: true, kode: true, nama: true, namaEn: true, semester: true,
             kurikulum: { select: { id: true, nama: true, prodiId: true, prodi: { select: { nama: true } } } },
@@ -253,6 +285,16 @@ export default async function HalamanRpkps({
   const paramHalaman = {
     ...paramDaftar,
     tampilan: tampilan === "tabel" ? "tabel" : undefined,
+  };
+  /** Tautan daftar RPKPS membawa halaman daftar "belum", dan sebaliknya. */
+  const paramAktif = {
+    ...paramHalaman,
+    [KUNCI_HALAMAN_BELUM]:
+      halamanBelum.halaman > 1 ? String(halamanBelum.halaman) : undefined,
+  };
+  const paramBelum = {
+    ...paramHalaman,
+    hal: halaman.halaman > 1 ? String(halaman.halaman) : undefined,
   };
 
   return (
@@ -428,7 +470,7 @@ export default async function HalamanRpkps({
               className="mt-4"
               halaman={halaman}
               basis="/rpkps"
-              params={paramHalaman}
+              params={paramAktif}
               satuan="rpkps"
             />
           </CardContent>
@@ -481,8 +523,7 @@ export default async function HalamanRpkps({
         <Card>
           <CardHeader>
             <CardTitle className="text-base">
-              {k.rpkps.belumJudul}
-              {belum.length < UKURAN_HALAMAN ? ` (${belum.length})` : ""}
+              {isi(k.rpkps.belumJudul, { jumlah: jumlahBelum })}
             </CardTitle>
             <CardDescription>{k.rpkps.belumKeterangan}</CardDescription>
           </CardHeader>
@@ -507,6 +548,15 @@ export default async function HalamanRpkps({
                 </div>
               ))}
             </div>
+
+            <Paginasi
+              className="mt-4"
+              halaman={halamanBelum}
+              basis="/rpkps"
+              params={paramBelum}
+              satuan="mataKuliah"
+              kunci={KUNCI_HALAMAN_BELUM}
+            />
           </CardContent>
         </Card>
       ) : null}

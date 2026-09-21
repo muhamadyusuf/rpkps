@@ -30,7 +30,19 @@ model Institusi {
   kodePt      String?  @map("kode_pt")
   alamat      String?
   situs       String?
-  logoUrl     String?  @map("logo_url")
+
+  /// Lambang institut, dipakai kop berkas cetak (docs/21 §2.2). Disimpan
+  /// sebagai BITA, bukan URL: `docx` menanam gambar sebagai bita di dalam
+  /// berkas, jadi menyimpan alamat berarti setiap unduhan berubah menjadi
+  /// permintaan jaringan ke host luar di tengah perakitan dokumen — dan host
+  /// yang sedang mati membuat unduhan gagal, atau lebih buruk, berhasil tanpa
+  /// kop. Jenisnya diputuskan dari BITA AJAIB saat diunggah, bukan dari
+  /// `Content-Type` yang datang dari peramban.
+  logo       Bytes?
+  logoTipe   String? @map("logo_tipe")
+  logoLebar  Int?    @map("logo_lebar")
+  logoTinggi Int?    @map("logo_tinggi")
+
   dibuatPada  DateTime @default(now()) @map("dibuat_pada")
   diubahPada  DateTime @updatedAt @map("diubah_pada")
 
@@ -75,6 +87,39 @@ model Prodi {
   gelar      String?
   akreditasi String?
   aktif      Boolean      @default(true)
+
+  // ── Identitas prodi (docs/21) ────────────────────────────────────────
+  // Seluruhnya opsional: prodi yang belum mengisinya tetap sah, dan tiap
+  // tampilan punya perilaku kosongnya sendiri. Tidak ada satu pun dari medan
+  // ini yang boleh masuk `proyeksiIsi()`/`proyeksiIsiEn()` — kop adalah
+  // kertasnya, bukan naskahnya, dan proyeksi adalah dasar sidik SHA-256.
+
+  /// Visi prodi, satu paragraf. Prosa, karena itu berpasangan *En.
+  visi   String? @db.Text
+  visiEn String? @db.Text @map("visi_en")
+
+  /// Misi sebagai DAFTAR butir, bukan satu blok teks: misi selalu dicetak
+  /// bernomor, dan menyimpannya sebagai satu teks berarti tiap pembaca
+  /// memecahnya dengan aturan yang berbeda-beda. Ditulis UTUH saat disimpan —
+  /// `SET misi[i] = …` meninggalkan NULL yang tidak dapat dibaca `String[]`.
+  misi   String[]
+  misiEn String[] @map("misi_en")
+
+  /// Kontak. TIDAK berpasangan *En (docs/21 §2.4): alamat pos bukan prosa —
+  /// "Jalan" yang diterjemahkan menjadi "Street" membuat surat tidak sampai,
+  /// dan nomor telepon, surel, serta URL tidak punya terjemahan sama sekali.
+  alamat  String? @db.Text
+  telepon String?
+  surel   String?
+  /// Menggantikan konstanta SITUS_PRODI yang dulu ada di lib/publik/tautan.ts.
+  situs   String?
+
+  /// Lambang prodi. Aturan penyimpanan sama dengan `institusi.logo`.
+  logo       Bytes?
+  logoTipe   String? @map("logo_tipe")
+  logoLebar  Int?    @map("logo_lebar")
+  logoTinggi Int?    @map("logo_tinggi")
+
   dibuatPada DateTime     @default(now()) @map("dibuat_pada")
   diubahPada DateTime     @updatedAt @map("diubah_pada")
 

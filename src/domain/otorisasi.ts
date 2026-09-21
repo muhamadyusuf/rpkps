@@ -60,3 +60,23 @@ export function bolehBuatRpkpsDiProdi(sesi: SesiOtorisasi | null, prodiId: strin
 export function bolehKelolaKurikulum(sesi: SesiOtorisasi | null, prodiId: string): boolean {
   return adalahAdmin(sesi) || punyaPeranDiProdi(sesi, prodiId, "KAPRODI");
 }
+
+/**
+ * Menyunting identitas program studi — logo, visi & misi, kontak (docs/21 §3.2).
+ *
+ * Ditulis terpisah dari `bolehKelolaKurikulum` meski bunyinya kebetulan sama
+ * hari ini: keduanya menjawab pertanyaan yang berbeda, dan menyatukannya
+ * berarti pelonggaran pada salah satunya diam-diam melonggarkan yang lain.
+ *
+ * `KAPRODI` ikut karena visi dan misi adalah rumusan prodi; meminta Kaprodi
+ * menunggu admin untuk memperbaiki satu kalimat visi adalah cara tercepat
+ * membuat medan ini tidak pernah terisi. `GPM` TIDAK ikut: cakupannya memang
+ * institusi, tetapi visi prodi bukan dokumen mutu yang ia sahkan — ia
+ * meninjaunya.
+ */
+export function bolehSuntingIdentitasProdi(
+  sesi: SesiOtorisasi | null,
+  prodiId: string,
+): boolean {
+  return adalahAdmin(sesi) || punyaPeranDiProdi(sesi, prodiId, "KAPRODI");
+}

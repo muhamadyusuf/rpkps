@@ -8,11 +8,13 @@ import {
   minimalKehadiran,
   skalaNilai,
 } from "@/domain/rpkps/cetak";
+import { kelompokkanPustaka } from "@/domain/rpkps/pustaka";
 import { sidikRingkas } from "@/domain/rpkps/sidik";
 import { tanggal as tanggalTeks } from "@/lib/bahasa/format";
 import { isi as sisip } from "@/lib/bahasa/teks";
 import type { CapTandaTangan } from "@/lib/dokumen/rpkps-docx";
 import type { LabelDokumen } from "@/lib/dokumen/label";
+import { barisKontak, type KopLembaga } from "@/lib/dokumen/kop";
 import type { RpkpsLengkap } from "@/lib/rpkps/muat";
 import { LOCALE, type Bahasa } from "@/kamus";
 
@@ -57,6 +59,7 @@ export function NaskahRpkps({
   ttd,
   riwayat,
   sidik,
+  kop,
   bahasa,
 }: {
   r: RpkpsLengkap;
@@ -65,26 +68,32 @@ export function NaskahRpkps({
   riwayat: { versi: number; dibuatPada: Date; deskripsi: string }[];
   /** Sidik salinan beku; null berarti yang dipratinjau draf. */
   sidik: string | null;
+  /**
+   * Kop lembaga, dari perakitan yang SAMA dengan yang dipakai pencetak
+   * (`rakitDariRpkps`). Memuatnya sendiri di sini berarti pratinjau dan
+   * berkas perlahan memakai kop yang berbeda — tanpa satu galat pun.
+   */
+  kop: KopLembaga;
   bahasa: Bahasa;
 }) {
   return (
     <div className="naskah space-y-6">
-      <Lembar r={r} L={L}>
+      <Lembar r={r} L={L} kop={kop} bahasa={bahasa} pertama>
         <HalamanPengesahan r={r} L={L} ttd={ttd} sidik={sidik} bahasa={bahasa} />
       </Lembar>
 
-      <Lembar r={r} L={L}>
+      <Lembar r={r} L={L} kop={kop} bahasa={bahasa}>
         <BagianAwal r={r} L={L} />
         <BagianEvaluasi r={r} L={L} />
         <BagianReferensi r={r} L={L} />
       </Lembar>
 
-      <Lembar r={r} L={L} mendatar>
+      <Lembar r={r} L={L} kop={kop} bahasa={bahasa} mendatar pertama>
         <TabelMingguan r={r} L={L} />
       </Lembar>
 
       {r.tugas.length > 0 || r.kisiKisi.length > 0 || riwayat.length > 0 ? (
-        <Lembar r={r} L={L}>
+        <Lembar r={r} L={L} kop={kop} bahasa={bahasa} pertama>
           <BagianTugas r={r} L={L} />
           <LampiranKisiKisi r={r} L={L} />
           <BagianRiwayat r={r} L={L} riwayat={riwayat} bahasa={bahasa} />
@@ -107,12 +116,22 @@ export function NaskahRpkps({
 function Lembar({
   r,
   L,
+  kop,
+  bahasa,
   mendatar = false,
+  pertama = false,
   children,
 }: {
   r: RpkpsLengkap;
   L: LabelDokumen;
+  kop: KopLembaga;
+  bahasa: Bahasa;
   mendatar?: boolean;
+  /**
+   * Lembar pertama sebuah bagian DOCX. Hanya di situ kop penuh tercetak;
+   * lembar lanjutan memakai dua baris pengenal saja (docs/21 §2.9).
+   */
+  pertama?: boolean;
   children: React.ReactNode;
 }) {
   const k = mendatar ? MENDATAR : POTRET;
@@ -130,15 +149,15 @@ function Lembar({
           lineHeight: 1.35,
         }}
       >
-        <header
-          className="mb-3 shrink-0"
-          style={{ fontSize: "7pt", color: REDUP, lineHeight: 1.3 }}
-        >
-          <p>{L.kodeDokumenFormRpkps}</p>
-          <p>
-            {L.kepalaRencanaPembelajaran}
-            {r.mataKuliah.nama}
-          </p>
+        <header className="mb-3 shrink-0">
+          {pertama ? <Kop kop={kop} bahasa={bahasa} /> : null}
+          <div style={{ fontSize: "7pt", color: REDUP, lineHeight: 1.3 }}>
+            <p>{L.kodeDokumenFormRpkps}</p>
+            <p>
+              {L.kepalaRencanaPembelajaran}
+              {r.mataKuliah.nama}
+            </p>
+          </div>
         </header>
 
         <div className="grow">{children}</div>
@@ -150,6 +169,49 @@ function Lembar({
           {kakiHalaman(r, L)}
         </footer>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Kop lembaga di layar. Lambangnya lewat `<img>` ke rutenya sendiri — bita
+ * gambar tidak ikut ke muatan render, sama seperti gambar bab (docs/17 §5.2).
+ */
+function Kop({ kop, bahasa }: { kop: KopLembaga; bahasa: Bahasa }) {
+  const kontak = barisKontak(kop, bahasa);
+  const lebar = 48;
+  return (
+    <div
+      className="mb-1 flex items-center gap-3 pb-1"
+      style={{ borderBottom: `1px solid ${GARIS}` }}
+    >
+      {kop.logoInstitusi ? (
+        <img
+          src={kop.logoInstitusi.url}
+          alt=""
+          width={lebar}
+          height={Math.round((kop.logoInstitusi.tinggi / kop.logoInstitusi.lebar) * lebar)}
+          style={{ width: lebar, height: "auto" }}
+        />
+      ) : null}
+      <div className="grow text-center">
+        <p style={{ fontSize: "11pt", fontWeight: 700, lineHeight: 1.2 }}>
+          {kop.institusi}
+        </p>
+        {kop.prodi ? <p style={{ fontSize: "10pt", lineHeight: 1.2 }}>{kop.prodi}</p> : null}
+        {kontak ? (
+          <p style={{ fontSize: "7pt", color: REDUP, lineHeight: 1.3 }}>{kontak}</p>
+        ) : null}
+      </div>
+      {kop.logoProdi ? (
+        <img
+          src={kop.logoProdi.url}
+          alt=""
+          width={lebar}
+          height={Math.round((kop.logoProdi.tinggi / kop.logoProdi.lebar) * lebar)}
+          style={{ width: lebar, height: "auto" }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -643,27 +705,28 @@ function BagianEvaluasi({ r, L }: { r: RpkpsLengkap; L: LabelDokumen }) {
 /* ── Bagian G ─────────────────────────────────────────────────────────── */
 
 function BagianReferensi({ r, L }: { r: RpkpsLengkap; L: LabelDokumen }) {
-  const jenisUrut = ["UTAMA", "PENDUKUNG", "DARING", "TOOLS"] as const;
-
   return (
     <>
       <JudulBagian nomor="G" judul={L.referensiDanSumberPembelajaran} />
       {r.pustaka.length === 0 ? <Miring>{L.belumAdaPustaka}</Miring> : null}
-      {jenisUrut.map((jenis) => {
-        const daftar = r.pustaka.filter((p) => p.jenis === jenis);
-        if (daftar.length === 0) return null;
-        return (
-          <div key={jenis} className="mt-2">
-            <p className="mb-1 font-bold">{L.jenisPustaka[jenis]} :</p>
-            {daftar.map((p) => (
-              <p key={p.id} className="text-justify" style={{ paddingLeft: "0.42cm" }}>
-                {p.nomor}. {p.teks}
-                {p.url ? ` — ${p.url}` : ""}
-              </p>
-            ))}
-          </div>
-        );
-      })}
+      {kelompokkanPustaka(r.pustaka).map(({ jenis, butir }) => (
+        <div key={jenis} className="mt-2">
+          {/*
+            Judul kelompok persis seperti templat ITTS menuliskannya. Yang
+            menyambungkannya ke kolom Referensi bagian H adalah kata di
+            dalamnya — "Sumber Utama" ↔ "Utama", "Sumber Belajar Daring" ↔
+            "Daring" — jadi tidak perlu kunci tambahan, dan judul resminya
+            tidak perlu diutak-atik.
+          */}
+          <p className="mb-1 font-bold">{L.jenisPustaka[jenis] ?? jenis} :</p>
+          {butir.map((p) => (
+            <p key={p.id} className="text-justify" style={{ paddingLeft: "0.42cm" }}>
+              {p.nomor}. {p.teks}
+              {p.url ? ` — ${p.url}` : ""}
+            </p>
+          ))}
+        </div>
+      ))}
     </>
   );
 }
@@ -685,10 +748,10 @@ function TabelMingguan({ r, L }: { r: RpkpsLengkap; L: LabelDokumen }) {
             <Sel kepala lebar={5} tengah rowSpan={2}>
               {L.mingguKe}
             </Sel>
-            <Sel kepala lebar={16} tengah rowSpan={2}>
+            <Sel kepala lebar={15} tengah rowSpan={2}>
               {L.subCapaianPembelajaranMataKuliahSu}
             </Sel>
-            <Sel kepala lebar={16} tengah rowSpan={2}>
+            <Sel kepala lebar={15} tengah rowSpan={2}>
               {L.topikSubtopik}
             </Sel>
             <Sel kepala lebar={22} tengah rowSpan={2}>
@@ -700,7 +763,7 @@ function TabelMingguan({ r, L }: { r: RpkpsLengkap; L: LabelDokumen }) {
             <Sel kepala lebar={26} tengah span={3}>
               {L.penilaian}
             </Sel>
-            <Sel kepala lebar={7} tengah rowSpan={2}>
+            <Sel kepala lebar={9} tengah rowSpan={2}>
               {L.referensi}
             </Sel>
           </tr>
@@ -819,16 +882,22 @@ function TabelMingguan({ r, L }: { r: RpkpsLengkap; L: LabelDokumen }) {
 
               <Sel>
                 {/*
-                  Kunci menyertakan JENIS. `pustaka` unik pada
-                  `(rpkpsId, jenis, nomor)`, jadi satu baris mingguan yang
-                  merujuk Sumber Utama [1] sekaligus Sumber Daring [1] punya dua
-                  anak bernomor sama — dan React memperingatkan kunci ganda.
+                  Nomor pustaka MULAI DARI SATU LAGI di tiap kelompok
+                  (`@@unique([rpkpsId, jenis, nomor])`), jadi "[1]" telanjang
+                  tidak menunjuk bahan mana pun — pembaca tidak tahu daftar
+                  yang mana di bagian G yang harus dibuka. Yang dicetak adalah
+                  pasangan utuhnya: nama kelompok, lalu nomornya.
                 */}
-                {p.pustaka.map((x) => (
-                  <p key={`${x.pustaka.jenis}-${x.pustaka.nomor}`}>
-                    • [{x.pustaka.nomor}]
-                  </p>
-                ))}
+                {kelompokkanPustaka(p.pustaka.map((x) => x.pustaka)).map(
+                  ({ jenis, butir }) => (
+                    <div key={jenis} className="mb-1 last:mb-0">
+                      <p className="font-bold">
+                        {L.jenisPustakaSingkat[jenis] ?? jenis}
+                      </p>
+                      <p>{butir.map((b) => `[${b.nomor}]`).join(", ")}</p>
+                    </div>
+                  ),
+                )}
               </Sel>
             </tr>
           ))}

@@ -1071,6 +1071,59 @@ export const id = {
       nonaktifkan: "Nonaktifkan",
       aktifkan: "Aktifkan",
     },
+    /**
+     * Identitas program studi (docs/21): lambang, visi & misi, kontak.
+     * Halamannya terbuka untuk ADMIN dan Kaprodi prodi yang bersangkutan.
+     */
+    identitas: {
+      metaJudul: "Identitas Program Studi",
+      kembali: "Semua program studi",
+      buka: "Identitas",
+      keterangan:
+        "Lambang dan kontak tercetak pada kop setiap berkas RPKPS, buku ajar, dan portofolio prodi ini. Visi dan misi tampil pada halaman katalog publik.",
+      catatanKop:
+        "Perubahan di sini berlaku juga untuk dokumen yang sudah terbit: kop dicetak dari data terkini, dan sidik dokumen tidak ikut berubah.",
+
+      logoJudul: "Lambang",
+      logoKeterangan: "PNG atau JPEG · maksimal {maks} KB · {min}–{maksPx} piksel",
+      logoBelumAda: "Belum ada lambang",
+      logoPilih: "Pilih berkas",
+      logoUnggah: "Unggah",
+      logoHapus: "Hapus",
+      logoAlt: "Lambang {nama}",
+
+      visiJudul: "Visi & Misi",
+      visiKeterangan:
+        "Dibaca asesor di halaman katalog. Terjemahan Inggris diketik berdampingan — teks Indonesia tetap yang sah.",
+      labelVisi: "Visi",
+      labelMisi: "Misi",
+      butirMisi: "Butir misi ke-{nomor}",
+      tambahButir: "Tambah butir misi",
+      hapusButir: "Hapus butir",
+      misiKosong: "Belum ada butir misi.",
+
+      kontakJudul: "Kontak",
+      kontakKeterangan:
+        "Tidak diterjemahkan: alamat pos, nomor telepon, surel, dan alamat situs adalah cara menghubungi prodi, bukan kalimat.",
+      labelAlamat: "Alamat",
+      labelTelepon: "Telepon",
+      labelSurel: "Surel",
+      labelSitus: "Situs",
+      contohAlamat: "Jl. Raya Puspiptek, Setu, Tangerang Selatan 15314",
+      contohTelepon: "(021) 1234 5678",
+      contohSurel: "ti@itts.ac.id",
+      contohSitus: "https://ti.itts.ac.id",
+
+      simpan: "Simpan identitas",
+      menyimpan: "Menyimpan…",
+    },
+
+    /** Lambang institusi — dipakai kop seluruh prodi, jadi ADMIN saja. */
+    institusi: {
+      judul: "Lambang institusi",
+      keterangan:
+        "Tercetak di sisi kiri kop setiap berkas, untuk seluruh program studi.",
+    },
     tahun: {
       metaJudul: "Tahun Akademik",
       judul: "Tahun Akademik",
@@ -1785,7 +1838,7 @@ export const id = {
     kolomMk: "Mata kuliah",
     kolomBab: "Bab",
     kolomBahasa: "Bahasa",
-    belumJudul: "RPKPS yang Anda ampu dan belum punya buku ajar",
+    belumJudul: "RPKPS yang Anda ampu dan belum punya buku ajar ({jumlah})",
     belumKeterangan:
       "Bab dirancang otomatis dari baris mingguan efektif; minggu ujian tidak menjadi bab.",
     buatId: "Susun buku (Indonesia)",
@@ -1996,7 +2049,7 @@ export const id = {
     arsipKeterangan: "Ditarik dari peredaran dan dari katalog publik. Isinya — termasuk nilai dan salinan beku — tetap utuh dan dapat dikembalikan lewat halaman masing-masing.",
     arsipSebagian: " Menampilkan {tampil} terbaru dari {total}.",
     arsipBaris: "{ta} · versi {versi}",
-    belumJudul: "Mata kuliah belum punya RPKPS",
+    belumJudul: "Mata kuliah belum punya RPKPS ({jumlah})",
     belumKeterangan: "Kerangka 16 pertemuan, alokasi waktu, dan penjadwalan Sub-CPMK disusun otomatis saat dibuat.",
     semester: "Semester {nomor}",
 
@@ -2637,6 +2690,20 @@ export const id = {
       hanyaPengusulTarik: "Hanya pengusul yang dapat menarik usulannya.",
       hanyaPengusulSunting: "Hanya pengusul yang dapat menyunting butir.",
     },
+    /** Identitas program studi dan lambang institusi (docs/21). */
+    identitas: {
+      tersimpan: "Identitas program studi tersimpan.",
+      logoTersimpan: "Lambang tersimpan.",
+      logoDihapus: "Lambang dihapus.",
+      teleponTidakSah: "Nomor telepon tidak dikenali. Gunakan angka, spasi, dan tanda + ( ) - saja.",
+      surelTidakSah: "Alamat surel tidak sah. Tulis satu alamat saja, tanpa nama di depannya.",
+      situsTidakSah: "Alamat situs tidak sah. Hanya http dan https yang diterima.",
+      logoKosong: "Berkas lambang belum dipilih.",
+      logoTerlaluBesar: "Berkas lambang melebihi {maks} KB.",
+      logoBukanGambar: "Berkas bukan PNG maupun JPEG. Lambang dalam bentuk SVG tidak diterima.",
+      logoTerlaluKecil: "Lambang terlalu kecil — minimal {min} piksel pada kedua sisi, agar tidak buram saat dicetak.",
+      logoTerlaluLebar: "Lambang terlalu besar — maksimal {maksPx} piksel pada kedua sisi.",
+    },
     takAda: {
       cpmk: "CPMK tidak ditemukan.",
       subCpmk: "Sub-CPMK tidak ditemukan.",
@@ -2665,6 +2732,8 @@ export const id = {
       pustaka: "Pustaka tidak ditemukan.",
       penugasan: "Penugasan tidak ditemukan.",
       fakultas: "Belum ada fakultas. Jalankan npm run db:seed lebih dulu.",
+      prodi: "Program studi tidak ditemukan.",
+      institusi: "Belum ada institusi. Jalankan npm run db:seed lebih dulu.",
     },
     terkunci: {
       diajukan: "RPKPS sedang menunggu putusan Ketua Program Studi; isinya terkunci sampai diputuskan.",
@@ -2705,6 +2774,11 @@ export const id = {
      * dan `pesanZod` menerjemahkannya saat pesan itu benar-benar dilaporkan.
      */
     periksa: {
+      visiPanjang: "Visi maksimal {n} karakter.",
+      alamatPanjang: "Alamat maksimal {n} karakter.",
+      teleponPanjang: "Nomor telepon maksimal {n} karakter.",
+      surelPanjang: "Alamat surel maksimal {n} karakter.",
+      situsPanjang: "Alamat situs maksimal {n} karakter.",
       catatanTautanPanjang: "Catatan tautan maksimal {n} karakter.",
       hariTautanMinimal: "Tautan berlaku paling singkat {n} hari.",
       hariTautanMaksimal: "Tautan berlaku paling lama {n} hari.",

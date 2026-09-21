@@ -5,6 +5,7 @@ import { muatRpkps, type RpkpsLengkap } from "@/lib/rpkps/muat";
 import { ambilSnapshot, cairkanSnapshot, type IsiSnapshot } from "@/lib/rpkps/snapshot";
 import { naskahEn } from "@/lib/dokumen/naskah-en";
 import type { CapTandaTangan } from "@/lib/dokumen/rpkps-docx";
+import { muatKopCetak, muatKopTampil, type KopLembaga } from "@/lib/dokumen/kop";
 
 /**
  * Merakit satu naskah RPKPS yang siap dicetak — dan siap dipratinjau.
@@ -35,16 +36,36 @@ export interface NaskahSiap {
   ttd: CapTandaTangan[];
   /** Sidik salinan beku; `null` berarti yang dirakit adalah draf. */
   sidik: string | null;
+  /**
+   * Kop lembaga, dari data HIDUP — bahkan ketika `naskah` datang dari salinan
+   * beku. Identitas prodi tidak ikut ruang sidik mana pun, jadi prodi yang
+   * pindah gedung tidak menggeser sidik satu pun dokumen terbit (docs/21 §2.5).
+   *
+   * Ikut di sini, bukan dimuat sendiri-sendiri oleh pencetak dan pratinjau,
+   * supaya keduanya tetap membaca kop yang sama — janji berkas ini.
+   */
+  kop: KopLembaga;
   namaBerkas: string;
 }
 
 export async function rakitNaskahRpkps(
   id: string,
-  opsi: { bahasa?: Bahasa } = {},
+  opsi: OpsiRakit = {},
 ): Promise<NaskahSiap | null> {
   const rpkps = await muatRpkps(id);
   if (!rpkps) return null;
   return rakitDariRpkps(rpkps, opsi);
+}
+
+export interface OpsiRakit {
+  bahasa?: Bahasa;
+  /**
+   * `true` memuat BITA kedua lambang, karena `docx` menanam gambar ke dalam
+   * berkasnya. Pratinjau tidak memintanya: ia merender lewat `<img>`, dan
+   * menarik dua kali setengah megabita hanya untuk membuangnya adalah biaya
+   * yang dibayar setiap kali panel pratinjau dibuka.
+   */
+  cetak?: boolean;
 }
 
 /**
@@ -56,15 +77,24 @@ export async function rakitNaskahRpkps(
  */
 export async function rakitDariRpkps(
   rpkps: RpkpsLengkap,
-  opsi: { bahasa?: Bahasa } = {},
+  opsi: OpsiRakit = {},
 ): Promise<NaskahSiap> {
   const bahasa = opsi.bahasa ?? "id";
 
-  // Dokumen yang sudah terbit selalu dicetak dari salinan beku, bukan dari
-  // data langsung. Kalau kurikulum disunting setelah pengesahan, yang tampil
-  // dan yang terunduh tetap identik dengan yang ditandatangani.
-  const snapshot =
-    rpkps.status === "TERBIT" ? await ambilSnapshot(rpkps.id, rpkps.versi) : null;
+  /*
+   * Dokumen yang sudah terbit selalu dicetak dari salinan beku, bukan dari
+   * data langsung: kalau kurikulum disunting setelah pengesahan, yang tampil
+   * dan yang terunduh tetap identik dengan yang ditandatangani.
+   *
+   * Kop adalah kekecualiannya, dan dimuat BERSAMAAN karena tidak menunggu
+   * hasil pembacaan salinan beku — dua perjalanan berurutan ke basis data
+   * yang jauh adalah 50 ms yang tidak perlu dibayar siapa pun.
+   */
+  const muatKop = opsi.cetak ? muatKopCetak : muatKopTampil;
+  const [snapshot, kop] = await Promise.all([
+    rpkps.status === "TERBIT" ? ambilSnapshot(rpkps.id, rpkps.versi) : null,
+    muatKop(rpkps.mataKuliah.kurikulum.prodiId, bahasa),
+  ]);
 
   let sumber = rpkps;
   let riwayat: NaskahSiap["riwayat"];
@@ -126,5 +156,5 @@ export async function rakitDariRpkps(
       "-",
     );
 
-  return { naskah, riwayat, ttd, sidik, namaBerkas };
+  return { naskah, riwayat, ttd, sidik, kop, namaBerkas };
 }

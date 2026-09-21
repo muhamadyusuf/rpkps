@@ -38,10 +38,10 @@ export default async function KartuPratinjau({
           flexDirection: "column",
           justifyContent: "space-between",
           padding: 72,
-          background: "#101319",
+          background: "#202a20",
           backgroundImage:
-            "radial-gradient(1100px 460px at 50% -12%, rgba(34,211,238,0.16), transparent 70%)",
-          color: "#f2f4f8",
+            "radial-gradient(1100px 460px at 50% -12%, rgba(208,237,129,0.14), transparent 70%)",
+          color: "#eef2e5",
           fontFamily: "sans-serif",
         }}
       >
@@ -53,9 +53,9 @@ export default async function KartuPratinjau({
               justifyContent: "center",
               width: 44,
               height: 44,
-              borderRadius: 10,
-              border: "2px solid rgba(34,211,238,0.55)",
-              color: "#22d3ee",
+              borderRadius: 3,
+              border: "2px solid rgba(208,237,129,0.55)",
+              color: "#d0ed81",
               fontSize: 24,
               fontWeight: 700,
             }}
@@ -70,7 +70,7 @@ export default async function KartuPratinjau({
               style={{
                 fontSize: 15,
                 letterSpacing: 3,
-                color: "rgba(242,244,248,0.5)",
+                color: "rgba(238,242,229,0.5)",
               }}
             >
               OUTCOME BASED EDUCATION
@@ -80,7 +80,7 @@ export default async function KartuPratinjau({
 
         {mk && rpkps ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-            <span style={{ fontSize: 34, color: "#22d3ee", letterSpacing: 2 }}>
+            <span style={{ fontSize: 34, color: "#d0ed81", letterSpacing: 2 }}>
               {mk.kode}
             </span>
             <span style={{ fontSize: 76, fontWeight: 700, lineHeight: 1.05 }}>
@@ -103,14 +103,14 @@ export default async function KartuPratinjau({
             alignItems: "center",
             gap: 14,
             fontSize: 20,
-            color: "rgba(242,244,248,0.5)",
+            color: "rgba(238,242,229,0.5)",
           }}
         >
           <span
             style={{
               width: 44,
               height: 2,
-              background: "rgba(34,211,238,0.7)",
+              background: "rgba(208,237,129,0.7)",
             }}
           />
           <span>

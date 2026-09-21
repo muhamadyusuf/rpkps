@@ -22,6 +22,7 @@ import {
   teks,
   UKURAN_JUDUL,
 } from "./gaya";
+import { kelompokkanPustaka } from "@/domain/rpkps/pustaka";
 import { formatMenit } from "@/domain/beban-belajar/kalkulator";
 import { sidikRingkas } from "@/domain/rpkps/sidik";
 import { tanggal as tanggalTeks } from "@/lib/bahasa/format";
@@ -37,6 +38,8 @@ import { petaKomponenSubCpmk, susunPetaAsesmen } from "@/domain/evaluasi/peta-as
 import type { RpkpsLengkap } from "@/lib/rpkps/muat";
 import type { PeranTtd } from "@/generated/prisma";
 import { labelDokumen, type LabelDokumen } from "./label";
+import { kopPenuh } from "./kop-docx";
+import type { KopLembaga } from "./kop";
 import { LOCALE, type Bahasa } from "@/kamus";
 // `isi` sudah dipakai sebagai nama variabel lokal di beberapa bagian.
 import { isi as isi_ } from "@/lib/bahasa/teks";
@@ -50,24 +53,46 @@ import { isi as isi_ } from "@/lib/bahasa/teks";
  * dibuat mendatar (landscape) di bagian terpisah.
  */
 
+/**
+ * Dua baris pengenal dokumen — kode formulir dan nama mata kuliah. Ikut di
+ * kedua bentuk kop, karena itulah yang dicari orang saat berkas tercetak
+ * tercecer di meja.
+ */
+function barisPengenal(r: RpkpsLengkap, L: LabelDokumen): Paragraph[] {
+  return [
+    paragraf([teks(L.kodeDokumenFormRpkps, { ukuran: 14, warna: "6B7280" })], {
+      spasi: { after: 0 },
+    }),
+    paragraf(
+      [
+        teks(`${L.kepalaRencanaPembelajaran}${r.mataKuliah.nama}`, {
+          ukuran: 14,
+          warna: "6B7280",
+        }),
+      ],
+      { spasi: { after: 60 } },
+    ),
+  ];
+}
+
+/** Kop halaman lanjutan: pengenal saja, tanpa lambang (docs/21 §2.9). */
 function kepala(r: RpkpsLengkap, L: LabelDokumen) {
-  return new Header({
-    children: [
-      paragraf(
-        [teks(L.kodeDokumenFormRpkps, { ukuran: 14, warna: "6B7280" })],
-        { spasi: { after: 0 } },
-      ),
-      paragraf(
-        [
-          teks(`${L.kepalaRencanaPembelajaran}${r.mataKuliah.nama}`, {
-            ukuran: 14,
-            warna: "6B7280",
-          }),
-        ],
-        { spasi: { after: 60 } },
-      ),
-    ],
-  });
+  return new Header({ children: barisPengenal(r, L) });
+}
+
+/**
+ * Kop halaman pertama tiap bagian: lambang, nama lembaga, dan kontak.
+ * Dicetak dari data HIDUP — bukan dari salinan beku — karena identitas prodi
+ * tidak ikut ruang sidik mana pun (docs/21 §2.5).
+ */
+function kepalaPertama(
+  r: RpkpsLengkap,
+  L: LabelDokumen,
+  kop: KopLembaga | null,
+  bahasa: Bahasa,
+) {
+  if (!kop) return kepala(r, L);
+  return new Header({ children: [...kopPenuh(kop, bahasa), ...barisPengenal(r, L)] });
 }
 
 function kaki(r: RpkpsLengkap, L: LabelDokumen) {
@@ -513,15 +538,15 @@ function bagianEvaluasi(r: RpkpsLengkap, L: LabelDokumen): (Paragraph | Table)[]
 function bagianReferensi(r: RpkpsLengkap, L: LabelDokumen): (Paragraph | Table)[] {
   const isi: (Paragraph | Table)[] = [judulBagian("G", L.referensiDanSumberPembelajaran)];
 
-  for (const jenis of ["UTAMA", "PENDUKUNG", "DARING", "TOOLS"] as const) {
-    const daftar = r.pustaka.filter((p) => p.jenis === jenis);
-    if (daftar.length === 0) continue;
+  for (const { jenis, butir } of kelompokkanPustaka(r.pustaka)) {
+    // Judul kelompok persis seperti templat ITTS menuliskannya; yang
+    // menyambungkannya ke kolom Referensi bagian H adalah kata di dalamnya.
     isi.push(
-      paragraf([teks(`${L.jenisPustaka[jenis]} :`, { tebal: true })], {
+      paragraf([teks(`${L.jenisPustaka[jenis] ?? jenis} :`, { tebal: true })], {
         spasi: { before: 140, after: 80 },
       }),
     );
-    for (const p of daftar) {
+    for (const p of butir) {
       isi.push(
         paragraf(`${p.nomor}. ${p.teks}${p.url ? ` — ${p.url}` : ""}`, {
           rata: RATA_ISI,
@@ -542,12 +567,12 @@ function tabelMingguan(r: RpkpsLengkap, L: LabelDokumen): (Paragraph | Table)[] 
     tableHeader: true,
     children: [
       sel(L.mingguKe, { lebar: 5, tebal: true, latar: ABU, rata: AlignmentType.CENTER, barisGabung: 2 }),
-      sel(L.subCapaianPembelajaranMataKuliahSu, { lebar: 16, tebal: true, latar: ABU, rata: AlignmentType.CENTER, barisGabung: 2 }),
-      sel(L.topikSubtopik, { lebar: 16, tebal: true, latar: ABU, rata: AlignmentType.CENTER, barisGabung: 2 }),
+      sel(L.subCapaianPembelajaranMataKuliahSu, { lebar: 15, tebal: true, latar: ABU, rata: AlignmentType.CENTER, barisGabung: 2 }),
+      sel(L.topikSubtopik, { lebar: 15, tebal: true, latar: ABU, rata: AlignmentType.CENTER, barisGabung: 2 }),
       sel(L.metodeDanAktivitasPembelajaran, { lebar: 22, tebal: true, latar: ABU, rata: AlignmentType.CENTER, barisGabung: 2 }),
       sel(L.alokasiWaktu, { lebar: 8, tebal: true, latar: ABU, rata: AlignmentType.CENTER, barisGabung: 2 }),
       sel(L.penilaian, { lebar: 26, tebal: true, latar: ABU, rata: AlignmentType.CENTER, kolomGabung: 3 }),
-      sel(L.referensi, { lebar: 7, tebal: true, latar: ABU, rata: AlignmentType.CENTER, barisGabung: 2 }),
+      sel(L.referensi, { lebar: 9, tebal: true, latar: ABU, rata: AlignmentType.CENTER, barisGabung: 2 }),
     ],
   });
 
@@ -623,21 +648,35 @@ function tabelMingguan(r: RpkpsLengkap, L: LabelDokumen): (Paragraph | Table)[] 
       penilaian.push(paragraf(p.penilaianSistem));
     }
 
-    const referensi = p.pustaka.map((x) =>
-      paragraf(`• [${x.pustaka.nomor}]`, { spasi: { after: 20 } }),
+    /*
+      Nomor pustaka MULAI DARI SATU LAGI di tiap kelompok
+      (`@@unique([rpkpsId, jenis, nomor])`), jadi "[1]" telanjang tidak
+      menunjuk bahan mana pun. Yang dicetak pasangan utuhnya — nama kelompok,
+      lalu nomornya — dan susunannya harus persis sama dengan pratinjau di
+      `naskah.tsx`: keduanya dokumen yang sama.
+    */
+    const referensi = kelompokkanPustaka(p.pustaka.map((x) => x.pustaka)).flatMap(
+      ({ jenis, butir }) => [
+        paragraf([teks(L.jenisPustakaSingkat[jenis] ?? jenis, { tebal: true })], {
+          spasi: { after: 20 },
+        }),
+        paragraf(butir.map((b) => `[${b.nomor}]`).join(", "), {
+          spasi: { after: 60 },
+        }),
+      ],
     );
 
     return new TableRow({
       children: [
         sel(String(p.minggu), { lebar: 5, rata: AlignmentType.CENTER, tebal: true }),
-        sel(sub, { lebar: 16 }),
-        sel(topik, { lebar: 16 }),
+        sel(sub, { lebar: 15 }),
+        sel(topik, { lebar: 15 }),
         sel(metode, { lebar: 22 }),
         sel(waktu, { lebar: 8, rata: AlignmentType.CENTER }),
         sel(penilaian, { lebar: 12 }),
         sel(p.indikator.map((i) => paragraf(i.teks, { spasi: { after: 20 } })), { lebar: 10 }),
         sel(`${Number(p.bobot)}%`, { lebar: 4, rata: AlignmentType.CENTER }),
-        sel(referensi, { lebar: 7 }),
+        sel(referensi, { lebar: 9 }),
       ],
     });
   });
@@ -944,6 +983,14 @@ export async function buatDokumenRpkps(
    * pengesahannya (docs/11 §7).
    */
   bahasa: Bahasa = "id",
+  /**
+   * Kop lembaga. Dirakit `muatKopCetak` dari data HIDUP, bahkan untuk dokumen
+   * yang badannya datang dari salinan beku: identitas prodi tidak ikut ruang
+   * sidik mana pun, jadi prodi yang pindah gedung tidak menggeser sidik satu
+   * pun dokumen terbit (docs/21 §2.5). `null` berarti dicetak tanpa kop —
+   * dipakai uji dan pemanggil yang belum membawanya.
+   */
+  kop: KopLembaga | null = null,
 ): Promise<Buffer> {
   const L = labelDokumen(bahasa);
   const potret = { width: 11906, height: 16838 }; // A4 dalam twip
@@ -954,8 +1001,11 @@ export async function buatDokumenRpkps(
     title: `RPKPS ${r.mataKuliah.kode} — ${r.mataKuliah.nama}`,
     sections: [
       {
-        properties: { page: { size: potret, margin: { top: 850, bottom: 850, left: 850, right: 850 } } },
-        headers: { default: kepala(r, L) },
+        properties: {
+          titlePage: true,
+          page: { size: potret, margin: { top: 850, bottom: 850, left: 850, right: 850 } },
+        },
+        headers: { default: kepala(r, L), first: kepalaPertama(r, L, kop, bahasa) },
         footers: { default: kaki(r, L) },
         children: [
           ...halamanPengesahan(r, L, ttd, bahasa),
@@ -988,18 +1038,22 @@ export async function buatDokumenRpkps(
       {
         // Tabel mingguan butuh halaman mendatar agar tujuh kolomnya terbaca.
         properties: {
+          titlePage: true,
           page: {
             size: { ...mendatar, orientation: PageOrientation.LANDSCAPE },
             margin: { top: 700, bottom: 700, left: 700, right: 700 },
           },
         },
-        headers: { default: kepala(r, L) },
+        headers: { default: kepala(r, L), first: kepalaPertama(r, L, kop, bahasa) },
         footers: { default: kaki(r, L) },
         children: [...tabelMingguan(r, L)],
       },
       {
-        properties: { page: { size: potret, margin: { top: 850, bottom: 850, left: 850, right: 850 } } },
-        headers: { default: kepala(r, L) },
+        properties: {
+          titlePage: true,
+          page: { size: potret, margin: { top: 850, bottom: 850, left: 850, right: 850 } },
+        },
+        headers: { default: kepala(r, L), first: kepalaPertama(r, L, kop, bahasa) },
         footers: { default: kaki(r, L) },
         children: [
           ...bagianTugas(r, L),

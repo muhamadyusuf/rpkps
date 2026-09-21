@@ -82,7 +82,9 @@ export default async function HalamanPratinjauRpkps({
   const bDok = bahasaNaskah(query, bAntarmuka);
   const p = k.rpkps.pratinjau;
 
-  const { naskah, riwayat, ttd, sidik } = await rakitDariRpkps(rpkps, { bahasa: bDok });
+  const { naskah, riwayat, ttd, sidik, kop } = await rakitDariRpkps(rpkps, {
+    bahasa: bDok,
+  });
 
   /**
    * Pergeseran dihitung dari sidik yang sudah di tangan, bukan lewat
@@ -180,6 +182,7 @@ export default async function HalamanPratinjauRpkps({
         ttd={ttd}
         riwayat={riwayat}
         sidik={sidik}
+        kop={kop}
         bahasa={bDok}
       />
 

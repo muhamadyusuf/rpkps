@@ -25,6 +25,12 @@ export async function generateMetadata() {
 }
 
 /**
+ * Nama parameter halaman untuk daftar "belum punya buku ajar". Bukan `hal` —
+ * itu milik daftar buku ajar di atasnya, dan keduanya ada pada lembar yang sama.
+ */
+const KUNCI_HALAMAN_BELUM = "halbelum";
+
+/**
  * Daftar buku ajar — docs/16 §5.1.
  *
  * Dihalamankan dan disaring DI BASIS DATA. Daftar ini bercakupan institusi bagi
@@ -63,8 +69,40 @@ export default async function HalamanBahanAjar({
 
   const saring = { AND: [saringDaftarBuku(sesi, cakupan), pencarian] };
 
-  const jumlah = await prisma.bukuAjar.count({ where: saring });
+  /*
+   * RPKPS yang pengguna AMPU dan belum punya buku ajar sama sekali. Bukan
+   * seluruh RPKPS dalam cakupannya: yang boleh menulis buku hanyalah
+   * pengampunya, jadi menawarkan tombol kepada pengelola akan menawarkan
+   * pekerjaan yang aksinya sendiri akan menolak (docs/16 P3).
+   *
+   * Satu bentuk saringan untuk menghitung DAN untuk mengambil — sebelumnya ia
+   * hanya diambil, dengan `take` tanpa `skip`, sehingga daftarnya terpotong
+   * diam-diam di baris ke-25 dan sisanya tidak dapat dicapai dari mana pun.
+   */
+  const saringBelum = {
+    pengampu: { some: { penggunaId: sesi.id } },
+    status: { not: "ARSIP" as const },
+    bukuAjar: { none: {} },
+    pertemuan: { some: { jenis: "EFEKTIF" as const, topik: { not: null } } },
+  };
+
+  // Keduanya saling bebas dan basis datanya jauh: satu gelombang, bukan dua
+  // perjalanan berurutan.
+  const [jumlah, jumlahBelum] = await Promise.all([
+    prisma.bukuAjar.count({ where: saring }),
+    prisma.rpkps.count({ where: saringBelum }),
+  ]);
+
   const halaman = hitungHalaman(jumlah, bacaHalaman(mentah.hal), UKURAN_HALAMAN);
+  /*
+    Daftar kedua pada lembar yang sama, jadi nomor halamannya memakai
+    parameter sendiri, dan keduanya saling diteruskan lewat `params`.
+  */
+  const halamanBelum = hitungHalaman(
+    jumlahBelum,
+    bacaHalaman(mentah[KUNCI_HALAMAN_BELUM]),
+    UKURAN_HALAMAN,
+  );
 
   const [buku, belum] = await Promise.all([
     prisma.bukuAjar.findMany({
@@ -86,21 +124,11 @@ export default async function HalamanBahanAjar({
         bab: { select: { uraian: true } },
       },
     }),
-    /*
-     * RPKPS yang pengguna AMPU dan belum punya buku ajar sama sekali. Bukan
-     * seluruh RPKPS dalam cakupannya: yang boleh menulis buku hanyalah
-     * pengampunya, jadi menawarkan tombol kepada pengelola akan menawarkan
-     * pekerjaan yang aksinya sendiri akan menolak (docs/16 P3).
-     */
     prisma.rpkps.findMany({
-      where: {
-        pengampu: { some: { penggunaId: sesi.id } },
-        status: { not: "ARSIP" },
-        bukuAjar: { none: {} },
-        pertemuan: { some: { jenis: "EFEKTIF", topik: { not: null } } },
-      },
+      where: saringBelum,
       orderBy: { diubahPada: "desc" },
-      take: UKURAN_HALAMAN,
+      skip: halamanBelum.lewati,
+      take: halamanBelum.ambil,
       select: {
         id: true,
         mataKuliah: { select: { kode: true, nama: true, namaEn: true } },
@@ -112,6 +140,17 @@ export default async function HalamanBahanAjar({
 
   const k = await kamus();
   const b = await bahasaAktif();
+
+  /** Tautan daftar buku membawa halaman daftar "belum", dan sebaliknya. */
+  const paramBuku = {
+    q: kata,
+    [KUNCI_HALAMAN_BELUM]:
+      halamanBelum.halaman > 1 ? String(halamanBelum.halaman) : undefined,
+  };
+  const paramBelum = {
+    q: kata,
+    hal: halaman.halaman > 1 ? String(halaman.halaman) : undefined,
+  };
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -194,7 +233,7 @@ export default async function HalamanBahanAjar({
               className="mt-4"
               halaman={halaman}
               basis="/bahan-ajar"
-              params={{ q: kata }}
+              params={paramBuku}
               satuan="bukuAjar"
             />
           </CardContent>
@@ -204,7 +243,9 @@ export default async function HalamanBahanAjar({
       {belum.length > 0 ? (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">{k.bahanAjar.belumJudul}</CardTitle>
+            <CardTitle className="text-base">
+              {isi(k.bahanAjar.belumJudul, { jumlah: jumlahBelum })}
+            </CardTitle>
             <CardDescription>{k.bahanAjar.belumKeterangan}</CardDescription>
           </CardHeader>
           <CardContent>
@@ -229,6 +270,15 @@ export default async function HalamanBahanAjar({
                 </div>
               ))}
             </div>
+
+            <Paginasi
+              className="mt-4"
+              halaman={halamanBelum}
+              basis="/bahan-ajar"
+              params={paramBelum}
+              satuan="rpkps"
+              kunci={KUNCI_HALAMAN_BELUM}
+            />
           </CardContent>
         </Card>
       ) : null}

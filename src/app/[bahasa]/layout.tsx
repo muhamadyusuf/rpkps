@@ -55,8 +55,8 @@ export async function generateMetadata(): Promise<Metadata> {
 export const viewport: Viewport = {
   // Warna bilah peramban mengikuti kanvas masing-masing tema.
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f7f8fa" },
-    { media: "(prefers-color-scheme: dark)", color: "#101319" },
+    { media: "(prefers-color-scheme: light)", color: "#f5f5ef" },
+    { media: "(prefers-color-scheme: dark)", color: "#161a17" },
   ],
 };
 

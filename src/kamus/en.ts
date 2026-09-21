@@ -1003,6 +1003,57 @@ export const en: Kamus = {
       nonaktifkan: "Deactivate",
       aktifkan: "Activate",
     },
+    /**
+     * Study programme identity (docs/21): emblem, vision & mission, contact.
+     */
+    identitas: {
+      metaJudul: "Study Programme Identity",
+      kembali: "All study programmes",
+      buka: "Identity",
+      keterangan:
+        "The emblem and contact details are printed on the letterhead of every RPKPS, textbook, and class portfolio of this programme. Vision and mission appear on the public catalogue page.",
+      catatanKop:
+        "Changes here apply to published documents as well: the letterhead is printed from current data, and the document fingerprint does not change.",
+
+      logoJudul: "Emblem",
+      logoKeterangan: "PNG or JPEG · at most {maks} KB · {min}–{maksPx} pixels",
+      logoBelumAda: "No emblem yet",
+      logoPilih: "Choose a file",
+      logoUnggah: "Upload",
+      logoHapus: "Remove",
+      logoAlt: "{nama} emblem",
+
+      visiJudul: "Vision & Mission",
+      visiKeterangan:
+        "Read by assessors on the catalogue page. The English translation is typed alongside — the Indonesian text remains authoritative.",
+      labelVisi: "Vision",
+      labelMisi: "Mission",
+      butirMisi: "Mission point {nomor}",
+      tambahButir: "Add a mission point",
+      hapusButir: "Remove point",
+      misiKosong: "No mission points yet.",
+
+      kontakJudul: "Contact",
+      kontakKeterangan:
+        "Not translated: a postal address, phone number, email, and website are ways to reach the programme, not prose.",
+      labelAlamat: "Address",
+      labelTelepon: "Phone",
+      labelSurel: "Email",
+      labelSitus: "Website",
+      contohAlamat: "Jl. Raya Puspiptek, Setu, Tangerang Selatan 15314",
+      contohTelepon: "(021) 1234 5678",
+      contohSurel: "ti@itts.ac.id",
+      contohSitus: "https://ti.itts.ac.id",
+
+      simpan: "Save identity",
+      menyimpan: "Saving…",
+    },
+
+    institusi: {
+      judul: "Institution emblem",
+      keterangan:
+        "Printed on the left side of the letterhead of every document, for all study programmes.",
+    },
     tahun: {
       metaJudul: "Academic Years",
       judul: "Academic Years",
@@ -1717,7 +1768,7 @@ export const en: Kamus = {
     kolomMk: "Course",
     kolomBab: "Chapters",
     kolomBahasa: "Language",
-    belumJudul: "Your courses without a teaching book yet",
+    belumJudul: "Your courses without a teaching book yet ({jumlah})",
     belumKeterangan:
       "Chapters are drawn automatically from the effective weekly rows; exam weeks become no chapter.",
     buatId: "Start a book (Indonesian)",
@@ -1927,7 +1978,7 @@ export const en: Kamus = {
     arsipKeterangan: "Withdrawn from circulation and from the public catalogue. The content — scores and frozen copies included — stays intact and can be restored from each document's own page.",
     arsipSebagian: " Showing the {tampil} most recent of {total}.",
     arsipBaris: "{ta} · version {versi}",
-    belumJudul: "Courses without an RPKPS",
+    belumJudul: "Courses without an RPKPS ({jumlah})",
     belumKeterangan: "A 16-session skeleton, its time allocation, and Sub-CPMK scheduling are generated automatically on creation.",
     semester: "Semester {nomor}",
 
@@ -2559,6 +2610,19 @@ export const en: Kamus = {
       hanyaPengusulTarik: "Only the proposer can withdraw their proposal.",
       hanyaPengusulSunting: "Only the proposer can edit an item.",
     },
+    identitas: {
+      tersimpan: "Study programme identity saved.",
+      logoTersimpan: "Emblem saved.",
+      logoDihapus: "Emblem removed.",
+      teleponTidakSah: "Phone number not recognised. Use digits, spaces, and + ( ) - only.",
+      surelTidakSah: "Invalid email address. Enter a single address, with no name in front of it.",
+      situsTidakSah: "Invalid website address. Only http and https are accepted.",
+      logoKosong: "No emblem file selected.",
+      logoTerlaluBesar: "The emblem file exceeds {maks} KB.",
+      logoBukanGambar: "The file is neither PNG nor JPEG. SVG emblems are not accepted.",
+      logoTerlaluKecil: "The emblem is too small — at least {min} pixels on both sides, so that it does not print blurred.",
+      logoTerlaluLebar: "The emblem is too large — at most {maksPx} pixels on both sides.",
+    },
     takAda: {
       cpmk: "CPMK not found.",
       subCpmk: "Sub-CPMK not found.",
@@ -2587,6 +2651,8 @@ export const en: Kamus = {
       pustaka: "Reading not found.",
       penugasan: "Assignment not found.",
       fakultas: "No faculty yet. Run npm run db:seed first.",
+      prodi: "Study programme not found.",
+      institusi: "No institution yet. Run npm run db:seed first.",
     },
     terkunci: {
       diajukan: "The RPKPS is awaiting the Head of Study Programme's decision; its content is locked until then.",
@@ -2622,6 +2688,11 @@ export const en: Kamus = {
     },
 
     periksa: {
+      visiPanjang: "The vision may be at most {n} characters.",
+      alamatPanjang: "The address may be at most {n} characters.",
+      teleponPanjang: "The phone number may be at most {n} characters.",
+      surelPanjang: "The email address may be at most {n} characters.",
+      situsPanjang: "The website address may be at most {n} characters.",
       catatanTautanPanjang: "A link note may be at most {n} characters.",
       hariTautanMinimal: "A link must be valid for at least {n} day.",
       hariTautanMaksimal: "A link may be valid for at most {n} days.",

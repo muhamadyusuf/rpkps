@@ -17,6 +17,7 @@ export {
   cakupanKurikulum,
   bolehBuatRpkpsDiProdi,
   bolehKelolaKurikulum,
+  bolehSuntingIdentitasProdi,
 } from "@/domain/otorisasi";
 
 export async function wajibMasuk(): Promise<PenggunaSesi> {

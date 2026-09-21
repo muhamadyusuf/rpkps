@@ -59,6 +59,10 @@ export const labelDokumenId = {
   jenisTugasIndividu: "Tugas Individu",
   keterangan: "KETERANGAN",
   kodeDokumenFormRpkps: "KODE DOKUMEN : FORM RPKPS",
+  /* Kop lembaga (docs/21 §2.9). Dirakit `lib/dokumen/kop.ts`. */
+  kopProgramStudi: "Program Studi",
+  kopTelepon: "Telp. ",
+
   kepalaRencanaPembelajaran: "Rencana Pembelajaran : ",
   kodeMkSks: "KODE MK / SKS\t: ",
   kepalaPenjaminanMutuInternal: "Kepala Penjaminan Mutu Internal",
@@ -356,6 +360,19 @@ export const labelDokumenId = {
     TOOLS: "Perangkat Lunak dan Tools Praktikum",
   } as Record<string, string>,
 
+  /**
+   * Nama kelompok pustaka pada kolom Referensi tabel mingguan — kolom itu
+   * hanya selebar ~9% halaman, jadi nama panjangnya tidak muat. Yang penting
+   * kelompoknya TERSEBUT: nomor pustaka mulai dari satu lagi di tiap
+   * kelompok, jadi "[1]" sendirian tidak menunjuk bahan mana pun.
+   */
+  jenisPustakaSingkat: {
+    UTAMA: "Utama",
+    PENDUKUNG: "Pendukung",
+    DARING: "Daring",
+    TOOLS: "Tools",
+  } as Record<string, string>,
+
   bentukSoal: {
     PILIHAN_GANDA: "Pilihan ganda",
     ESAI: "Esai",
@@ -440,6 +457,9 @@ export const labelDokumenEn: LabelDokumen = {
   jenisTugasIndividu: "Individual Assignment",
   keterangan: "REMARKS",
   kodeDokumenFormRpkps: "DOCUMENT CODE : FORM RPKPS",
+  kopProgramStudi: "Study Program",
+  kopTelepon: "Tel. ",
+
   kepalaRencanaPembelajaran: "Learning Plan : ",
   kodeMkSks: "COURSE CODE / CREDITS\t: ",
   kepalaPenjaminanMutuInternal: "Head of Internal Quality Assurance",
@@ -720,6 +740,13 @@ export const labelDokumenEn: LabelDokumen = {
     PENDUKUNG: "Supporting Sources",
     DARING: "Online Learning Resources",
     TOOLS: "Software and Lab Tools",
+  },
+
+  jenisPustakaSingkat: {
+    UTAMA: "Primary",
+    PENDUKUNG: "Supporting",
+    DARING: "Online",
+    TOOLS: "Tools",
   },
 
   bentukSoal: {

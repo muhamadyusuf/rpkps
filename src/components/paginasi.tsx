@@ -1,6 +1,6 @@
 import { Tautan } from "@/components/tautan";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { tautanHalaman, type Halaman } from "@/lib/paginasi";
+import { KUNCI_HALAMAN, tautanHalaman, type Halaman } from "@/lib/paginasi";
 import { kamus } from "@/lib/bahasa/server";
 import { isi } from "@/lib/bahasa/teks";
 import type { Kamus } from "@/kamus";
@@ -19,6 +19,7 @@ export async function Paginasi({
   basis,
   params,
   satuan = "baris",
+  kunci = KUNCI_HALAMAN,
   className,
 }: {
   halaman: Halaman;
@@ -26,6 +27,11 @@ export async function Paginasi({
   params: Record<string, string | undefined>;
   /** Kunci satuan pada `kamus.komponen.satuan` — "baris", "pengguna", … */
   satuan?: keyof Kamus["komponen"]["satuan"];
+  /**
+   * Nama parameter halaman di alamat. Diganti hanya bila satu lembar memuat
+   * dua daftar berhalaman; nomor halaman daftar yang lain ikut lewat `params`.
+   */
+  kunci?: string;
   className?: string;
 }) {
   if (halaman.total === 0) return null;
@@ -54,7 +60,7 @@ export async function Paginasi({
       {halaman.totalHalaman > 1 ? (
         <div className="flex items-center gap-1.5">
           <Anak
-            href={tautanHalaman(basis, params, halaman.halaman - 1)}
+            href={tautanHalaman(basis, params, halaman.halaman - 1, kunci)}
             aktif={adaSebelum}
             label={k.komponen.paginasi.sebelumnya}
           >
@@ -64,7 +70,7 @@ export async function Paginasi({
             {halaman.halaman} / {halaman.totalHalaman}
           </span>
           <Anak
-            href={tautanHalaman(basis, params, halaman.halaman + 1)}
+            href={tautanHalaman(basis, params, halaman.halaman + 1, kunci)}
             aktif={adaSesudah}
             label={k.komponen.paginasi.berikutnya}
           >

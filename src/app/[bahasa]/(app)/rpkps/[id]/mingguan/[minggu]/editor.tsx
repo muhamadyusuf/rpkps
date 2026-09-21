@@ -18,7 +18,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import type { JenisPustaka } from "@/generated/prisma";
 import { formatMenit } from "@/domain/beban-belajar/kalkulator";
+import { kelompokkanPustaka } from "@/domain/rpkps/pustaka";
 import type { Pagu } from "@/domain/beban-belajar/tipe";
 import { simpanPertemuan, type IsiPertemuan } from "../../../aksi";
 import {
@@ -312,29 +314,46 @@ export function EditorPertemuan(props: Props) {
                 {k.rpkps.mingguEditor.tanpaPustaka}
               </p>
             ) : (
-              <div className="space-y-1.5">
-                {props.pustakaTersedia.map((p) => (
-                  <label
-                    key={p.id}
-                    className="flex cursor-pointer items-start gap-2.5 rounded-lg border p-2.5 text-sm hover:bg-muted/50"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={d.pustakaId.includes(p.id)}
-                      onChange={(e) =>
-                        ubah(
-                          "pustakaId",
-                          e.target.checked
-                            ? [...d.pustakaId, p.id]
-                            : d.pustakaId.filter((x) => x !== p.id),
-                        )
-                      }
-                      className="mt-0.5"
-                    />
-                    <span className="min-w-0">
-                      <span className="text-muted-foreground">[{p.nomor}]</span> {p.teks}
-                    </span>
-                  </label>
+              /*
+                Dikelompokkan per jenis, sama seperti yang nanti tercetak di
+                bagian G dan di kolom Referensi. Tanpa judul kelompok, dua
+                bahan yang sama sekali berbeda muncul berdampingan sebagai
+                "[1]" — penomorannya mulai dari satu lagi di tiap jenis — dan
+                dosen memilih dengan menebak.
+              */
+              <div className="space-y-3">
+                {kelompokkanPustaka(props.pustakaTersedia).map(({ jenis, butir }) => (
+                  <div key={jenis} className="space-y-1.5">
+                    <p className="label-teknis text-muted-foreground/70">
+                      {k.enum.jenisPustaka[jenis as JenisPustaka] ?? jenis}
+                    </p>
+                    {butir.map((p) => (
+                      <label
+                        key={p.id}
+                        className="flex cursor-pointer items-start gap-2.5 rounded-lg border p-2.5 text-sm hover:bg-muted/50"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={d.pustakaId.includes(p.id)}
+                          onChange={(e) =>
+                            ubah(
+                              "pustakaId",
+                              e.target.checked
+                                ? [...d.pustakaId, p.id]
+                                : d.pustakaId.filter((x) => x !== p.id),
+                            )
+                          }
+                          className="mt-0.5"
+                        />
+                        <span className="min-w-0">
+                          <span className="font-mono text-muted-foreground">
+                            [{p.nomor}]
+                          </span>{" "}
+                          {p.teks}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
                 ))}
               </div>
             )}

@@ -41,14 +41,16 @@ export async function siapkanUnduhanRpkps(
   if (!rpkps) return null;
   if (opsi.hanyaTerbit && rpkps.status !== "TERBIT") return null;
 
-  const { naskah, riwayat, ttd, sidik, namaBerkas } = await rakitDariRpkps(rpkps, {
+  const { naskah, riwayat, ttd, sidik, kop, namaBerkas } = await rakitDariRpkps(rpkps, {
     bahasa,
+    // Pencetak menanam lambang ke dalam berkas, jadi bitanya ikut dimuat.
+    cetak: true,
   });
   // Terbit tanpa salinan beku berarti data tidak konsisten. Rute publik lebih
   // baik menjawab 404 daripada menerbitkan isi yang belum pernah disahkan.
   if (opsi.hanyaTerbit && !sidik) return null;
 
-  const buffer = await buatDokumenRpkps(naskah, riwayat, ttd, sidik, bahasa);
+  const buffer = await buatDokumenRpkps(naskah, riwayat, ttd, sidik, bahasa, kop);
 
   return { buffer, namaBerkas, sidik };
 }
