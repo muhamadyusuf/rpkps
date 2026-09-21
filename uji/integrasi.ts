@@ -1,4 +1,5 @@
 import { writeFileSync } from "node:fs";
+import ExcelJS from "exceljs";
 import JSZip from "jszip";
 import { prisma } from "./prisma";
 import type { Prisma } from "@/generated/prisma";
@@ -46,6 +47,11 @@ import {
   terapkanUsulan,
 } from "@/lib/kurikulum/usulan-inti";
 import type { KategoriWaktu } from "@/generated/prisma";
+import { rakitTemplat } from "@/domain/rpkps/templat";
+import { bacaCapIsi, hitungTimpa } from "@/lib/rpkps/cap-isi";
+import { konteksDomain, muatKonteks } from "@/lib/rpkps/konteks-draf";
+import { bacaTemplat, buatTemplat } from "@/lib/rpkps/templat-excel";
+import { GalatTulis, selesaikanRujukan, tulisDraf } from "@/lib/rpkps/tulis-draf";
 import { pesanTemuanId } from "@/lib/bahasa/temuan";
 import { teksTenggatId } from "@/lib/bahasa/tenggat";
 
@@ -1917,6 +1923,255 @@ async function main() {
       "temuan yang sudah diteruskan tidak ditawarkan lagi pada draf berikutnya",
       bahanUlang !== null && !bahanUlang.bahan.dasar.some((d) => d.ref === refEvaluasi),
     );
+  }
+
+  // ── 17 · Impor template: satu pintu tulis, penulisan di tempat (docs/23) ──
+  {
+    const taImpor = await prisma.tahunAkademik.create({
+      data: { kode: "2031/2032-GANJIL", tahunMulai: 2031, tahunSelesai: 2032, semester: "GANJIL", aktif: false },
+    });
+    const rp = await prisma.rpkps.create({
+      data: {
+        mataKuliahId: mk.id,
+        tahunAkademikId: taImpor.id,
+        deskripsi: "Deskripsi awal mata kuliah yang cukup panjang untuk lolos pemeriksaan draf.",
+        pengampu: { create: { penggunaId: pengguna.id, peran: "KOORDINATOR" } },
+      },
+    });
+
+    // Kerangka 16 minggu: UTS di minggu 8, UAS di minggu 16, 14 minggu efektif.
+    const efektifImpor = [1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15];
+    for (let minggu = 1; minggu <= 16; minggu++) {
+      const idx = efektifImpor.indexOf(minggu);
+      const jenis = minggu === 8 ? "UTS" : minggu === 16 ? "UAS" : "EFEKTIF";
+      await prisma.pertemuan.create({
+        data: {
+          rpkpsId: rp.id,
+          minggu,
+          jenis,
+          topik: jenis === "EFEKTIF" ? `Topik lama ${minggu}` : "Ujian",
+          bobot: jenis === "UAS" ? 40 : 0, // bobot lama yang harus dinolkan bila baris tak disebut
+          ...(idx >= 0 ? { subCpmk: { create: { subCpmkId: semuaSub[idx].id } } } : {}),
+          ...(minggu === 1
+            ? { indikator: { create: [{ teks: "Indikator lama", teksEn: "Old indicator", urutan: 0 }] } }
+            : {}),
+        },
+      });
+    }
+    // Isi yang harus SELAMAT dari impor: terjemahan, linimasa, dan skor mahasiswa.
+    const tugasLama = await prisma.tugas.create({
+      data: {
+        rpkpsId: rp.id, nomor: 1, nama: "Proyek lama", namaEn: "Old project", jenis: "KELOMPOK",
+        mingguMulai: 9, mingguSelesai: 15, deskripsi: "Deskripsi tugas lama.",
+        subCpmk: { create: [{ subCpmkId: semuaSub[7].id }] },
+        kriteria: { create: [{ nomor: 1, indikator: "Kriteria lama", indikatorEn: "Old criterion", rincian: [], bobot: 100 }] },
+        linimasa: { create: [{ minggu: 10, tahapan: "Awal", tahapanEn: "Start", aktivitas: "Mulai" }, { minggu: 12, tahapan: "Tengah", aktivitas: "Jalan" }] },
+      },
+    });
+    const kisiUtsLama = await prisma.kisiKisi.create({
+      data: {
+        rpkpsId: rp.id, jenis: "UTS",
+        butir: { create: [
+          { nomor: 1, subCpmkId: semuaSub[0].id, levelBloom: "C2", skor: 50 },
+          { nomor: 2, subCpmkId: semuaSub[1].id, levelBloom: "C3", skor: 50 },
+        ] },
+      },
+      include: { butir: { orderBy: { nomor: "asc" } } },
+    });
+    const mhsImpor = await prisma.mahasiswa.create({ data: { prodiId: prodi.id, nim: "2031001", nama: "Uji Impor" } });
+    const klsImpor = await prisma.kelas.create({ data: { rpkpsId: rp.id, kode: "A" } });
+    const pesertaImpor = await prisma.pesertaKelas.create({ data: { kelasId: klsImpor.id, mahasiswaId: mhsImpor.id } });
+    await prisma.nilaiButir.create({
+      data: { pesertaKelasId: pesertaImpor.id, butirKisiKisiId: kisiUtsLama.butir[1].id, skor: 40 },
+    });
+
+    const muatSumber = () =>
+      prisma.rpkps.findUniqueOrThrow({
+        where: { id: rp.id },
+        include: {
+          tahunAkademik: true,
+          mataKuliah: { include: { cpmk: { orderBy: { urutan: "asc" }, include: { subCpmk: { orderBy: { urutan: "asc" } } } } } },
+          komponenNilai: { orderBy: { urutan: "asc" } },
+          pustaka: { orderBy: [{ jenis: "asc" }, { nomor: "asc" }] },
+          pertemuan: {
+            orderBy: { minggu: "asc" },
+            include: {
+              subCpmk: { include: { subCpmk: { select: { kode: true } } } },
+              indikator: { orderBy: { urutan: "asc" } },
+              pustaka: { include: { pustaka: { select: { jenis: true, nomor: true } } } },
+            },
+          },
+          tugas: {
+            orderBy: { nomor: "asc" },
+            include: {
+              komponenNilai: { select: { nama: true } },
+              subCpmk: { include: { subCpmk: { select: { kode: true } } } },
+              kriteria: { orderBy: { nomor: "asc" } },
+            },
+          },
+          kisiKisi: {
+            orderBy: { jenis: "asc" },
+            include: { butir: { orderBy: { nomor: "asc" }, include: { subCpmk: { select: { kode: true } } } } },
+          },
+        },
+      });
+
+    /** Template dari keadaan dokumen, disunting seperti dosen, lalu dianalisis. */
+    async function berkasDosen(sunting: (wb: ExcelJS.Workbook) => void) {
+      const buf = await buatTemplat(await muatSumber(), "id");
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer);
+      sunting(wb);
+      const keluar = Buffer.from(await wb.xlsx.writeBuffer());
+      const isi = await bacaTemplat(keluar.buffer.slice(keluar.byteOffset, keluar.byteOffset + keluar.byteLength) as ArrayBuffer);
+      const k = await muatKonteks(prisma, rp.id);
+      if (!k) throw new Error("konteks impor hilang");
+      return { k, hasil: rakitTemplat(isi, { rpkpsId: rp.id, kodeMk: k.mataKuliah.kode, batas: konteksDomain(k) }) };
+    }
+
+    /**
+     * Mengosongkan baris data sebuah lembar. `spliceRows` exceljs tidak andal
+     * untuk ini (baris lama dapat tertinggal), jadi selnya dikosongkan satu per
+     * satu — pembaca melewati baris yang seluruh selnya kosong.
+     */
+    const kosongkan = (ws: ExcelJS.Worksheet, dariBaris = 2) => {
+      for (let r = dariBaris; r <= ws.rowCount; r++) {
+        ws.getRow(r).eachCell({ includeEmpty: true }, (sel) => {
+          sel.value = null;
+        });
+      }
+    };
+
+    // Isian dosen yang sah: 14 minggu efektif × 5 = 70 (Tugas), UTS 15, UAS 15.
+    const isiSah = (wb: ExcelJS.Workbook, opsi: { adaUas: boolean; butirUtsKedua: boolean }) => {
+      wb.getWorksheet("Identitas")!.getCell("B3").value = "Setelah mengikuti mata kuliah ini mahasiswa mampu:";
+      const mg = wb.getWorksheet("Mingguan")!;
+      for (let r = 2; r <= 15; r++) {
+        mg.getCell(r, 12).value = 5;
+        mg.getCell(r, 13).value = "Tugas";
+        mg.getCell(r, 14).value = r === 2 ? "Indikator baru" : "Indikator umum";
+      }
+      const kn = wb.getWorksheet("Komponen Nilai")!;
+      kosongkan(kn);
+      kn.getRow(2).values = ["Tugas", 70];
+      kn.getRow(3).values = ["UTS", opsi.adaUas ? 15 : 30];
+      if (opsi.adaUas) kn.getRow(4).values = ["UAS", 15];
+      const uj = wb.getWorksheet("Ujian")!;
+      // baris ujian: minggu, jenis, bobot, komponen
+      uj.eachRow((row, n) => {
+        if (n === 1) return;
+        const jenis = String(row.getCell(2).value);
+        row.getCell(3).value = jenis === "UTS" ? (opsi.adaUas ? 15 : 30) : 15;
+        row.getCell(4).value = jenis;
+      });
+      if (!opsi.adaUas) kosongkan(uj, 3); // membuang baris UAS dari lembar Ujian
+      const tg = wb.getWorksheet("Tugas")!;
+      tg.getCell("B2").value = "Proyek revisi";
+      tg.getCell("G2").value = "Tugas";
+      const ks = wb.getWorksheet("Kisi-kisi")!;
+      kosongkan(ks);
+      const butir: (string | number)[][] = opsi.butirUtsKedua
+        ? [
+            ["UTS", 90, 1, semuaSub[0].kode, "C2", "ESAI", 1, 50, ""],
+            ["UTS", 90, 2, semuaSub[1].kode, "C3", "ESAI", 1, 50, ""],
+          ]
+        : [["UTS", 90, 1, semuaSub[0].kode, "C2", "ESAI", 1, 100, ""]];
+      if (opsi.adaUas) butir.push(["UAS", 90, 1, semuaSub[2].kode, "C3", "ESAI", 1, 100, ""]);
+      butir.forEach((b, i) => (ks.getRow(i + 2).values = b));
+    };
+
+    // A · berkas yang membuang butir bernilai: analisis lolos, penulisan MENOLAK.
+    const a = await berkasDosen((wb) => isiSah(wb, { adaUas: true, butirUtsKedua: false }));
+    cek("impor: berkas sah lolos semua pemeriksaan terhadap dokumen nyata", a.hasil.temuan.length === 0 && a.hasil.draf !== null,
+      JSON.stringify(a.hasil.temuan.slice(0, 3)));
+    const rujA = selesaikanRujukan(a.k.pertemuan, a.k.mataKuliah.cpmk.flatMap((c) => c.subCpmk), a.hasil.draf!);
+    cek("impor: seluruh rujukan kode dan minggu terselesaikan menjadi id", rujA.hilang.length === 0);
+
+    let galatTulis: unknown = null;
+    try {
+      await prisma.$transaction(async (tx) => {
+        await tulisDraf(tx, rp.id, a.hasil.draf!, rujA.rencana, "KURIKULUM");
+      });
+    } catch (e) {
+      galatTulis = e;
+    }
+    cek("impor: membuang butir yang sudah bernilai ditolak (GalatTulis NILAI_TERTAUT)", galatTulis instanceof GalatTulis,
+      String(galatTulis));
+    cek("impor: penolakan mengembalikan seluruh transaksi — butir dan skor utuh",
+      (await prisma.butirKisiKisi.count({ where: { kisiKisiId: kisiUtsLama.id } })) === 2 &&
+        (await prisma.nilaiButir.count({ where: { pesertaKelasId: pesertaImpor.id } })) === 1 &&
+        (await prisma.pertemuan.count({ where: { rpkpsId: rp.id, topik: "Topik lama 1" } })) === 1);
+
+    // B · berkas yang mempertahankan kedua butir: menulis di tempat.
+    const b = await berkasDosen((wb) => isiSah(wb, { adaUas: true, butirUtsKedua: true }));
+    cek("impor: berkas yang mempertahankan butir bernilai lolos", b.hasil.temuan.length === 0, JSON.stringify(b.hasil.temuan.slice(0, 3)));
+    const capAwal = await bacaCapIsi(prisma, rp.id);
+    const rujB = selesaikanRujukan(b.k.pertemuan, b.k.mataKuliah.cpmk.flatMap((c) => c.subCpmk), b.hasil.draf!);
+    await prisma.$transaction(async (tx) => {
+      if ((await bacaCapIsi(tx, rp.id)) !== capAwal) throw new Error("cap berubah tanpa sebab");
+      await tulisDraf(tx, rp.id, b.hasil.draf!, rujB.rencana, "KURIKULUM");
+    });
+
+    const tugasBaru = await prisma.tugas.findUniqueOrThrow({
+      where: { id: tugasLama.id },
+      include: { kriteria: true, linimasa: true },
+    });
+    cek("impor: tugas ditulis di tempat — id sama, isi baru", tugasBaru.nama === "Proyek revisi");
+    cek("impor: terjemahan tugas (namaEn) selamat", tugasBaru.namaEn === "Old project", String(tugasBaru.namaEn));
+    cek("impor: linimasa tugas selamat (tidak ikut cascade)", tugasBaru.linimasa.length === 2);
+    cek("impor: terjemahan kriteria (indikatorEn) selamat",
+      tugasBaru.kriteria.length === 1 && tugasBaru.kriteria[0].indikatorEn === "Old criterion");
+
+    const indikator1 = await prisma.indikator.findMany({
+      where: { pertemuan: { rpkpsId: rp.id, minggu: 1 } }, orderBy: { urutan: "asc" },
+    });
+    cek("impor: indikator diselaraskan menurut urutan — teks baru, teksEn lama selamat",
+      indikator1.length === 1 && indikator1[0].teks === "Indikator baru" && indikator1[0].teksEn === "Old indicator");
+
+    const kisiUtsBaru = await prisma.kisiKisi.findUniqueOrThrow({
+      where: { rpkpsId_jenis: { rpkpsId: rp.id, jenis: "UTS" } },
+      include: { butir: { orderBy: { nomor: "asc" } } },
+    });
+    cek("impor: butir kisi-kisi ditulis di tempat — id sama, skor mahasiswa selamat",
+      kisiUtsBaru.id === kisiUtsLama.id &&
+        kisiUtsBaru.butir.map((x) => x.id).join() === kisiUtsLama.butir.map((x) => x.id).join() &&
+        (await prisma.nilaiButir.count({ where: { pesertaKelasId: pesertaImpor.id } })) === 1);
+    cek("impor: kisi-kisi UAS baru dibuat, durasi tertulis",
+      (await prisma.kisiKisi.count({ where: { rpkpsId: rp.id, jenis: "UAS" } })) === 1 && kisiUtsBaru.durasiMenit === 90);
+
+    const baris = await prisma.pertemuan.findMany({ where: { rpkpsId: rp.id }, orderBy: { minggu: "asc" }, include: { komponenNilai: true } });
+    const w1 = baris.find((p) => p.minggu === 1)!;
+    const w8 = baris.find((p) => p.minggu === 8)!;
+    const w16 = baris.find((p) => p.minggu === 16)!;
+    cek("impor: baris mingguan tertaut ke komponen, bertanda tulisan manusia (bukan AI)",
+      Number(w1.bobot) === 5 && w1.komponenNilai?.nama === "Tugas" && w1.sumber === "KURIKULUM" && w1.topik === "Topik lama 1",
+      `${w1.bobot} ${w1.komponenNilai?.nama} ${w1.sumber}`);
+    cek("impor: baris UTS/UAS hanya menerima bobot dan komponen — topik tidak disentuh",
+      Number(w8.bobot) === 15 && w8.komponenNilai?.nama === "UTS" && w8.topik === "Ujian" &&
+        Number(w16.bobot) === 15 && w16.komponenNilai?.nama === "UAS");
+    cek("impor: menulis menggeser cap versi — penerapan dengan cap lama akan ditolak",
+      (await bacaCapIsi(prisma, rp.id)) !== capAwal);
+    const timpa = await hitungTimpa(prisma, rp.id, b.k);
+    cek("impor: ringkasan yang akan ditimpa menghitung minggu terisi, tugas, kisi-kisi",
+      timpa.mingguEfektif === 14 && timpa.mingguTerisi === 14 && timpa.tugas === 1 && timpa.kisiKisi === 2, JSON.stringify(timpa));
+
+    // C · baris ujian yang tidak disebut berkas dinolkan; kisi-kisi tak disebut dihapus.
+    // UAS keluar dari lembar Ujian dan kisi-kisi, komponennya pun hilang: draf sudah
+    // diperiksa jumlahnya 100 TANPA baris itu, jadi bobot lamanya tak boleh tertinggal.
+    const c = await berkasDosen((wb) => isiSah(wb, { adaUas: false, butirUtsKedua: true }));
+    cek("impor: berkas tanpa UAS lolos (UTS 30 + 14×5)", c.hasil.temuan.length === 0, JSON.stringify(c.hasil.temuan.slice(0, 3)));
+    const rujC = selesaikanRujukan(c.k.pertemuan, c.k.mataKuliah.cpmk.flatMap((x) => x.subCpmk), c.hasil.draf!);
+    cek("impor: baris UAS yang tak disebut berkas tercatat untuk dinolkan", rujC.rencana.ujianTakDisebut.length === 1);
+    await prisma.$transaction(async (tx) => {
+      await tulisDraf(tx, rp.id, c.hasil.draf!, rujC.rencana, "KURIKULUM");
+    });
+    const w16c = await prisma.pertemuan.findFirstOrThrow({ where: { rpkpsId: rp.id, minggu: 16 } });
+    cek("impor: bobot lama baris UAS dinolkan, komponennya dilepas",
+      Number(w16c.bobot) === 0 && w16c.komponenNilaiId === null, `${w16c.bobot} ${w16c.komponenNilaiId}`);
+    cek("impor: kisi-kisi UAS yang tak disebut berkas dihapus",
+      (await prisma.kisiKisi.count({ where: { rpkpsId: rp.id, jenis: "UAS" } })) === 0);
+    cek("impor: komponen nilai UAS yang tak disebut dihapus, yang lain tetap",
+      (await prisma.komponenNilai.count({ where: { rpkpsId: rp.id } })) === 2);
   }
 
   writeFileSync("uji/keluaran-rpkps.docx", buffer);

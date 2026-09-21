@@ -15,6 +15,20 @@ export type { HasilPeriksaAuth };
  * pemiliknya sendiri — tidak membocorkan apa pun.
  */
 export async function periksaFirebaseAuth(): Promise<HasilPeriksaAuth> {
+  // /setup terbuka tanpa login (ia harus terbuka: ia yang menjelaskan mengapa
+  // masuk belum bisa). Tanpa cache, setiap kunjungan anonim memicu satu
+  // panggilan keluar berbatas 6 detik — pintu untuk menahan koneksi server.
+  const sekarang = Date.now();
+  if (cache && sekarang - cache.pada < UMUR_CACHE_MS) return cache.hasil;
+  const hasil = await periksaTanpaCache();
+  cache = { pada: sekarang, hasil };
+  return hasil;
+}
+
+const UMUR_CACHE_MS = 60_000;
+let cache: { pada: number; hasil: HasilPeriksaAuth } | null = null;
+
+async function periksaTanpaCache(): Promise<HasilPeriksaAuth> {
   const kunci = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
   if (!kunci) return { status: "tidak-diperiksa" };
 

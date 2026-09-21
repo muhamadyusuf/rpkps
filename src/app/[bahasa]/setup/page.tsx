@@ -112,7 +112,13 @@ export default async function HalamanSetup() {
                   k.setup.authKunciSalahIsi
                 ) : (
                   isi(k.setup.authTakTerjangkauIsi, {
-                    pesan: auth.status === "tak-terjangkau" ? auth.pesan : "—",
+                    // Pesan mentah dari jaringan dapat memuat nama host dan rincian
+                    // lain; halaman ini dapat dibuka siapa saja, jadi di produksi
+                    // yang tampil hanya kategorinya.
+                    pesan:
+                      auth.status === "tak-terjangkau" && process.env.NODE_ENV !== "production"
+                        ? auth.pesan
+                        : "—",
                   })
                 )}
               </CardDescription>

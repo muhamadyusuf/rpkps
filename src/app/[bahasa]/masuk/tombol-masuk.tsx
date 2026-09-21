@@ -49,7 +49,12 @@ export function TombolMasuk() {
       // `lanjut` datang dari proxy TANPA awalan bahasa. Awalannya diambil
       // dari preferensi akun bila ada — halaman masuk boleh dibuka dalam
       // bahasa apa pun, yang menentukan setelah masuk adalah orangnya.
-      const tujuan = lanjut && lanjut.startsWith("/") ? lanjut : "/dashboard";
+      // Hanya alamat dalam situs: "//host" dan "/\\host" dibaca peramban sebagai
+      // alamat luar begitu awalan bahasanya dilepas oleh siapa pun di hilir.
+      const tujuan =
+        lanjut && lanjut.startsWith("/") && !lanjut.startsWith("//") && !lanjut.includes("\\")
+          ? lanjut
+          : "/dashboard";
       router.replace(
         adalahBahasa(tersimpan) ? `/${tersimpan}${tujuan}` : jalur(tujuan),
       );

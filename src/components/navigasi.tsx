@@ -13,6 +13,7 @@ import {
   KeyRound,
   LayoutDashboard,
   LineChart,
+  ShieldAlert,
   Timer,
   Users,
   type LucideIcon,
@@ -34,6 +35,7 @@ const IKON: Record<KunciIkon, LucideIcon> = {
   pengguna: Users,
   kunci: KeyRound,
   lonceng: Bell,
+  perisai: ShieldAlert,
 };
 
 /**

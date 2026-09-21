@@ -1,7 +1,44 @@
 import type { NextConfig } from "next";
 
+/**
+ * Header keamanan untuk SEMUA alamat (docs/22 §3).
+ *
+ * Yang sengaja TIDAK dipasang: `script-src` pada CSP. Next.js menyisipkan skrip
+ * inline, dan CSP berbasis nonce mematikan render statis; sebuah CSP `script-src`
+ * yang keliru tidak gagal dengan pesan — halamannya cukup berhenti berjalan.
+ * Yang dipasang adalah direktif yang tidak dapat merusak render tetapi menutup
+ * kelas serangan yang nyata: dibingkai situs lain, `<base>` disusupi, formulir
+ * dibelokkan ke luar, dan plugin objek.
+ *
+ * COOP `same-origin-allow-popups`, bukan `same-origin`: masuk dengan Google
+ * memakai jendela popup, dan `same-origin` memutus hubungan yang dibutuhkan
+ * Firebase untuk menerima hasilnya.
+ */
+const HEADER_KEAMANAN = [
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  { key: "Cross-Origin-Opener-Policy", value: "same-origin-allow-popups" },
+  { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
+  {
+    key: "Permissions-Policy",
+    value: "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()",
+  },
+  {
+    key: "Content-Security-Policy",
+    value: "frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'",
+  },
+];
+
 const nextConfig: NextConfig = {
   serverExternalPackages: ['firebase-admin'],
+
+  // Tidak perlu memberi tahu pemindai bahwa ini Next.js.
+  poweredByHeader: false,
+
+  async headers() {
+    return [{ source: "/:path*", headers: HEADER_KEAMANAN }];
+  },
 
   experimental: {
     serverActions: {

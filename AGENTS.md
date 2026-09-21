@@ -39,6 +39,8 @@ Konsep lengkap ada di `docs/` — **baca sebelum menambah fitur**:
 | `docs/19-penyuntingan-naskah-dan-kesiapan-terbit.md` | AI sebagai EDITOR: usulan kutipan→pengganti yang disetujui dosen satu per satu, tinjauan lintas bab, pemeriksaan naskah mekanis, kesiapan terbit + sinopsis/kata kunci + blok KDT. E1–E6 terpasang. |
 | `docs/20-arahan-dosen-pada-draf-ai.md` | Arahan bebas dosen pada penyusunan draf RPKPS oleh AI: medan `Rpkps.arahanAi`, amplop `<arahan_dosen>` di ketiga tahap, kedudukannya terhadap aturan. AD1–AD5 terpasang. |
 | `docs/21-identitas-program-studi.md` | Identitas prodi: logo, visi & misi, alamat, telepon, surel, situs. Kop lembaga pada RPKPS, buku ajar, dan portofolio; bagian Visi & Misi di katalog publik. I1–I9 terpasang. |
+| `docs/22-perangkap-keamanan.md` | Tinjauan keamanan + perangkap: alamat umpan yang dicatat ke `/perangkap` (IP, lokasi perkiraan, sidik perangkat), header keamanan, pembatas laju. PK1–PK4 terpasang. Foto/GPS pelaku sengaja tidak dibangun (§3). |
+| `docs/23-impor-rpkps-dari-template.md` | Impor isi RPKPS dari template Excel yang dibuat dari dokumennya sendiri: empat lapis validasi, satu gerbang (`periksaDraf`) dan satu pintu tulis (`tulisDraf`) bersama draf AI. T1–T6 terpasang. |
 
 ## Aturan yang mengikat
 
@@ -422,6 +424,24 @@ Konsep lengkap ada di `docs/` — **baca sebelum menambah fitur**:
   pratinjau bukan otorisasi (docs/04 §9.9). `CPMK_PENSIUN` dan `SUB_PENSIUN`
   di luar `JENIS_BOLEH_AI` selamanya. Penjaganya
   `src/lib/ai/skema-draf-usulan.test.ts` dan `uji/integrasi.ts` §16.
+- **Impor template dan draf AI berbagi satu gerbang dan satu pintu tulis.**
+  Berkas Excel dibaca menjadi `DrafRpkps` (`src/domain/rpkps/templat.ts`),
+  diperiksa `periksaDraf()`, dan ditulis `tulisDraf`
+  (`src/lib/rpkps/tulis-draf.ts`) — fungsi yang sama dengan penerapan draf AI.
+  Jangan membuat jalur tulis kedua. Impor **tidak** menjalankan
+  `alokasikanAsesmen`: angka dosen tidak ditambal server, hanya dilaporkan.
+  Penerapan tidak menerima draf dari peramban; ia membaca ulang BERKASNYA
+  (`analisisBerkas`) dan membandingkan cap versi (`capIsiRpkps`) di dalam
+  transaksi. Penulisan bersifat DI TEMPAT — tugas menurut `nomor`, kisi-kisi
+  menurut `jenis`, butir menurut `nomor`, indikator menurut urutan — karena
+  hapus-lalu-buat-ulang membuang terjemahan `*En`, `linimasa_tugas`, dan
+  `nilai_butir` (skor mahasiswa) lewat cascade tanpa satu pesan pun; butir
+  bernilai yang akan hilang menolak seluruh penulisan (`GalatTulis`).
+  `templat.ts` diimpor komponen klien, jadi tidak boleh memuat `node:crypto`
+  (sidik cap ada di `cap-isi.ts`). Pengenal lembar dan kolom template tetap
+  bahasa Indonesia (aturan berkas Excel di atas). Penjaganya
+  `templat.test.ts`, `templat-excel.test.ts` (pulang-pergi), dan
+  `uji/integrasi.ts` §17 (docs/23).
 - **Identitas prodi adalah KERTASNYA, bukan naskahnya.** Logo, visi & misi,
   alamat, telepon, surel, dan situs tidak boleh masuk `proyeksiIsi()`,
   `proyeksiIsiEn()`, maupun `rpkps_snapshot` — alasannya sama dengan profil
@@ -455,6 +475,15 @@ Konsep lengkap ada di `docs/` — **baca sebelum menambah fitur**:
   `SITUS_PRODI` di `src/lib/publik/tautan.ts` sudah dihapus, bukan disimpan
   sebagai cadangan. Nilainya berakhir sebagai `href` di katalog publik, jadi
   ia selalu melewati `rapikanSitus` — yang menolak skema selain http/https.
+- **Perangkap mencatat, tidak pernah menyimpan rahasia, dan tidak berbohong ke pengguna sah.**
+  Alamat umpan dikenali `jenisUmpan()` (`src/domain/keamanan/perangkap.ts`) dan
+  dialihkan `proxy.ts` SEBELUM pemeriksaan bahasa dan sesi; kepala
+  `x-perangkap-*` selalu ditimpa proxy, dan rute `/api/perangkap` menolak
+  permintaan tanpanya. Sandi yang dicoba hanya dicatat PANJANGNYA
+  (`ringkasKiriman`) — jangan menyimpan badan mentah. Menambah pola umpan wajib
+  memastikan tidak ada alamat aplikasi yang sah ikut cocok; penjaganya
+  `src/domain/keamanan/keamanan.test.ts`. Jangan menambah kamera atau
+  geolokasi peramban sebagai "jebakan" (docs/22 §3).
 - Domain `src/domain/` harus murni: tanpa Prisma, tanpa React, agar dapat diuji.
 - Bahasa antarmuka dan penamaan domain: Indonesia. Tabel database snake_case
   lewat `@@map`/`@map`.

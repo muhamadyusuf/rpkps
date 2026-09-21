@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { bahasaBerkas } from "@/lib/dokumen/bahasa-berkas";
 import { siapkanUnduhanRpkps } from "@/lib/dokumen/siapkan-unduhan";
+import { ambilIpKlien } from "@/domain/keamanan/ip";
+import { jawabanTerlaluBanyak, lajuUnduhPublik } from "@/lib/keamanan/laju";
 
 export const runtime = "nodejs";
 
@@ -23,6 +25,11 @@ export async function GET(
   permintaan: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  // Pintu tanpa login yang menyusun DOCX utuh: tanpa batas, satu skrip cukup
+  // untuk menghabiskan CPU instans.
+  const laju = lajuUnduhPublik.coba(ambilIpKlien(permintaan.headers));
+  if (!laju.boleh) return jawabanTerlaluBanyak(laju.ulangDalamMs);
+
   const { id } = await params;
   const berkas = await siapkanUnduhanRpkps(id, {
     hanyaTerbit: true,

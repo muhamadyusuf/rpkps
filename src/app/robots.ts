@@ -44,7 +44,10 @@ export default function robots(): MetadataRoute.Robots {
       // ruas [bahasa]. Sisanya dilebarkan agar /id/rpkps dan /en/rpkps
       // sama-sama tertutup — menyebut "/rpkps" saja tidak lagi cocok
       // dengan alamat mana pun.
-      disallow: ["/api/", ...BAHASA.flatMap((b) => TERTUTUP.map((j) => `/${b}${j}`))],
+      // Tiga terakhir adalah UMPAN (docs/22): perayap yang patuh tidak akan
+      // menyentuhnya, pemindai yang membaca robots.txt sebagai daftar sasaran
+      // akan — dan tertangkap.
+      disallow: ["/api/", "/admin/", "/backup/", "/wp-admin/", ...BAHASA.flatMap((b) => TERTUTUP.map((j) => `/${b}${j}`))],
     },
     sitemap: `${urlSitus()}/sitemap.xml`,
   };

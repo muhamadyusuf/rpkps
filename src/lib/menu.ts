@@ -38,7 +38,8 @@ export type KunciIkon =
   | "tahun"
   | "pengguna"
   | "kunci"
-  | "lonceng";
+  | "lonceng"
+  | "perisai";
 
 export const MENU: readonly ButirMenu[] = [
   { href: "/dashboard", label: "dasbor", ikon: "dasbor", peran: null },
@@ -69,6 +70,9 @@ export const MENU: readonly ButirMenu[] = [
     peran: ["ADMIN"],
   },
   { href: "/pengguna", label: "pengguna", ikon: "pengguna", peran: ["ADMIN"] },
+  // Jejak pemindai yang menyentuh alamat umpan (docs/22). Hanya ADMIN: isinya
+  // IP dan lokasi perkiraan orang, bukan data akademik.
+  { href: "/perangkap", label: "perangkap", ikon: "perisai", peran: ["ADMIN"] },
   // Kunci AI milik masing-masing pengguna (docs/08), bukan pengaturan admin.
   { href: "/pengaturan/ai", label: "kunciAi", ikon: "kunci", peran: null },
 ];

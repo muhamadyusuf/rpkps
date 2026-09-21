@@ -8,6 +8,8 @@ import {
 import { siapkanPengguna, NAMA_COOKIE_SESI } from "@/lib/sesi";
 import { NAMA_COOKIE_BAHASA } from "@/kamus";
 import { prisma } from "@/lib/prisma";
+import { ambilIpKlien } from "@/domain/keamanan/ip";
+import { jawabanTerlaluBanyak, lajuMasuk } from "@/lib/keamanan/laju";
 
 export const runtime = "nodejs";
 
@@ -17,6 +19,12 @@ export const runtime = "nodejs";
  * dapat dibaca skrip.
  */
 export async function POST(request: NextRequest) {
+  // Sebelum apa pun yang mahal: verifikasi token memanggil Firebase, dan
+  // penulisan sesi menyentuh basis data yang jauh.
+  const ip = ambilIpKlien(request.headers);
+  const laju = lajuMasuk.coba(ip);
+  if (!laju.boleh) return jawabanTerlaluBanyak(laju.ulangDalamMs);
+
   let idToken: unknown;
   try {
     ({ idToken } = await request.json());
@@ -85,7 +93,9 @@ export async function POST(request: NextRequest) {
         ringkasan: pengguna.baru
           ? `Pengguna baru ${token.email} masuk pertama kali`
           : `${token.email} masuk`,
-        ip: request.headers.get("x-forwarded-for") ?? undefined,
+        // Bukan `x-forwarded-for` mentah: kolom ini jejak audit, dan nilai
+        // kiriman klien di dalamnya dapat memalsukan asal login.
+        ip: ip === "tidak-diketahui" ? undefined : ip,
       },
     });
 

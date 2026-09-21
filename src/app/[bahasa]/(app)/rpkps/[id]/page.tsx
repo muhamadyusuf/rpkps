@@ -18,6 +18,7 @@ import { sidikRingkas } from "@/domain/rpkps/sidik";
 import { formatMenit, paguPertemuanEfektif } from "@/domain/beban-belajar/kalkulator";
 import { PanelValidasi } from "./panel-validasi";
 import { PanelDraf } from "./panel-draf";
+import { PanelImpor } from "./panel-impor";
 import { PanelTerjemahan } from "./panel-terjemahan";
 import { PratinjauSamping } from "./pratinjau/samping";
 import { daftarKredensial } from "@/lib/ai/kredensial";
@@ -311,6 +312,8 @@ export default async function HalamanRpkpsDetail({
         {bisaSunting && wenang.boleh ? (
           <PanelDraf rpkpsId={id} kredensial={kredensialAi} arahanAwal={rpkps.arahanAi} />
         ) : null}
+
+        {bisaSunting && wenang.boleh ? <PanelImpor rpkpsId={id} /> : null}
 
         <PanelValidasi hasil={hasil} />
 

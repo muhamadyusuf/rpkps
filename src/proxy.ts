@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { BAHASA, BAHASA_BAWAAN, NAMA_COOKIE_BAHASA, adalahBahasa, type Bahasa } from "@/kamus";
 import { bahasaPadaJalur, lepasAwalan, tanpaAwalanBahasa } from "@/lib/bahasa/jalur";
+import { jenisUmpan } from "@/domain/keamanan/perangkap";
 
 /**
  * Proxy mengerjakan dua hal, dalam urutan ini.
@@ -107,8 +108,32 @@ function pasangCookieBahasa(respons: NextResponse, bahasa: Bahasa) {
   return respons;
 }
 
+/**
+ * Alamat umpan (docs/22). Dicek PALING DULU, sebelum bahasa dan sesi: pemindai
+ * tidak punya cookie, dan mengalihkannya ke /id/masuk berarti perangkapnya
+ * tidak pernah melihat mereka. Proxy tidak menyentuh basis data — ia hanya
+ * menulis ulang ke rute umpan, yang mencatat lewat `after()`.
+ *
+ * Kepala `x-perangkap-*` SELALU ditimpa di sini, jadi nilai kiriman klien tidak
+ * pernah sampai ke rute umpan lewat jalur ini.
+ */
+function umpan(request: NextRequest, pathname: string): NextResponse | null {
+  const jenis = jenisUmpan(lepasAwalan(pathname));
+  if (!jenis) return null;
+
+  const kepala = new Headers(request.headers);
+  kepala.set("x-perangkap-jenis", jenis);
+  kepala.set("x-perangkap-jalur", `${pathname}${request.nextUrl.search}`.slice(0, 600));
+  return NextResponse.rewrite(new URL("/api/perangkap", request.url), {
+    request: { headers: kepala },
+  });
+}
+
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  const perangkap = umpan(request, pathname);
+  if (perangkap) return perangkap;
 
   // API dan berkas akar tidak berbahasa; hanya aturan sesi yang berlaku.
   if (tanpaAwalanBahasa(pathname)) {

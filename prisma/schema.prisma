@@ -383,6 +383,65 @@ model LogAudit {
   @@map("log_audit")
 }
 
+/// Tindak lanjut admin atas sebuah temuan perangkap (docs/22).
+enum StatusPerangkap {
+  BARU
+  DITINJAU
+  DILAPORKAN
+  DIABAIKAN
+}
+
+/// Jejak orang yang menyentuh alamat umpan — `/wp-login.php`, `/.env`,
+/// `/phpmyadmin`, dan sejenisnya, yang tidak pernah dikunjungi pengguna sah.
+///
+/// Satu baris = satu (ip, jalur, metode) dalam jendela 30 menit; sisanya
+/// menaikkan `jumlah`. Yang TIDAK pernah disimpan: sandi yang dicoba (hanya
+/// panjangnya), cookie, dan kepala Authorization. Lokasinya perkiraan
+/// tingkat kota dari IP, bukan GPS.
+model PerangkapTemuan {
+  id             String   @id @default(cuid())
+  ip             String
+  /// `x-forwarded-for` mentah — bukti, sebab elemen pertamanya dapat dipalsukan.
+  rantaiIp       String?  @map("rantai_ip")
+  jenis          String
+  jalur          String
+  metode         String
+  kueri          String?
+  userAgent      String?  @map("user_agent")
+  bahasaPeramban String?  @map("bahasa_peramban")
+  rujukan        String?
+  sidikPerangkat String?  @map("sidik_perangkat")
+  header         Json?
+  kiriman        Json?
+
+  negara       String?
+  kodeNegara   String?  @map("kode_negara")
+  wilayah      String?
+  kota         String?
+  lintang      Float?
+  bujur        Float?
+  zonaWaktu    String?  @map("zona_waktu")
+  penyedia     String?
+  asn          String?
+  /// "VERCEL" | "IPWHO" — dari mana lokasi di atas berasal.
+  sumberLokasi String?  @map("sumber_lokasi")
+
+  jumlah       Int      @default(1)
+  pertamaPada  DateTime @default(now()) @map("pertama_pada")
+  terakhirPada DateTime @default(now()) @map("terakhir_pada")
+
+  status       StatusPerangkap @default(BARU)
+  catatan      String?
+  ditinjauOleh String?         @map("ditinjau_oleh")
+  ditinjauPada DateTime?       @map("ditinjau_pada")
+
+  @@index([ip])
+  @@index([terakhirPada])
+  @@index([status, terakhirPada])
+  @@index([sidikPerangkat])
+  @@map("perangkap_temuan")
+}
+
 /// Peristiwa yang layak mengganggu seseorang. Sengaja sedikit: notifikasi yang
 /// terlalu sering dikirim berhenti dibaca, dan yang berhenti dibaca sama saja
 /// dengan tidak ada.
