@@ -35,8 +35,8 @@ async function main() {
     update: {},
     create: {
       kode: "FTI",
-      nama: "Fakultas Teknologi Industri",
-      namaEn: "Faculty of Industrial Technology",
+      nama: "Fakultas Ilmu Komputer",
+      namaEn: "Faculty of Computer Science",
       institusiId: institusi.id,
     },
   });

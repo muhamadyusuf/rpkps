@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { cakupanProdi, punyaPeran, wajibAktif } from "@/lib/otorisasi";
+import { cakupanKurikulum, cakupanProdi, punyaPeran, wajibAktif } from "@/lib/otorisasi";
 import type { PenggunaSesi } from "@/lib/sesi";
 import type { PeranPengampu, StatusRpkps } from "@/generated/prisma";
 import type { Kamus } from "@/kamus";
@@ -21,8 +21,14 @@ import type { Kamus } from "@/kamus";
  * Kepengampuan adalah JALUR AKSES TERSENDIRI, bukan tambahan di atas cakupan
  * prodi: ditunjuk sebagai pengampu berarti boleh menyunting RPKPS itu, dan
  * hanya RPKPS itu. Cakupan prodi tetap mengatur usulan revisi dan agregasi
- * evaluasi prodi. Membaca kurikulum serta membuat RPKPS baru lintas prodi
- * punya cakupan tersendiri di `cakupanKurikulum` (docs/21).
+ * evaluasi prodi. Membuat RPKPS baru lintas prodi punya cakupan tersendiri di
+ * `cakupanKurikulum` (docs/21).
+ *
+ * MEMBUKA (bolehLihat) lebih longgar lagi dan sengaja TIDAK dibatasi prodi:
+ * dosen, koordinator MK, dan Kaprodi boleh membaca RPKPS prodi mana pun
+ * sebagai referensi — persis cakupan yang sudah dipakai `cakupanKurikulum`
+ * untuk membaca kurikulum lintas prodi. Ini murni hak BACA; menyunting tetap
+ * `boleh` (pengampu atau pengelola dalam cakupan), tidak berubah.
  */
 
 export type BarisPengampu = { penggunaId: string; peran?: PeranPengampu };
@@ -76,9 +82,9 @@ export type Wenang = {
   /** ADMIN/KAPRODI/GPM yang cakupan prodinya memuat RPKPS ini. */
   pengelola: boolean;
   /**
-   * Boleh MEMBUKA. Lebih longgar daripada `boleh`: seluruh dosen satu prodi
-   * boleh membaca RPKPS rekannya — itu perilaku yang sudah berjalan dan bukan
-   * bagian dari perubahan ini.
+   * Boleh MEMBUKA. Lebih longgar daripada `boleh`: dosen, koordinator MK, dan
+   * Kaprodi boleh membaca RPKPS prodi mana pun sebagai referensi, tidak hanya
+   * milik prodinya sendiri (lihat `cakupanKurikulum`).
    */
   bolehLihat: boolean;
   /** Boleh MENYUNTING RPKPS ini. */
@@ -110,12 +116,20 @@ export function wenangAtasRpkps(
     cakupan === null || cakupan.includes(rpkps.mataKuliah.kurikulum.prodiId);
   const pengelola = dalamCakupan && punyaPeran(sesi, "ADMIN", "KAPRODI", "GPM");
 
+  /**
+   * Baca lintas prodi: dosen, koordinator MK, dan Kaprodi boleh MEMBUKA RPKPS
+   * prodi mana pun (referensi silabus), sama seperti mereka sudah boleh
+   * membaca kurikulum lintas prodi. `cakupanKurikulum` mengembalikan null
+   * untuk peran-peran itu — lihat `src/domain/otorisasi.ts`.
+   */
+  const bacaLintasProdi = cakupanKurikulum(sesi) === null;
+
   return {
     pengampu,
     koordinator,
     dalamCakupan,
     pengelola,
-    bolehLihat: dalamCakupan || pengampu,
+    bolehLihat: dalamCakupan || pengampu || bacaLintasProdi,
     boleh: pengampu || pengelola,
   };
 }
@@ -170,13 +184,18 @@ export async function wenangRpkps(rpkpsId: string): Promise<WenangRpkps> {
 }
 
 /**
- * Penyaring daftar RPKPS: yang berada dalam cakupan prodi, DITAMBAH yang
- * pengguna ampu sendiri walau di luar cakupan itu. Tanpa cabang kedua, dosen
- * yang ditunjuk sebagai pengampu lintas prodi tidak akan pernah melihat
- * RPKPS-nya di daftar — hanya bisa membukanya lewat tautan langsung.
+ * Penyaring daftar RPKPS. Cakupannya `cakupanKurikulum`, bukan `cakupanProdi`:
+ * dosen, koordinator MK, dan Kaprodi boleh MEMBACA RPKPS prodi mana pun
+ * (`bolehLihat` di atas), jadi daftarnya tidak boleh lebih sempit daripada apa
+ * yang boleh mereka buka satu per satu — itu hanya membuat pilihan prodi lain
+ * di saringan unit mengembalikan daftar kosong yang membingungkan. Cabang
+ * pengampu tetap dipertahankan untuk peran yang cakupannya memang sempit
+ * (mis. MAHASISWA bila suatu saat menyentuh jalur ini): tanpanya, pengampu
+ * lintas prodi di luar cakupan itu tidak akan pernah melihat RPKPS-nya di
+ * daftar — hanya bisa membukanya lewat tautan langsung.
  */
 export function saringDaftarRpkps(sesi: PenggunaSesi) {
-  const cakupan = cakupanProdi(sesi);
+  const cakupan = cakupanKurikulum(sesi);
   if (cakupan === null) return {};
   return {
     OR: [
