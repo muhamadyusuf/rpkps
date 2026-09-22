@@ -34,6 +34,19 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Combobox,
+  ComboboxClear,
+  ComboboxEmpty,
+  ComboboxIcon,
+  ComboboxInput,
+  ComboboxInputGroup,
+  ComboboxItem,
+  ComboboxList,
+  ComboboxPopup,
+  ComboboxPortal,
+  ComboboxPositioner,
+} from "@/components/ui/combobox";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -126,6 +139,22 @@ export function TimPengampu({
   const tersedia = calon.filter((c) => !sudah.has(c.id));
   const anggota = pengampu.filter((p) => !p.koordinator);
 
+  /**
+   * `{ value, label }` dipakai untuk MENYARING (Combobox mengenali bentuk ini
+   * dan menyaring memakai `label` tanpa `itemToStringLabel` terpisah). Tapi
+   * nilai yang benar-benar terpilih (`<ComboboxItem value={item.value}>` di
+   * bawah) tetap id polos — supaya `pilihan` cocok dengan id yang dikirim ke
+   * `tambahPengampu`. Karena itu MENAMPILKAN label di kotak input setelah
+   * dipilih butuh `itemToStringLabel` sendiri, yang menelusuri id kembali ke
+   * namanya di sini — tanpanya kotak input menampilkan id mentah, bukan nama.
+   */
+  const calonCombobox = tersedia.map((c) => ({
+    value: c.id,
+    label: c.prodi ? `${c.nama} · ${c.prodi}` : c.nama,
+  }));
+  const labelCalon = (id: string) =>
+    calonCombobox.find((c) => c.value === id)?.label ?? id;
+
   return (
     <Card>
       <CardHeader>
@@ -186,19 +215,36 @@ export function TimPengampu({
             <div className="flex flex-wrap items-end gap-3">
               <div className="w-64 space-y-1.5">
                 <Label htmlFor="calon-pengampu">{k.rpkps.kelola.tambahkanDosen}</Label>
-                <Select value={pilihan} onValueChange={(v) => setPilihan(v ?? "")}>
-                  <SelectTrigger id="calon-pengampu">
-                    <SelectValue placeholder={k.rpkps.kelola.pilihDosen} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {tersedia.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.nama}
-                        {c.prodi ? ` · ${c.prodi}` : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Combobox
+                  items={calonCombobox}
+                  value={pilihan === "" ? null : pilihan}
+                  onValueChange={(v) => setPilihan((v as string | null) ?? "")}
+                  itemToStringLabel={labelCalon}
+                  itemToStringValue={(id: string) => id}
+                >
+                  <ComboboxInputGroup>
+                    <ComboboxIcon />
+                    <ComboboxInput
+                      id="calon-pengampu"
+                      placeholder={k.rpkps.kelola.pilihDosen}
+                    />
+                    <ComboboxClear />
+                  </ComboboxInputGroup>
+                  <ComboboxPortal>
+                    <ComboboxPositioner>
+                      <ComboboxPopup>
+                        <ComboboxEmpty>{k.rpkps.kelola.calonKosong}</ComboboxEmpty>
+                        <ComboboxList>
+                          {(item: { value: string; label: string }) => (
+                            <ComboboxItem key={item.value} value={item.value}>
+                              {item.label}
+                            </ComboboxItem>
+                          )}
+                        </ComboboxList>
+                      </ComboboxPopup>
+                    </ComboboxPositioner>
+                  </ComboboxPortal>
+                </Combobox>
               </div>
               <Button
                 variant="outline"
