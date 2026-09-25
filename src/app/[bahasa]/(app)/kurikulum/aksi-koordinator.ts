@@ -4,7 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { segarkan } from "@/lib/bahasa/segarkan";
 import { punyaPeranDiProdi, wajibAktif } from "@/lib/otorisasi";
 import { kirimNotifikasi } from "@/lib/notifikasi/kirim";
-import { namaLengkapPengampu } from "@/domain/rpkps/pemetaan";
+import { PILIH_RUJUKAN_PENGGUNA } from "@/domain/identitas/tampilan";
+import { wajibTampilanDariRujukan } from "@/lib/pengguna/tampilan";
+import { ProfilTidakTersedia } from "@/lib/identitas/pegawai";
 import { kamusAksi } from "@/lib/bahasa/server";
 import { isi as sisip } from "@/lib/bahasa/teks";
 import type { Kamus } from "@/kamus";
@@ -81,35 +83,19 @@ export async function tetapkanKoordinatorMk(
     prisma.pengguna.findUnique({
       where: { id: penggunaId },
       select: {
-        nama: true,
-        gelarDepan: true,
-        gelarBelakang: true,
+        ...PILIH_RUJUKAN_PENGGUNA,
         status: true,
         penugasan: { select: { peran: true } },
       },
     }),
     prisma.koordinatorMk.findUnique({
       where: { mataKuliahId_tahunAkademikId: { mataKuliahId, tahunAkademikId } },
-      select: { penggunaId: true, pengguna: { select: { nama: true } } },
+      select: { penggunaId: true, pengguna: { select: { email: true } } },
     }),
   ]);
 
   if (!ta) return { ok: false, pesan: kam.aksi.takAda.tahunAkademik };
   if (!calon) return { ok: false, pesan: kam.aksi.takAda.dosen };
-
-  const kelayakan = periksaCalonKoordinator({
-    nama: calon.nama,
-    status: calon.status,
-    peran: calon.penugasan.map((p) => p.peran),
-  });
-  if (!kelayakan.boleh) return { ok: false, pesan: kelayakan.alasan ?? kam.aksi.umum.masukanTidakSah };
-
-  const namaCalon = namaLengkapPengampu(calon);
-  const kodeTa = ta.kode.replace("-", " ");
-
-  if (penugasanLama?.penggunaId === penggunaId) {
-    return { ok: false, pesan: sisip(kam.aksi.koordinator.sudahMemegang, { nama: namaCalon, mk: mk.kode, ta: kodeTa }) };
-  }
 
   /**
    * RPKPS tahun akademik ini, bila sudah ada. Penugasan yang tidak menyentuhnya
@@ -125,18 +111,42 @@ export async function tetapkanKoordinatorMk(
         select: {
           penggunaId: true,
           peran: true,
-          pengguna: { select: { nama: true, gelarDepan: true, gelarBelakang: true } },
+          pengguna: { select: PILIH_RUJUKAN_PENGGUNA },
         },
       },
     },
   });
+
+  // Nama masuk `rpkps_riwayat` (catatan permanen), jadi HARUS dari data segar identitas-itts —
+  // nama darurat dari surel tak boleh tertulis selamanya. Bila tak dapat dipastikan, aksi berhenti.
+  let tampilan;
+  try {
+    tampilan = await wajibTampilanDariRujukan([calon, ...(rpkps?.pengampu.map((p) => p.pengguna) ?? [])]);
+  } catch (galat) {
+    if (galat instanceof ProfilTidakTersedia) return { ok: false, pesan: galat.message };
+    throw galat;
+  }
+  const namaCalon = tampilan.get(calon.id)?.namaLengkap ?? calon.email;
+
+  const kelayakan = periksaCalonKoordinator({
+    nama: namaCalon,
+    status: calon.status,
+    peran: calon.penugasan.map((p) => p.peran),
+  });
+  if (!kelayakan.boleh) return { ok: false, pesan: kelayakan.alasan ?? kam.aksi.umum.masukanTidakSah };
+
+  const kodeTa = ta.kode.replace("-", " ");
+
+  if (penugasanLama?.penggunaId === penggunaId) {
+    return { ok: false, pesan: sisip(kam.aksi.koordinator.sudahMemegang, { nama: namaCalon, mk: mk.kode, ta: kodeTa }) };
+  }
 
   const rencana = rpkps
     ? rencanakanSerahTerima(
         rpkps.pengampu.map((p) => ({
           penggunaId: p.penggunaId,
           peran: p.peran,
-          nama: namaLengkapPengampu(p.pengguna),
+          nama: tampilan.get(p.pengguna.id)?.namaLengkap ?? p.pengguna.email,
         })),
         penggunaId,
       )
@@ -163,11 +173,12 @@ export async function tetapkanKoordinatorMk(
         aksi: "KOORDINATOR_MK_DITETAPKAN",
         entitas: "mata_kuliah",
         entitasId: mataKuliahId,
-        // Nama lama ikut karena `@@unique` membuat penetapan ulang di tahun
-        // akademik yang sama MENIMPA barisnya; di sinilah jejaknya (docs/13 §2.1).
+        // Pemegang lama ikut (sebagai surel) karena `@@unique` membuat penetapan ulang di tahun
+        // akademik yang sama MENIMPA barisnya; di sinilah jejaknya (docs/13 §2.1). Surel, bukan
+        // nama: jejak audit tidak menyimpan nama pegawai (docs/26) — namanya ada di identitas-itts.
         ringkasan: penugasanLama
-          ? `${sesi.email} mengalihkan koordinasi ${mk.kode} ${kodeTa} dari ${penugasanLama.pengguna.nama} kepada ${calon.nama}`
-          : `${sesi.email} menetapkan ${calon.nama} sebagai koordinator ${mk.kode} ${kodeTa}`,
+          ? `${sesi.email} mengalihkan koordinasi ${mk.kode} ${kodeTa} dari ${penugasanLama.pengguna.email} kepada ${calon.email}`
+          : `${sesi.email} menetapkan ${calon.email} sebagai koordinator ${mk.kode} ${kodeTa}`,
       },
     });
 
@@ -262,7 +273,7 @@ export async function lepasKoordinatorMk(
   const baris = await prisma.koordinatorMk.findUnique({
     where: { mataKuliahId_tahunAkademikId: { mataKuliahId, tahunAkademikId } },
     select: {
-      pengguna: { select: { nama: true } },
+      pengguna: { select: { email: true } },
       tahunAkademik: { select: { kode: true } },
     },
   });
@@ -280,7 +291,8 @@ export async function lepasKoordinatorMk(
         aksi: "KOORDINATOR_MK_DILEPAS",
         entitas: "mata_kuliah",
         entitasId: mataKuliahId,
-        ringkasan: `${sesi.email} melepas ${baris.pengguna.nama} dari koordinasi ${mk.kode} ${kodeTa}`,
+        // Surel, bukan nama: jejak audit tidak menyimpan nama pegawai (docs/26).
+        ringkasan: `${sesi.email} melepas ${baris.pengguna.email} dari koordinasi ${mk.kode} ${kodeTa}`,
       },
     }),
   ]);

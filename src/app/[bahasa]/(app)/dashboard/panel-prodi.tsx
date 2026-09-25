@@ -22,12 +22,13 @@ import { AMBANG_PRODI, type DataProdi } from "@/lib/dasbor/muat";
  * capaian CPL. Keduanya sengaja tidak digabung; yang satu tentang dokumen,
  * yang lain tentang hasil belajar.
  */
-export async function PanelProdi({ data }: { data: DataProdi }) {
+export async function PanelProdi({ data, nomor }: { data: DataProdi; nomor?: string }) {
   const k = await kamus();
   const terbit = data.corong.find((s) => s.kunci === "TERBIT")?.jumlah ?? 0;
 
   return (
     <Bagian
+      nomor={nomor}
       judul={isi(k.dasbor.prodi.judul, { nama: data.prodi.nama })}
       keterangan={
         data.kurikulum

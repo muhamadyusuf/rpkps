@@ -1,5 +1,6 @@
 import type { Peran } from "@/generated/prisma";
 import { PERAN_INSTITUSI } from "./peran";
+import { PERAN_NON_PEGAWAI } from "@/domain/identitas/peran";
 
 /** Satu baris mentah dari lembar Excel, apa adanya sebelum divalidasi. */
 export interface BarisPenggunaMentah {
@@ -35,6 +36,12 @@ const PERAN_VALID = new Set<Peran>([
   "MAHASISWA",
   "ASESOR",
 ]);
+
+/**
+ * Impor ini hanya untuk orang DI LUAR identitas-itts (docs/26 §3). Pegawai tidak dibuat di sini:
+ * mereka datang dari identitas-itts, dan perannya dari jabatan. Peran wajib, sebab pengguna lokal
+ * tanpa peran tak lolos gerbang masuk.
+ */
 
 function baca(nilai: string): string | null {
   const v = nilai.trim();
@@ -87,6 +94,13 @@ export function rakitPenggunaImpor(
         continue;
       }
       peran = peranMentah as Peran;
+    }
+    if (!peran || !PERAN_NON_PEGAWAI.includes(peran)) {
+      galat.push({
+        baris: baris.baris,
+        pesan: "Impor hanya untuk Asesor dan Mahasiswa. Pegawai diambil dari identitas-itts — tambahkan lewat kotak pencarian pegawai.",
+      });
+      continue;
     }
 
     let prodiId: string | null = null;

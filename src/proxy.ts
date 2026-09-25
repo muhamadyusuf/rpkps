@@ -55,6 +55,16 @@ const JALUR_PUBLIK_AWALAN = [
    * dengan `timingSafeEqual`.
    */
   "/api/surel",
+  /**
+   * Segala urusan dengan identitas-itts, dan SEMUANYA tanpa sesi karena
+   * penjaganya masing-masing di rutenya:
+   *  - `/aktivitas` — penyelaras (docs/24), dipanggil penjadwal, dijaga `CRON_SECRET`.
+   *  - `/masuk`, `/callback` — masuk lewat identitas-itts (docs/25). Yang
+   *    datang ke sini justru orang yang BELUM punya sesi; penjaganya `state`
+   *    + PKCE yang diperiksa `/callback`.
+   * Rute baru di bawah awalan ini otomatis publik — beri ia penjaga sendiri.
+   */
+  "/api/identitas",
 ];
 
 function terbukaUntukUmum(pathname: string) {

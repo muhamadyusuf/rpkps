@@ -21,6 +21,7 @@ import { punyaPeran, wajibAktif } from "@/lib/otorisasi";
 import { wenangAtasRpkps } from "@/lib/rpkps/wenang";
 import { muatRpkps, namaLengkapPengampu } from "@/lib/rpkps/muat";
 import { muatKelasEvaluasi, muatTemuanBelumDiverifikasi } from "@/lib/evaluasi/muat";
+import { pencariNama } from "@/lib/pengguna/tampilan";
 import { ambilSnapshotEvaluasi } from "@/lib/evaluasi/evaluasi-inti";
 import { keSumberPeta, kePesertaCapaian } from "@/domain/evaluasi/pemetaan";
 import { susunPetaAsesmen } from "@/domain/evaluasi/peta-asesmen";
@@ -60,6 +61,7 @@ export default async function HalamanEvaluasi({
 
   const peta = susunPetaAsesmen(keSumberPeta(rpkps));
   const evaluasi = kelas.evaluasi;
+  const nama = await pencariNama(kelas.dosen, evaluasi?.ditutupOleh);
   const ditutup = evaluasi?.status === "DITUTUP";
 
   const hasil = hitungCapaian({
@@ -175,7 +177,7 @@ export default async function HalamanEvaluasi({
             {isi(k.rpkps.evaluasiKelas.ringkasHeader, {
               mk: namaMk(rpkps.mataKuliah, b),
               ta: kelas.rpkps.tahunAkademik.kode.replace("-", " "),
-              dosen: kelas.dosen?.nama ?? k.rpkps.evaluasiKelas.dosenKosong,
+              dosen: nama(kelas.dosen) ?? k.rpkps.evaluasiKelas.dosenKosong,
             })}
           </p>
         </div>
@@ -208,7 +210,7 @@ export default async function HalamanEvaluasi({
                     tanggal: evaluasi?.ditutupPada
                       ? tanggal(evaluasi.ditutupPada, b, "panjang")
                       : "—",
-                    oleh: evaluasi?.ditutupOleh?.nama ?? "—",
+                    oleh: nama(evaluasi?.ditutupOleh) ?? "—",
                   })}
                 </CardDescription>
               </div>

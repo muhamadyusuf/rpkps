@@ -17,6 +17,7 @@ import { wajibAktif } from "@/lib/otorisasi";
 import { wenangAtasRpkps } from "@/lib/rpkps/wenang";
 import { muatRpkps, namaLengkapPengampu } from "@/lib/rpkps/muat";
 import { muatKelasRpkps } from "@/lib/evaluasi/muat";
+import { pencariNama } from "@/lib/pengguna/tampilan";
 import { keSumberPeta } from "@/domain/evaluasi/pemetaan";
 import { susunPetaAsesmen } from "@/domain/evaluasi/peta-asesmen";
 import { FormulirKelas, TombolHapusKelas, UnggahNilai } from "./pengelola";
@@ -39,6 +40,7 @@ export default async function HalamanKelas({
 
   const peta = susunPetaAsesmen(keSumberPeta(rpkps));
   const kelas = await muatKelasRpkps(id);
+  const namaDosen = await pencariNama(...kelas.map((kls) => kls.dosen));
 
   const bolehKelola = wenang.boleh;
 
@@ -119,7 +121,7 @@ export default async function HalamanKelas({
                     </Badge>
                   </CardTitle>
                   <CardDescription className="mt-1">
-                    {kls.dosen ? kls.dosen.nama : k.rpkps.kelas.dosenKosong} ·{" "}
+                    {namaDosen(kls.dosen) ?? k.rpkps.kelas.dosenKosong} ·{" "}
                     {isi(k.rpkps.kelas.selTerisi, {
                       terisi: selTerisi,
                       seluruh: selSeluruh,

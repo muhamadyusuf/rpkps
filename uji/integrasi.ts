@@ -54,6 +54,27 @@ import { bacaTemplat, buatTemplat } from "@/lib/rpkps/templat-excel";
 import { GalatTulis, selesaikanRujukan, tulisDraf } from "@/lib/rpkps/tulis-draf";
 import { pesanTemuanId } from "@/lib/bahasa/temuan";
 import { teksTenggatId } from "@/lib/bahasa/tenggat";
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
+import { sinkronkanAktivitas } from "@/lib/identitas/aktivitas-inti";
+
+/**
+ * Pengampu di RPKPS hanya RUJUKAN ke identitas-itts (docs/26): nama, gelar, NIDN, NIP tidak disimpan
+ * di sini. Produksi menghidrasinya di `muatRpkps` dari identitas-itts; harness ini tidak memanggil
+ * layanan luar, jadi memakai profil tetap dengan bentuk yang sama — sehingga sidik dan DOCX yang
+ * diuji tetap dihitung dari data berbentuk asli.
+ */
+const PROFIL_UJI = {
+  nama: "Muhamad Yusuf",
+  gelarDepan: null as string | null,
+  gelarBelakang: null as string | null,
+  nidn: "0412129501" as string | null,
+  nip: null as string | null,
+};
+
+function hidrasiPengampu<P extends { pengguna: { id: string } }>(pengampu: P[]) {
+  return pengampu.map((p) => ({ ...p, pengguna: { ...p.pengguna, ...PROFIL_UJI } }));
+}
 
 function cek(nama: string, syarat: boolean, detail?: string) {
   console.log(`${syarat ? "  OK  " : " GAGAL"} ${nama}${detail ? ` — ${detail}` : ""}`);
@@ -182,7 +203,7 @@ async function main() {
   const mingguEfektif = rencana.minggu.filter((m) => m.jenis === "EFEKTIF");
 
   const pengguna = await prisma.pengguna.create({
-    data: { firebaseUid: "uji-1", email: "yusuf@itts.ac.id", nama: "Muhamad Yusuf", nidn: "0412129501", status: "AKTIF" },
+    data: { firebaseUid: "uji-1", email: "yusuf@itts.ac.id", nama: "Muhamad Yusuf", status: "AKTIF" },
   });
 
   const rpkps = await prisma.rpkps.create({
@@ -268,7 +289,7 @@ async function main() {
   cek("kerangka RPKPS tersusun", true, `${rencana.minggu.length} pertemuan`);
 
   // ── 4 · Verifikasi hasil kerangka ─────────────────────────────
-  const muat = await prisma.rpkps.findUniqueOrThrow({
+  const muatMentah = await prisma.rpkps.findUniqueOrThrow({
     where: { id: rpkps.id },
     include: {
       tahunAkademik: true,
@@ -279,7 +300,7 @@ async function main() {
           cpmk: { orderBy: { urutan: "asc" }, include: { cpl: { include: { cpl: { select: { kode: true } } } }, subCpmk: { orderBy: { urutan: "asc" } } } },
         },
       },
-      pengampu: { include: { pengguna: { select: { id: true, nama: true, gelarDepan: true, gelarBelakang: true, nidn: true, nip: true } } } },
+      pengampu: { include: { pengguna: { select: { id: true } } } },
       pustaka: true,
       komponenNilai: true,
       tugas: {
@@ -300,6 +321,8 @@ async function main() {
       },
     },
   });
+
+  const muat = { ...muatMentah, pengampu: hidrasiPengampu(muatMentah.pengampu) };
 
   cek("16 pertemuan bernomor lengkap", muat.pertemuan.length === 16, `${muat.pertemuan.length}`);
   cek("minggu ujian di posisi 8 dan 16",
@@ -409,7 +432,7 @@ async function main() {
           cpmk: { orderBy: { urutan: "asc" }, include: { cpl: { include: { cpl: { select: { kode: true } } } }, subCpmk: { orderBy: { urutan: "asc" } } } },
         },
       },
-      pengampu: { orderBy: { urutan: "asc" }, include: { pengguna: { select: { id: true, nama: true, gelarDepan: true, gelarBelakang: true, nidn: true, nip: true } } } },
+      pengampu: { orderBy: { urutan: "asc" }, include: { pengguna: { select: { id: true } } } },
       tandaTangan: { orderBy: [{ versi: "desc" as const }, { ditandatanganiPada: "asc" as const }] },
       pustaka: { orderBy: [{ jenis: "asc" }, { nomor: "asc" }] },
       komponenNilai: { orderBy: { urutan: "asc" } },
@@ -419,7 +442,7 @@ async function main() {
           subCpmk: { include: { subCpmk: { select: { id: true, kode: true } } } },
           kriteria: { orderBy: { nomor: "asc" } },
           linimasa: { orderBy: { minggu: "asc" } },
-          komponenNilai: { select: { nama: true } },
+          komponenNilai: { select: { nama: true, namaEn: true } },
         },
       },
       kisiKisi: {
@@ -464,10 +487,11 @@ async function main() {
     },
   });
 
-  const untukDocx = await prisma.rpkps.findUniqueOrThrow({
+  const untukDocxMentah = await prisma.rpkps.findUniqueOrThrow({
     where: { id: rpkps.id },
     include: bentukMuat,
   });
+  const untukDocx = { ...untukDocxMentah, pengampu: hidrasiPengampu(untukDocxMentah.pengampu) };
 
   const buffer = await buatDokumenRpkps(
     untukDocx,
@@ -605,8 +629,10 @@ async function main() {
   cek("salinan beku tersimpan", sidikSebelum.length === 64, sidikSebelum.slice(0, 16) + "…");
 
   // Sidik harus stabil bila tidak ada yang berubah.
-  const ulangMuat = async () =>
-    prisma.rpkps.findUniqueOrThrow({ where: { id: rpkps.id }, include: bentukMuat });
+  const ulangMuat = async () => {
+    const r = await prisma.rpkps.findUniqueOrThrow({ where: { id: rpkps.id }, include: bentukMuat });
+    return { ...r, pengampu: hidrasiPengampu(r.pengampu) };
+  };
   cek("sidik stabil tanpa perubahan", sidikDokumen((await ulangMuat()) as never) === sidikSebelum);
 
   // Sekarang kurikulum disunting — persis skenario yang harus terdeteksi.
@@ -2172,6 +2198,118 @@ async function main() {
       (await prisma.kisiKisi.count({ where: { rpkpsId: rp.id, jenis: "UAS" } })) === 0);
     cek("impor: komponen nilai UAS yang tak disebut dihapus, yang lain tetap",
       (await prisma.komponenNilai.count({ where: { rpkpsId: rp.id } })) === 2);
+  }
+
+  // ── 18 · Pelaporan aktivitas ke identitas-itts (docs/24) ─────────
+  {
+    const H = 86_400_000;
+    const acuan = Date.now();
+    const lalu = (hari: number) => new Date(acuan - hari * H);
+    const taLapor = await prisma.tahunAkademik.create({
+      data: {
+        kode: "2032/2033-GANJIL", tahunMulai: 2032, tahunSelesai: 2033, semester: "GANJIL", aktif: false,
+        tenggatPenyusunan: lalu(20), tenggatReview: lalu(15), tenggatPengesahan: lalu(10), jaminanHariPutusan: 7,
+      },
+    });
+    const orang = async (kunci: string) =>
+      prisma.pengguna.create({ data: { firebaseUid: `lapor-${kunci}`, email: `${kunci}.lapor@itts.ac.id`, nama: `Lapor ${kunci}`, status: "AKTIF" } });
+    const [koor, kaprodiL, pmi, dosenL] = [await orang("koor"), await orang("kaprodi"), await orang("pmi"), await orang("dosen")];
+    const rp = await prisma.rpkps.create({
+      data: {
+        mataKuliahId: mk.id, tahunAkademikId: taLapor.id, versi: 3,
+        pengampu: { create: [{ penggunaId: koor.id, peran: "KOORDINATOR" }, { penggunaId: dosenL.id, peran: "ANGGOTA", urutan: 1 }] },
+      },
+    });
+    const jejak = (kunci: string, olehId: string, hari: number, versi: number, status: "DRAF" | "DIAJUKAN" | "DIREVISI" | "DISETUJUI" | "TERBIT") =>
+      prisma.rpkpsRiwayat.create({
+        data: { rpkpsId: rp.id, versi, status, data: { kunci, params: {} }, deskripsi: kunci, olehId, dibuatPada: lalu(hari) },
+      });
+    await jejak("DIBUAT_KERANGKA", koor.id, 31, 1, "DRAF");
+    await jejak("DIPARAF_KOORDINATOR", koor.id, 30, 1, "DIAJUKAN");
+    await jejak("DIKEMBALIKAN_REVISI", kaprodiL.id, 29, 1, "DIREVISI");
+    await prisma.notifikasi.create({
+      data: { penggunaId: dosenL.id, jenis: "RPKPS_MINTA_PARAF", judul: "Minta paraf", ringkasan: "-", entitas: "rpkps", entitasId: rp.id, dibuatPada: lalu(27) },
+    });
+    await prisma.tandaTanganRpkps.create({
+      data: { rpkpsId: rp.id, versi: 2, peran: "PENGAMPU", penggunaId: dosenL.id, nama: dosenL.nama, sidik: "a".repeat(64), ditandatanganiPada: lalu(26) },
+    });
+    await jejak("DIPARAF_KOORDINATOR", koor.id, 25, 2, "DIAJUKAN");
+    await jejak("DISETUJUI_KAPRODI", kaprodiL.id, 24, 2, "DISETUJUI");
+    await jejak("DISAHKAN_MUTU", pmi.id, 23, 2, "TERBIT");
+    await jejak("DARI_ARSIP_TERBIT", koor.id, 22, 2, "TERBIT");
+
+    // Penerima tiruan: idempoten atas id seperti identitas-itts sungguhan.
+    type Kiriman = { auth: string; badan: { aktivitas: { id: string; jenis: string; objek: { id: string }; nilai: number | null; diterimaPada: string | null; tenggat: string | null; pelaku: { email: string } }[]; isianMundur: boolean } };
+    const kiriman: Kiriman[] = [];
+    const terlihat = new Set<string>();
+    let gagal = false;
+    const penerima = createServer(async (req, res) => {
+      let isi = "";
+      for await (const p of req) isi += p;
+      if (gagal) { res.statusCode = 503; res.end("padam"); return; }
+      const badan = JSON.parse(isi) as Kiriman["badan"];
+      kiriman.push({ auth: String(req.headers.authorization), badan });
+      const baru = badan.aktivitas.filter((a) => !terlihat.has(a.id));
+      baru.forEach((a) => terlihat.add(a.id));
+      res.setHeader("content-type", "application/json");
+      res.end(JSON.stringify({ diterima: baru.length, duplikat: badan.aktivitas.length - baru.length, dibatalkan: 0, ditolak: [] }));
+    });
+    await new Promise<void>((r) => penerima.listen(0, "127.0.0.1", r));
+    const konfig = { url: `http://127.0.0.1:${(penerima.address() as AddressInfo).port}/`, klienId: "rpkps", rahasia: "rahasia-uji" };
+    const milikRp = () => kiriman.flatMap((k) => k.badan.aktivitas.filter((a) => a.objek.id === rp.id).map((a) => ({ ...a, isianMundur: k.badan.isianMundur })));
+
+    try {
+      gagal = true;
+      let dilempar = false;
+      try { await sinkronkanAktivitas(prisma, konfig); } catch { dilempar = true; }
+      cek("aktivitas: identitas-itts padam → galat dilempar, kursor tidak maju",
+        dilempar && (await prisma.kursorIdentitas.count()) === 0);
+
+      gagal = false;
+      const h1 = await sinkronkanAktivitas(prisma, konfig);
+      const a1 = milikRp();
+      const jenis = (j: string) => a1.filter((a) => a.jenis === `rpkps.${j}`);
+      cek("aktivitas: kredensial Basic client_id:client_secret",
+        kiriman.every((k) => k.auth === `Basic ${Buffer.from("rpkps:rahasia-uji").toString("base64")}`));
+      cek("aktivitas: rantai lengkap terlapor — 2 ajuan, pengembalian Kaprodi, persetujuan, pengesahan, terbit, paraf",
+        a1.length === 7 && jenis("diajukan").length === 2 && jenis("dikembalikan_kaprodi").length === 1 &&
+          jenis("disetujui").length === 1 && jenis("disahkan").length === 1 && jenis("terbit").length === 1 && jenis("paraf_diberikan").length === 1,
+        a1.map((a) => a.jenis).join(","));
+      cek("aktivitas: pembuatan kerangka dan pemulihan arsip bukan perbuatan rantai", a1.every((a) => !a.jenis.includes("arsip") && !a.jenis.includes("kerangka")));
+      cek("aktivitas: pengesahan melaporkan pelaku PMI; terbit milik koordinator dengan 1 putaran revisi",
+        jenis("disahkan")[0].pelaku.email === "pmi.lapor@itts.ac.id" && jenis("terbit")[0].pelaku.email === "koor.lapor@itts.ac.id" && jenis("terbit")[0].nilai === 1);
+      cek("aktivitas: persetujuan Kaprodi dihitung sejak pengajuan ronde yang sama, tenggat review semester",
+        jenis("disetujui")[0].diterimaPada === lalu(25).toISOString() && jenis("disetujui")[0].tenggat === taLapor.tenggatReview!.toISOString());
+      cek("aktivitas: paraf dihitung sejak diminta, tanpa tenggat",
+        jenis("paraf_diberikan")[0].diterimaPada === lalu(27).toISOString() && jenis("paraf_diberikan")[0].tenggat === null);
+      const kursor = await prisma.kursorIdentitas.findMany();
+      cek("aktivitas: kiriman pertama bertanda isian mundur; kursor tuntas menyusul",
+        a1.every((a) => a.isianMundur) && h1.riwayat.tuntas && h1.paraf.tuntas && kursor.length === 2 && kursor.every((k) => k.isiMundurSelesai));
+
+      const sebelum = kiriman.length;
+      await sinkronkanAktivitas(prisma, konfig);
+      cek("aktivitas: tanpa baris baru tidak ada kiriman", kiriman.length === sebelum);
+
+      await prisma.tandaTanganRpkps.create({
+        data: { rpkpsId: rp.id, versi: 3, peran: "PENGAMPU", penggunaId: dosenL.id, nama: dosenL.nama, sidik: "b".repeat(64), ditandatanganiPada: new Date(Date.now() - 6 * 60_000) },
+      });
+      await prisma.tandaTanganRpkps.create({
+        data: { rpkpsId: rp.id, versi: 3, peran: "PENGAMPU", penggunaId: koor.id, nama: koor.nama, sidik: "c".repeat(64), ditandatanganiPada: new Date(Date.now() - 60_000) },
+      });
+      await sinkronkanAktivitas(prisma, konfig);
+      const a2 = milikRp().slice(a1.length);
+      cek("aktivitas: baris baru terkirim tanpa tanda isian mundur; baris yang belum mengendap 5 menit menunggu",
+        a2.length === 1 && a2[0].jenis === "rpkps.paraf_diberikan" && !a2[0].isianMundur && a2[0].pelaku.email === "dosen.lapor@itts.ac.id",
+        JSON.stringify(a2.map((a) => [a.jenis, a.pelaku.email, a.isianMundur])));
+
+      const h4 = await sinkronkanAktivitas(prisma, konfig, { ulang: true });
+      const a4 = milikRp().slice(a1.length + a2.length);
+      cek("aktivitas: kirim ulang seluruhnya aman — identitas-itts menghitungnya duplikat",
+        a4.length === 8 && a4.every((a) => a.isianMundur) && h4.riwayat.duplikat + h4.paraf.duplikat >= 8,
+        `${a4.length} terkirim, ${h4.riwayat.duplikat + h4.paraf.duplikat} duplikat`);
+    } finally {
+      await new Promise<void>((r) => penerima.close(() => r()));
+    }
   }
 
   writeFileSync("uji/keluaran-rpkps.docx", buffer);

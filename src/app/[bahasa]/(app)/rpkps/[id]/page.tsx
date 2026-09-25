@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { prisma } from "@/lib/prisma";
 import { punyaPeran, punyaPeranDiProdi, wajibAktif } from "@/lib/otorisasi";
 import { wenangAtasRpkps } from "@/lib/rpkps/wenang";
-import { keRpkpsInput, muatKebijakan, muatRpkps, namaLengkapPengampu } from "@/lib/rpkps/muat";
+import { dataPengampuTakPasti, keRpkpsInput, muatKebijakan, muatRpkps, namaLengkapPengampu } from "@/lib/rpkps/muat";
 import { validasiRpkps } from "@/domain/rpkps/validator";
 import { keSumberPeta } from "@/domain/evaluasi/pemetaan";
 import { susunPetaAsesmen } from "@/domain/evaluasi/peta-asesmen";
@@ -149,7 +149,10 @@ export default async function HalamanRpkpsDetail({
     }),
   ]);
 
-  const [snapshot, pergeseran] = sidikTerbit ?? [null, { ada: false as const }];
+  const [snapshot, pergeseranMentah] = sidikTerbit ?? [null, { ada: false as const }];
+  // Nama pengampu darurat (identitas-itts padam) mengubah sidik: jangan menuduh dokumen bergeser karenanya.
+  const takPasti = dataPengampuTakPasti(rpkps);
+  const pergeseran = takPasti ? { ada: false as const } : pergeseranMentah;
 
   /**
    * Nilai awal dua penyunting di bawah, dipisah dari JSX karena dipakai dua
@@ -196,6 +199,12 @@ export default async function HalamanRpkpsDetail({
             {k.rpkps.ikhtisar.kembali}
           </ButtonLink>
         </div>
+
+        {takPasti ? (
+          <p className="rounded-md border-l-2 border-l-warning bg-warning/8 px-4 py-3 text-sm">
+            {k.rpkps.ikhtisar.identitasPadam}
+          </p>
+        ) : null}
 
         <header className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">

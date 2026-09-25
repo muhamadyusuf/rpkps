@@ -5,6 +5,8 @@ import { cache } from "react";
 import { prisma } from "@/lib/prisma";
 import { env } from "@/lib/env";
 import { verifikasiCookieSesi } from "@/lib/firebase/admin";
+import { jadwalkanSinkron } from "@/lib/identitas/sinkron";
+import { tampilanDariRujukan } from "@/lib/pengguna/tampilan";
 import type { Peran, StatusPengguna } from "@/generated/prisma";
 import type { Bahasa } from "@/kamus";
 
@@ -38,7 +40,6 @@ export interface PenggunaSesi {
   namaLengkap: string;
   nidn: string | null;
   nip: string | null;
-  fotoUrl: string | null;
   status: StatusPengguna;
   penugasan: PeranTerpasang[];
   daftarPeran: Peran[];
@@ -66,6 +67,10 @@ export const sesiSaatIni = cache(async (): Promise<PenggunaSesi | null> => {
 
   if (!pengguna || pengguna.status === "NONAKTIF") return null;
 
+  // Peran diturunkan dari jabatan di identitas-itts (docs/26 §5): bila sinkron terakhir sudah
+  // basi, disegarkan di belakang layar — permintaan ini tetap memakai peran yang sudah ada.
+  jadwalkanSinkron(pengguna);
+
   const penugasan: PeranTerpasang[] = pengguna.penugasan.map((p) => ({
     peran: p.peran,
     prodiId: p.prodiId,
@@ -73,18 +78,18 @@ export const sesiSaatIni = cache(async (): Promise<PenggunaSesi | null> => {
     prodiKode: p.prodi?.kode ?? null,
   }));
 
+  // Nama, gelar, NIDN, NIP dibaca dari identitas-itts (docs/26 §4) — bukan dari kolom lokal.
+  // Tak pernah melempar: identitas-itts padam berarti nama darurat dari surel, bukan sesi yang gagal.
+  const tampilan = (await tampilanDariRujukan([pengguna])).get(pengguna.id);
+
   return {
     id: pengguna.id,
     firebaseUid: pengguna.firebaseUid,
     email: pengguna.email,
-    nama: pengguna.nama,
-    namaLengkap: [pengguna.gelarDepan, pengguna.nama, pengguna.gelarBelakang]
-      .filter(Boolean)
-      .join(" ")
-      .replace(" ,", ","),
-    nidn: pengguna.nidn,
-    nip: pengguna.nip,
-    fotoUrl: pengguna.fotoUrl,
+    nama: tampilan?.nama ?? pengguna.email,
+    namaLengkap: tampilan?.namaLengkap ?? pengguna.email,
+    nidn: tampilan?.nidn ?? null,
+    nip: tampilan?.nip ?? null,
     status: pengguna.status,
     penugasan,
     daftarPeran: [...new Set(penugasan.map((p) => p.peran))],
@@ -109,8 +114,10 @@ export const sesiSaatIni = cache(async (): Promise<PenggunaSesi | null> => {
 export async function siapkanPengguna(input: {
   firebaseUid: string;
   email: string;
+  /** Hanya bermakna bagi pengguna LOKAL. Untuk pegawai namanya dibaca dari identitas-itts. */
   nama?: string | null;
-  fotoUrl?: string | null;
+  /** `Akun.id` di identitas-itts bila orang ini pegawai (docs/26); null untuk pengguna LOKAL. */
+  identitasAkunId?: string | null;
 }): Promise<{ id: string; status: StatusPengguna; baru: boolean; bahasa: Bahasa }> {
   const email = input.email.toLowerCase();
   const bootstrapAdmin = env.adminBootstrapEmails.includes(email);
@@ -119,6 +126,18 @@ export async function siapkanPengguna(input: {
     where: { OR: [{ firebaseUid: input.firebaseUid }, { email }] },
     select: { id: true, firebaseUid: true },
   });
+
+  // Tautan ke identitas-itts. Satu akun hanya boleh bertaut ke SATU baris (unik): bila baris LAIN
+  // sudah memakainya (orang yang sama, dua surel), tautan dilewati — masuk tetap berhasil, dan
+  // menggandakan baris atau melanggar unik di tengah login jauh lebih buruk daripada tak menaut.
+  let identitasAkunId: string | undefined;
+  if (input.identitasAkunId) {
+    const dipakai = await prisma.pengguna.findUnique({
+      where: { identitasAkunId: input.identitasAkunId },
+      select: { id: true },
+    });
+    if (!dipakai || dipakai.id === adaSebelumnya?.id) identitasAkunId = input.identitasAkunId;
+  }
 
   let pengguna: { id: string; status: StatusPengguna; bahasa: Bahasa };
 
@@ -131,7 +150,7 @@ export async function siapkanPengguna(input: {
       where: { id: adaSebelumnya.id },
       data: {
         firebaseUid: input.firebaseUid,
-        fotoUrl: input.fotoUrl ?? undefined,
+        identitasAkunId,
         terakhirMasuk: new Date(),
       },
       select: { id: true, status: true, bahasa: true },
@@ -141,14 +160,16 @@ export async function siapkanPengguna(input: {
       where: { firebaseUid: input.firebaseUid },
       update: {
         email,
-        fotoUrl: input.fotoUrl ?? undefined,
+        identitasAkunId,
         terakhirMasuk: new Date(),
       },
       create: {
         firebaseUid: input.firebaseUid,
         email,
-        nama: input.nama?.trim() || email.split("@")[0],
-        fotoUrl: input.fotoUrl ?? null,
+        identitasAkunId,
+        // `nama` masih NOT NULL sampai kontraksi (docs/26 §7). Pegawai: penampung dari surel — namanya
+        // dibaca dari identitas-itts, dan nama Google TIDAK disalin. LOKAL: nama dari akun Google.
+        nama: identitasAkunId ? email.split("@")[0] : input.nama?.trim() || email.split("@")[0],
         status: bootstrapAdmin ? "AKTIF" : "MENUNGGU_VERIFIKASI",
         terakhirMasuk: new Date(),
       },

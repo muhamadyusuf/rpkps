@@ -2,6 +2,7 @@ import type { Prisma, PrismaClient } from "@/generated/prisma";
 import type { CapaianButir } from "@/domain/evaluasi/capaian";
 import type { BarisCapaian } from "@/domain/evaluasi/agregasi";
 import type { IsiEvaluasi } from "@/domain/evaluasi/proyeksi";
+import { PILIH_RUJUKAN_PENGGUNA } from "@/domain/identitas/tampilan";
 
 /**
  * Lapisan basis data evaluasi ketercapaian — doc 05 tahap E3–E4.
@@ -17,13 +18,13 @@ export const SERTAKAN_EVALUASI = {
   temuan: {
     orderBy: [{ tingkat: "asc" }, { kode: "asc" }],
     include: {
-      penanggungJawab: { select: { id: true, nama: true } },
+      penanggungJawab: { select: PILIH_RUJUKAN_PENGGUNA },
       taSasaran: { select: { id: true, kode: true } },
       usulan: { select: { id: true, judul: true, status: true } },
     },
   },
   hasil: { orderBy: [{ tingkat: "asc" }, { kode: "asc" }] },
-  ditutupOleh: { select: { nama: true } },
+  ditutupOleh: { select: PILIH_RUJUKAN_PENGGUNA },
 } satisfies Prisma.EvaluasiMkInclude;
 
 /**
@@ -152,7 +153,7 @@ export async function muatKelas(klien: Klien, kelasId: string) {
   return klien.kelas.findUnique({
     where: { id: kelasId },
     include: {
-      dosen: { select: { id: true, nama: true } },
+      dosen: { select: PILIH_RUJUKAN_PENGGUNA },
       rpkps: {
         select: {
           id: true,
@@ -186,7 +187,7 @@ export async function muatKelasRpkps(klien: Klien, rpkpsId: string) {
     where: { rpkpsId },
     orderBy: { kode: "asc" },
     include: {
-      dosen: { select: { id: true, nama: true } },
+      dosen: { select: PILIH_RUJUKAN_PENGGUNA },
       peserta: {
         orderBy: { mahasiswa: { nim: "asc" } },
         include: {
@@ -208,7 +209,7 @@ export async function muatKelasEvaluasi(klien: Klien, kelasId: string) {
   return klien.kelas.findUnique({
     where: { id: kelasId },
     include: {
-      dosen: { select: { id: true, nama: true } },
+      dosen: { select: PILIH_RUJUKAN_PENGGUNA },
       rpkps: {
         select: {
           id: true,

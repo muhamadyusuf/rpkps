@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { namaLengkapPengampu } from "@/domain/rpkps/pemetaan";
+import { PILIH_RUJUKAN_PENGGUNA, type RujukanPengguna } from "@/domain/identitas/tampilan";
+import { tampilanDariRujukan } from "@/lib/pengguna/tampilan";
 import { PERAN_CALON_KOORDINATOR } from "@/domain/kurikulum/koordinator";
 import type { StatusRpkps } from "@/generated/prisma";
 
@@ -49,22 +50,27 @@ export async function daftarCalonKoordinator(): Promise<CalonDosen[]> {
       status: "AKTIF",
       penugasan: { some: { peran: { in: [...PERAN_CALON_KOORDINATOR] } } },
     },
-    orderBy: { nama: "asc" },
+    // Diurutkan menurut nama SETELAH dibaca dari identitas-itts (di bawah): kolom nama di sini bukan sumbernya.
     select: {
-      id: true,
-      nama: true,
-      gelarDepan: true,
-      gelarBelakang: true,
+      ...PILIH_RUJUKAN_PENGGUNA,
       penugasan: { select: { prodi: { select: { kode: true } } } },
     },
   });
 
-  return baris.map((c) => ({
-    id: c.id,
-    nama: namaLengkapPengampu(c),
-    prodi:
-      [...new Set(c.penugasan.map((p) => p.prodi?.kode).filter(Boolean))].join("/") || null,
-  }));
+  const tampilan = await tampilanDariRujukan(baris);
+  return baris
+    .map((c) => {
+      const t = tampilan.get(c.id);
+      return {
+        id: c.id,
+        urut: t?.nama ?? c.email,
+        nama: t?.namaLengkap ?? c.email,
+        prodi:
+          [...new Set(c.penugasan.map((p) => p.prodi?.kode).filter(Boolean))].join("/") || null,
+      };
+    })
+    .sort((a, b) => a.urut.localeCompare(b.urut, "id"))
+    .map(({ id, nama, prodi }) => ({ id, nama, prodi }));
 }
 
 export type BarisPenugasan = {
@@ -116,10 +122,8 @@ export async function muatPapanPenugasan(opsi: {
         select: {
           penggunaId: true,
           dibuatPada: true,
-          pengguna: {
-            select: { nama: true, gelarDepan: true, gelarBelakang: true, status: true },
-          },
-          ditetapkanOleh: { select: { nama: true } },
+          pengguna: { select: { ...PILIH_RUJUKAN_PENGGUNA, status: true } },
+          ditetapkanOleh: { select: PILIH_RUJUKAN_PENGGUNA },
         },
       },
       rpkps: {
@@ -136,6 +140,12 @@ export async function muatPapanPenugasan(opsi: {
     },
   });
 
+  // Koordinator dan penetapnya dibaca dari identitas-itts SEKALI untuk seluruh halaman.
+  const rujukan: RujukanPengguna[] = baris.flatMap((m) =>
+    m.koordinator.flatMap((k) => [k.pengguna, ...(k.ditetapkanOleh ? [k.ditetapkanOleh] : [])]),
+  );
+  const tampilan = await tampilanDariRujukan(rujukan);
+
   return baris.map((m) => {
     const tugas = m.koordinator[0];
     const r = m.rpkps[0];
@@ -149,11 +159,11 @@ export async function muatPapanPenugasan(opsi: {
       koordinator: tugas
         ? {
             penggunaId: tugas.penggunaId,
-            nama: namaLengkapPengampu(tugas.pengguna),
+            nama: tampilan.get(tugas.pengguna.id)?.namaLengkap ?? tugas.pengguna.email,
             nonaktif: tugas.pengguna.status !== "AKTIF",
           }
         : null,
-      ditetapkanOleh: tugas?.ditetapkanOleh?.nama ?? null,
+      ditetapkanOleh: tugas?.ditetapkanOleh ? (tampilan.get(tugas.ditetapkanOleh.id)?.nama ?? tugas.ditetapkanOleh.email) : null,
       ditetapkanPada: tugas?.dibuatPada ?? null,
       rpkps: r
         ? { id: r.id, status: r.status, koordinatorId: r.pengampu[0]?.penggunaId ?? null }

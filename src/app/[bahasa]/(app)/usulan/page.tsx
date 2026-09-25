@@ -4,6 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { prisma } from "@/lib/prisma";
+import { PILIH_RUJUKAN_PENGGUNA } from "@/domain/identitas/tampilan";
+import { pencariNama } from "@/lib/pengguna/tampilan";
 import { cakupanProdi, punyaPeran, wajibAktif } from "@/lib/otorisasi";
 import { VARIAN_STATUS } from "./label";
 import { bahasaAktif, kamus } from "@/lib/bahasa/server";
@@ -54,7 +56,7 @@ export default async function HalamanUsulan({
   const isiBaris = {
     mataKuliah: { select: { kode: true, nama: true, namaEn: true } },
     kurikulum: { select: { nama: true, tahun: true } },
-    diajukanOleh: { select: { nama: true } },
+    diajukanOleh: { select: PILIH_RUJUKAN_PENGGUNA },
     revisi: { select: { revisiKe: true } },
     _count: { select: { butir: true, catatan: true } },
   };
@@ -89,7 +91,7 @@ export default async function HalamanUsulan({
   );
   const halaman = hitungHalaman(jumlahRiwayat, bacaHalaman(mentah.hal), UKURAN_HALAMAN);
 
-  const [menunggu, riwayat] = await Promise.all([
+  const [menungguMentah, riwayatMentah] = await Promise.all([
     prisma.usulanRevisi.findMany({
       where: saringMenunggu,
       orderBy: [{ diajukanPada: "asc" }],
@@ -105,6 +107,15 @@ export default async function HalamanUsulan({
       include: isiBaris,
     }),
   ]);
+
+  // Nama pengaju dibaca dari identitas-itts, SEKALI untuk kedua daftar; kartu tetap menerima {nama}.
+  const namaPengaju = await pencariNama(...[...menungguMentah, ...riwayatMentah].map((u) => u.diajukanOleh));
+  const denganNama = <T extends { diajukanOleh: { id: string; email: string; nama: string; identitasAkunId: string | null } }>(u: T) => ({
+    ...u,
+    diajukanOleh: { nama: namaPengaju(u.diajukanOleh) ?? u.diajukanOleh.email },
+  });
+  const menunggu = menungguMentah.map(denganNama);
+  const riwayat = riwayatMentah.map(denganNama);
 
   /** Tautan antrean membawa halaman riwayat, dan sebaliknya. */
   const paramMenunggu = {

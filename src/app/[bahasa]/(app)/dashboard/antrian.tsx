@@ -34,9 +34,11 @@ export async function AntrianKerja({ butir }: { butir: readonly ButirAntrian[] }
 
   if (butir.length === 0) {
     return (
-      <Card className="panel border-l-2 border-l-success bg-success/6">
-        <CardContent className="flex items-center gap-3 py-4">
-          <CircleCheck className="size-4 shrink-0 text-success-foreground" />
+      <Card className="py-0">
+        <CardContent className="flex items-center gap-3 px-4 py-5">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-success/12 text-success-foreground">
+            <CircleCheck className="size-4" />
+          </span>
           <p className="text-sm text-muted-foreground">{k.dasbor.antrian.kosong}</p>
         </CardContent>
       </Card>
@@ -44,14 +46,14 @@ export async function AntrianKerja({ butir }: { butir: readonly ButirAntrian[] }
   }
 
   return (
-    <Card className="panel siku overflow-hidden">
+    <Card className="overflow-hidden py-0">
       <CardContent className="p-0">
-        <ul className="divide-y divide-border/70">
+        <ul className="divide-y divide-border">
           {butir.map((b) => (
             <li key={b.kunci}>
               <Tautan
                 href={b.href}
-                className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-cahaya/5"
+                className="group flex items-start gap-3 px-4 py-3 transition-colors hover:bg-muted"
               >
                 <span
                   aria-hidden
@@ -83,7 +85,7 @@ export async function AntrianKerja({ butir }: { butir: readonly ButirAntrian[] }
                   </span>
                 </span>
 
-                <ArrowRight className="mt-0.5 size-3.5 shrink-0 text-muted-foreground/60" />
+                <ArrowRight className="mt-0.5 size-3.5 shrink-0 text-muted-foreground/60 transition-transform group-hover:translate-x-0.5" />
               </Tautan>
             </li>
           ))}

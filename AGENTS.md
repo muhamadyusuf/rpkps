@@ -41,9 +41,21 @@ Konsep lengkap ada di `docs/` — **baca sebelum menambah fitur**:
 | `docs/21-identitas-program-studi.md` | Identitas prodi: logo, visi & misi, alamat, telepon, surel, situs. Kop lembaga pada RPKPS, buku ajar, dan portofolio; bagian Visi & Misi di katalog publik. I1–I9 terpasang. |
 | `docs/22-perangkap-keamanan.md` | Tinjauan keamanan + perangkap: alamat umpan yang dicatat ke `/perangkap` (IP, lokasi perkiraan, sidik perangkat), header keamanan, pembatas laju. PK1–PK4 terpasang. Foto/GPS pelaku sengaja tidak dibangun (§3). |
 | `docs/23-impor-rpkps-dari-template.md` | Impor isi RPKPS dari template Excel yang dibuat dari dokumennya sendiri: empat lapis validasi, satu gerbang (`periksaDraf`) dan satu pintu tulis (`tulisDraf`) bersama draf AI. T1–T6 terpasang. |
+| `docs/24-pelaporan-aktivitas-identitas.md` | Pelaporan perbuatan rantai pengesahan (ajukan, paraf, setujui, sahkan, kembalikan) ke identitas-itts sebagai bahan KPI perilaku. Penyelaras berkursor di atas `rpkps_riwayat`/`tanda_tangan_rpkps` — tanpa antrian baru, tanpa menyentuh aksi. Terpasang. |
+| `docs/25-masuk-lewat-identitas.md` | Masuk tunggal: RPKPS sebagai klien OIDC identitas-itts (kode + PKCE), dijembatani ke sesi Firebase. Pengguna yang sudah masuk di identitas-itts membuka RPKPS tanpa masuk lagi. Satu pintu `lib/masuk.ts` bersama masuk Google. Terpasang. |
+| `docs/26-data-pegawai-dari-identitas.md` | RPKPS tidak menyimpan data pegawai: nama/gelar/NIDN/NIP dibaca dari identitas-itts (cache + batch, gagal-tertutup untuk operasi hukum), peran DOSEN/KAPRODI/GPM/ADMIN diturunkan dari jabatan sebagai proyeksi tersinkron, asesor/mahasiswa profil lokal. Urutan penerapan dan kontraksi kolom lama (dijalankan pengguna). Terpasang. |
+| `docs/27-rupa-ipad.md` | DIGANTIKAN doc 28. Yang masih berlaku: §6.6 registri aplikasi terhubung di identitas-itts (`GET /api/v1/aplikasi`). |
+| `docs/28-rupa-pengaturan-identitas.md` | Area login mengikuti rupa /pengaturan identitas-itts: sidebar berkelompok 280/68px + laci ponsel, latar netral, tinta + sinyal, Geist, dasbor gaya Ringkasan, halaman masuk polos. Token lewat `:root:has([data-rupa="aplikasi"])`; publik dan cetak tidak berubah. S1–S5 terpasang. |
 
 ## Aturan yang mengikat
 
+- **Kunci riwayat rantai pengesahan adalah kontrak dengan identitas-itts.**
+  `DIPARAF_KOORDINATOR`, `DISETUJUI_KAPRODI`, `DISAHKAN_MUTU`, dan
+  `DIKEMBALIKAN_REVISI` dibaca penyelaras aktivitas (docs/24) sebagai
+  perbuatan dosen yang dinilai untuk kinerja dan tunjangan. Mengganti nama
+  kuncinya, berhenti menulis barisnya, atau menulis baris rantai di luar
+  aksi rantai akan diam-diam mengubah nilai orang. Laporkan dari riwayat,
+  jangan dari dalam aksi.
 - **CPL, CPMK, dan Sub-CPMK berasal dari buku kurikulum dan bersifat read-only** di
   penyusun RPKPS. Perubahan harus lewat Usulan Revisi Kurikulum ke Kaprodi
   (`/usulan`, lihat doc 04) — bukan lewat penyuntingan langsung.
@@ -484,6 +496,63 @@ Konsep lengkap ada di `docs/` — **baca sebelum menambah fitur**:
   memastikan tidak ada alamat aplikasi yang sah ikut cocok; penjaganya
   `src/domain/keamanan/keamanan.test.ts`. Jangan menambah kamera atau
   geolokasi peramban sebagai "jebakan" (docs/22 §3).
+- **RPKPS tidak menyimpan data pegawai; identitas-itts pemiliknya.** Nama, gelar,
+  NIDN, dan NIP pegawai TIDAK dibaca dari kolom `Pengguna`: kueri memilih
+  `PILIH_RUJUKAN_PENGGUNA` (`src/domain/identitas/tampilan.ts`) lalu memanggil
+  `tampilanDariRujukan` / `pencariNama` (`src/lib/pengguna/tampilan.ts`) SEKALI
+  per halaman atau aksi — batch, bukan satu panggilan per orang. NIK, telepon,
+  dan foto tidak diambil sama sekali. `nama` hanya bermakna bagi pengguna LOKAL
+  (asesor, mahasiswa, admin bootstrap); untuk pegawai ia penampung dari surel.
+  Kolom lama tidak boleh dibaca kembali, dan penjaganya kompilator:
+  `npm run periksa:tanpa-pegawai` (langkah terakhir `test:integrasi`) gagal bila
+  ada kode yang memilih kolom itu (docs/26 §6).
+- **Operasi hukum memakai data pegawai SEGAR, dan gagal-tertutup.** Tanda tangan
+  (`capPenandaTangan`), pembekuan snapshot, penutupan evaluasi, serah terima
+  koordinator, dan baris riwayat memakai `wajibTampilan*` / `wajibPencariNama` /
+  `muatRpkps(id, { segar: true })`, yang melempar `ProfilTidakTersedia` bila
+  identitas-itts tak dapat memastikan — operasinya ditolak, tidak dilanjutkan
+  dengan nama darurat. Halaman biasa memakai versi yang tak pernah melempar;
+  hasil `muatRpkps` dengan pengampu bernama darurat ditandai
+  `dataPengampuTakPasti` dan tidak boleh dipakai menuduh "dokumen bergeser".
+  Ringkasan `log_audit` yang BARU menyebut surel, bukan nama (docs/26 §4).
+- **Peran DOSEN/KAPRODI/GPM/ADMIN pegawai diturunkan dari jabatan, tidak diberikan
+  tangan.** Barisnya `penugasan_peran.sumber = IDENTITAS`, dihasilkan
+  `lib/identitas/sinkron*.ts` dan tak dapat dihapus dari `/pengguna`. Peran yang
+  butuh prodi TANPA prodi terpetakan (`prodi.identitas_unit_id`) TIDAK diberikan
+  sama sekali: di RPKPS `prodiId = null` berarti cakupan INSTITUSI, dan `DOSEN`
+  termasuk `PERAN_PENGUSUL` — memberi `null` sama dengan membuka usulan revisi
+  di semua prodi. Sinkron hanya menyentuh baris `IDENTITAS`, tak pernah
+  mengaktifkan kembali `NONAKTIF`, dan menolak pencabutan massal di atas
+  `max(5, 25%)` (`pagarPenghapusan`). Pengguna LOKAL hanya boleh berperan
+  ASESOR/MAHASISWA (`peranLokalBoleh`), karena hanya itu yang lolos gerbang
+  (`bolehLewatGerbangLokal`) — jangan melonggarkan salah satunya tanpa yang lain
+  (docs/26 §3, §5).
+- **Kontraksi kolom lama tidak ikut `db:migrate:pg`.** SQL-nya ada di
+  `prisma/kontraksi/`, BUKAN `prisma/migrations/`, dan hanya dijalankan pengguna
+  menurut runbook docs/26 §7 (kode tanpa kolom di-deploy DULU, kolom dibuang
+  sesudahnya). Jangan memindahkannya ke `migrations/` atas inisiatif sendiri.
+- **Rupa area login hanya aktif lewat penanda `data-rupa="aplikasi"`, dan
+  tokennya hidup di `:root:has([data-rupa="aplikasi"])` di dalam
+  `@media screen`** (`globals.css`, docs/28 §3). Memindahkan tokennya ke
+  pembungkus halaman membuat dialog, dropdown, tooltip, dan toast — yang
+  dirender lewat portal ke `<body>` — tetap berpalet kertas; memindahkannya
+  ke `:root` polos mengubah katalog publik; melepasnya dari `@media screen`
+  membuat cetakan ikut berubah. Nilai paletnya DISALIN dari identitas-itts
+  (`--latar`, `--permukaan*`, `--tinta`, `--sinyal`, …) dan dipetakan ke
+  token shadcn — ubah di kedua aplikasi atau jangan sama sekali. Komponen
+  `ui/*` tidak disunting untuk rupa ini; semuanya lewat token.
+- **Pengelompokan menu tinggal di `MENU` (`grup`), rupanya di komponen.**
+  Ikon dan warna ubin ada di `src/components/rupa/ubin.tsx`
+  (`Record<KunciIkon, …>`), bukan di `src/lib/menu.ts`. Menu baru wajib
+  diberi `grup`, dan kompilator menolak kunci ikon tanpa ikon/warna.
+- **Aplikasi terhubung tidak pernah membuat halaman menunggu jaringan.** Tata
+  letak `(app)` memanggil `muatAplikasiTerhubung()` TANPA `await` dan
+  meneruskan janjinya ke pusat kontrol di balik Suspense; pemuatnya tidak pernah
+  melempar. Daftar dari registri identitas-itts adalah data layanan lain:
+  setiap alamatnya melewati `uraiDaftarAplikasi`
+  (`src/domain/rupa/aplikasi.ts`), yang menolak selain http/https —
+  `javascript:` yang lolos ke pusat kontrol dijalankan di asal-usul RPKPS dengan
+  sekali klik. Kosakata ikonnya sama dengan `IKON_DESKTOP` di identitas-itts.
 - Domain `src/domain/` harus murni: tanpa Prisma, tanpa React, agar dapat diuji.
 - Bahasa antarmuka dan penamaan domain: Indonesia. Tabel database snake_case
   lewat `@@map`/`@map`.

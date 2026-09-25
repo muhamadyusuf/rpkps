@@ -27,3 +27,9 @@ npx tsx uji/siapkan.mts
 
 echo "▸ menjalankan pemeriksaan…"
 npx tsx --tsconfig tsconfig.json uji/integrasi.ts
+
+echo "▸ menjalankan uji sinkron peran (docs/26)…"
+npx tsx --tsconfig tsconfig.json uji/sinkron-peran.ts
+
+echo "▸ memeriksa RPKPS tidak membaca data pegawai dari Pengguna (docs/26 §6)…"
+npx tsx uji/periksa-tanpa-data-pegawai.mts

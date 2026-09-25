@@ -42,6 +42,22 @@ export function tanggal(
 }
 
 /**
+ * Waktu di sebelah avatar (docs/28 §4.2): "Jum, 25 Sep 11:19". Jam-menit
+ * SELALU bertitik dua — bawaan `id-ID` memakai titik ("11.19"), dan di bilah
+ * status yang dibaca sekilas titik dua lebih cepat dikenali sebagai jam.
+ */
+export function waktuStatus(nilai: Date, bahasa: Bahasa): string {
+  const tgl = new Intl.DateTimeFormat(LOCALE[bahasa], {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  }).format(nilai);
+  const jam = String(nilai.getHours()).padStart(2, "0");
+  const menit = String(nilai.getMinutes()).padStart(2, "0");
+  return `${tgl} ${jam}:${menit}`;
+}
+
+/**
  * Angka dengan pemisah desimal yang benar per bahasa — `85,5` vs `85.5`.
  * Bobot penilaian tercetak pada dokumen resmi, jadi perbedaan ini terlihat.
  */

@@ -334,3 +334,53 @@ async function segarkanIdentitas(prodiId: string, kode: string) {
   segarkan("/katalog");
   segarkan(`/katalog/${kode.toLowerCase()}`);
 }
+
+const SkemaPemetaanUnit = z.object({
+  // Kunci `cuid` identitas-itts. Kosong = pemetaan dilepas.
+  unitId: z.string().trim().max(64).regex(/^[A-Za-z0-9_-]*$/, "@aksi.identitas.unitTidakSah"),
+});
+
+/**
+ * Memetakan prodi ke unit (jenis PRODI) di identitas-itts. HANYA Admin — bukan Kaprodi seperti
+ * visi dan misi di atas: pemetaan ini yang menentukan prodi mana yang diberi peran KAPRODI dan DOSEN
+ * bagi pegawai identitas-itts (docs/26 §5). Pemetaan yang keliru berarti orang berperan di prodi lain.
+ */
+export async function simpanPemetaanUnit(prodiId: string, data: FormData): Promise<HasilAksi> {
+  const kam = await kamusAksi();
+  const sesi = await wajibPeran("ADMIN");
+
+  const parsed = SkemaPemetaanUnit.safeParse({ unitId: data.get("unitId") ?? "" });
+  if (!parsed.success) {
+    return { ok: false, pesan: pesanZod(parsed.error, kam, kam.aksi.umum.dataTidakValid) };
+  }
+
+  const prodi = await prisma.prodi.findUnique({ where: { id: prodiId }, select: { id: true, kode: true } });
+  if (!prodi) return { ok: false, pesan: kam.aksi.takAda.prodi };
+
+  const unitId = parsed.data.unitId.length > 0 ? parsed.data.unitId : null;
+  try {
+    await prisma.$transaction([
+      prisma.prodi.update({ where: { id: prodi.id }, data: { identitasUnitId: unitId } }),
+      prisma.logAudit.create({
+        data: {
+          penggunaId: sesi.id,
+          aksi: "PRODI_DIPETAKAN",
+          entitas: "prodi",
+          entitasId: prodi.id,
+          ringkasan: unitId
+            ? `${sesi.email} memetakan prodi ${prodi.kode} ke unit identitas-itts ${unitId}`
+            : `${sesi.email} melepas pemetaan prodi ${prodi.kode} ke identitas-itts`,
+        },
+      }),
+    ]);
+  } catch (galat) {
+    // `identitas_unit_id` unik: satu unit tak boleh dipetakan ke dua prodi.
+    if (galat instanceof Error && galat.message.includes("Unique constraint")) {
+      return { ok: false, pesan: kam.aksi.identitas.unitSudahDipakai };
+    }
+    throw galat;
+  }
+
+  segarkan(`/master/prodi/${prodi.id}`);
+  return { ok: true, pesan: unitId ? kam.aksi.identitas.pemetaanTersimpan : kam.aksi.identitas.pemetaanDilepas };
+}

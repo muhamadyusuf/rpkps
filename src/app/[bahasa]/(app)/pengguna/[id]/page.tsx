@@ -4,7 +4,11 @@ import { ButtonLink } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { prisma } from "@/lib/prisma";
 import { wajibPeran } from "@/lib/otorisasi";
-import { FormulirProfil, PengaturPeran, PengaturStatus } from "./formulir";
+import { FormulirNamaLokal, PengaturPeran, PengaturStatus, TombolSinkronPengguna } from "./formulir";
+import { Badge } from "@/components/ui/badge";
+import { tampilanDariRujukan } from "@/lib/pengguna/tampilan";
+import { tampilanTakDiketahui } from "@/domain/identitas/tampilan";
+import { env } from "@/lib/env";
 import { bahasaAktif, kamus } from "@/lib/bahasa/server";
 import { tanggal } from "@/lib/bahasa/format";
 import { isi } from "@/lib/bahasa/teks";
@@ -22,9 +26,20 @@ export default async function HalamanDetailPengguna({
   const [pengguna, prodi] = await Promise.all([
     prisma.pengguna.findUnique({
       where: { id },
-      include: {
+      select: {
+        id: true,
+        email: true,
+        nama: true,
+        identitasAkunId: true,
+        status: true,
+        terakhirMasuk: true,
         penugasan: {
-          include: { prodi: { select: { nama: true, kode: true } } },
+          select: {
+            id: true,
+            peran: true,
+            sumber: true,
+            prodi: { select: { nama: true, kode: true } },
+          },
           orderBy: { dibuatPada: "asc" },
         },
       },
@@ -41,25 +56,11 @@ export default async function HalamanDetailPengguna({
   const k = await kamus();
   const b = await bahasaAktif();
 
-  /**
-   * Nilai awal FormulirProfil, dipisah karena dipakai dua kali: sebagai prop,
-   * dan sebagai `key`.
-   *
-   * Formulirnya tak terkendali — isian tersimpan di DOM lewat defaultValue —
-   * sehingga nilai awal hanya terbaca saat dipasang. Setelah simpan, aksi
-   * memanggil router.refresh() dan server mengirim nilai yang sudah
-   * dinormalkan; tanpa `key` formulir bertahan dengan isi lama dan Base UI
-   * memperingatkan defaultValue yang berubah setelah inisialisasi.
-   */
-  const profilAwal = {
-    nama: pengguna.nama,
-    gelarDepan: pengguna.gelarDepan ?? "",
-    gelarBelakang: pengguna.gelarBelakang ?? "",
-    nidn: pengguna.nidn ?? "",
-    nip: pengguna.nip ?? "",
-    nik: pengguna.nik ?? "",
-    telepon: pengguna.telepon ?? "",
-  };
+  // Nama, gelar, NIDN, NIP pegawai dibaca dari identitas-itts (docs/26 §4); tak ada salinannya di sini.
+  const tampilan =
+    (await tampilanDariRujukan([pengguna])).get(pengguna.id) ?? tampilanTakDiketahui(pengguna.email);
+  const bertaut = pengguna.identitasAkunId !== null;
+  const urlIdentitas = env.identitasItts?.url ?? null;
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -71,11 +72,12 @@ export default async function HalamanDetailPengguna({
       </div>
 
       <header>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {[pengguna.gelarDepan, pengguna.nama, pengguna.gelarBelakang]
-            .filter(Boolean)
-            .join(" ")}
-        </h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-2xl font-semibold tracking-tight">{tampilan.namaLengkap}</h1>
+          <Badge variant={bertaut ? "outline" : "secondary"} className="text-[10px]">
+            {bertaut ? k.pengguna.sumber.identitas : k.pengguna.sumber.lokal}
+          </Badge>
+        </div>
         <p className="mt-1.5 text-sm text-muted-foreground">
           {pengguna.email}
           {pengguna.terakhirMasuk
@@ -105,26 +107,59 @@ export default async function HalamanDetailPengguna({
           <PengaturPeran
             penggunaId={pengguna.id}
             prodi={prodi}
+            bertaut={bertaut}
             penugasan={pengguna.penugasan.map((t) => ({
               id: t.id,
               peran: t.peran,
               prodiNama: t.prodi ? `${t.prodi.nama} (${t.prodi.kode})` : null,
+              dariIdentitas: t.sumber === "IDENTITAS",
             }))}
           />
+          {bertaut ? (
+            <div className="mt-4">
+              <TombolSinkronPengguna penggunaId={pengguna.id} />
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
           <CardTitle className="text-base">{k.penggunaDetail.profilJudul}</CardTitle>
-          <CardDescription>{k.penggunaDetail.profilKeterangan}</CardDescription>
+          <CardDescription>
+            {bertaut ? k.penggunaDetail.profilKeteranganIdentitas : k.penggunaDetail.profilKeteranganLokal}
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <FormulirProfil
-            key={JSON.stringify(profilAwal)}
-            penggunaId={pengguna.id}
-            awal={profilAwal}
-          />
+          {bertaut ? (
+            <div className="space-y-4">
+              {tampilan.sumber === "TAK_DIKETAHUI" ? (
+                <p className="text-sm text-warning">{k.penggunaDetail.tidakTerbaca}</p>
+              ) : (
+                <dl className="grid gap-4 text-sm sm:grid-cols-3">
+                  <div>
+                    <dt className="text-muted-foreground">{k.penggunaDetail.namaLengkap}</dt>
+                    <dd className="mt-0.5 font-medium">{tampilan.namaLengkap}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground">NIDN</dt>
+                    <dd className="mt-0.5 tabular-nums">{tampilan.nidn ?? "—"}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground">NIP</dt>
+                    <dd className="mt-0.5 tabular-nums">{tampilan.nip ?? "—"}</dd>
+                  </div>
+                </dl>
+              )}
+              {urlIdentitas ? (
+                <ButtonLink variant="outline" size="sm" href={`${urlIdentitas}/pegawai`} target="_blank" rel="noreferrer">
+                  {k.penggunaDetail.ubahDiIdentitas}
+                </ButtonLink>
+              ) : null}
+            </div>
+          ) : (
+            <FormulirNamaLokal key={pengguna.nama} penggunaId={pengguna.id} awal={pengguna.nama} />
+          )}
         </CardContent>
       </Card>
     </div>

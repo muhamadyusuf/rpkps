@@ -6,6 +6,7 @@ import {
   type UsulanInput,
 } from "@/domain/kurikulum/usulan";
 import type { Prisma, PrismaClient } from "@/generated/prisma";
+import { PILIH_RUJUKAN_PENGGUNA, type RujukanPengguna } from "@/domain/identitas/tampilan";
 
 /**
  * Lapisan basis data Usulan Revisi Kurikulum.
@@ -30,8 +31,8 @@ export const SERTAKAN_USULAN = {
     select: { id: true, nama: true, tahun: true, revisi: true, prodiId: true },
   },
   mataKuliah: { select: { id: true, kode: true, nama: true, semester: true } },
-  diajukanOleh: { select: { id: true, nama: true } },
-  diputuskanOleh: { select: { id: true, nama: true } },
+  diajukanOleh: { select: PILIH_RUJUKAN_PENGGUNA },
+  diputuskanOleh: { select: PILIH_RUJUKAN_PENGGUNA },
   berlakuMulaiTa: { select: { id: true, kode: true } },
   butir: {
     orderBy: { urutan: "asc" },
@@ -39,7 +40,7 @@ export const SERTAKAN_USULAN = {
   },
   catatan: {
     orderBy: { dibuatPada: "asc" },
-    include: { oleh: { select: { id: true, nama: true } } },
+    include: { oleh: { select: PILIH_RUJUKAN_PENGGUNA } },
   },
   revisi: { select: { revisiKe: true, ringkasan: true, disahkanSendiri: true } },
 } satisfies Prisma.UsulanRevisiInclude;
@@ -177,11 +178,15 @@ export function keButirInput(b: UsulanLengkap["butir"][number]): ButirInput {
 // Dampak penerapan
 // ─────────────────────────────────────────────────────────────
 
-export interface RpkpsTerdampak {
+/**
+ * `K` = bentuk koordinatornya. Dari basis data berupa rujukan pengguna (nama dibaca dari
+ * identitas-itts oleh pemanggil); halaman menggantinya menjadi teks nama sebelum dirender.
+ */
+export interface RpkpsTerdampak<K = RujukanPengguna> {
   id: string;
   tahunAkademik: string;
   status: string;
-  koordinator: string | null;
+  koordinator: K | null;
 }
 
 export interface RujukanPensiun {
@@ -191,15 +196,15 @@ export interface RujukanPensiun {
   butirKisiKisi: number;
 }
 
-export interface DampakUsulan {
+export interface DampakUsulan<K = RujukanPengguna> {
   /**
    * RPKPS TERBIT yang memuat mata kuliah ini. Salinan bekunya tidak berubah —
    * yang berubah hanya data langsung, sehingga `periksaPergeseran` akan
    * menyalakan bendera. Daftar ini yang memberi bendera itu penjelasan.
    */
-  rpkpsTerbit: RpkpsTerdampak[];
+  rpkpsTerbit: RpkpsTerdampak<K>[];
   /** RPKPS yang masih disusun; ini yang benar-benar perlu disesuaikan dosen. */
-  rpkpsBerjalan: RpkpsTerdampak[];
+  rpkpsBerjalan: RpkpsTerdampak<K>[];
   /** Berapa banyak baris RPKPS yang masih merujuk capaian yang dipensiunkan. */
   rujukanPensiun: RujukanPensiun[];
   jumlahButirDipakai: number;
@@ -217,7 +222,7 @@ export async function dampakUsulan(db: Klien, u: UsulanLengkap): Promise<DampakU
       tahunAkademik: { select: { kode: true } },
       pengampu: {
         where: { peran: "KOORDINATOR" },
-        select: { pengguna: { select: { nama: true } } },
+        select: { pengguna: { select: PILIH_RUJUKAN_PENGGUNA } },
         take: 1,
       },
     },
@@ -227,7 +232,7 @@ export async function dampakUsulan(db: Klien, u: UsulanLengkap): Promise<DampakU
     id: r.id,
     tahunAkademik: r.tahunAkademik.kode,
     status: r.status,
-    koordinator: r.pengampu[0]?.pengguna.nama ?? null,
+    koordinator: r.pengampu[0]?.pengguna ?? null,
   });
 
   const kodePensiun = dipakai

@@ -18,11 +18,12 @@ import type { DataAsesor } from "@/lib/dasbor/muat";
  * beserta salinan bekunya yang bersidik. Draf tidak ditampilkan sama sekali —
  * bukan karena disembunyikan, melainkan karena draf bukan bukti apa pun.
  */
-export async function PanelAsesor({ data }: { data: DataAsesor }) {
+export async function PanelAsesor({ data, nomor }: { data: DataAsesor; nomor?: string }) {
   const k = await kamus();
 
   return (
     <Bagian
+      nomor={nomor}
       judul={k.dasbor.asesor.judul}
       keterangan={k.dasbor.asesor.keterangan}
       ikon={<FileCheck2 className="size-4" />}

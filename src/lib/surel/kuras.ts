@@ -1,5 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
+import { PILIH_RUJUKAN_PENGGUNA } from "@/domain/identitas/tampilan";
+import { tampilanDariRujukan } from "@/lib/pengguna/tampilan";
 import { kamusUntuk } from "@/kamus";
 import { teksNotifikasi, bacaData } from "@/lib/bahasa/notifikasi";
 import { isi as sisip } from "@/lib/bahasa/teks";
@@ -70,8 +72,7 @@ export async function kurasAntrianSurel(batas = BATAS_SEKALI_KURAS): Promise<Has
       surelKirimSetelah: true,
       pengguna: {
         select: {
-          nama: true,
-          email: true,
+          ...PILIH_RUJUKAN_PENGGUNA,
           status: true,
           bahasa: true,
           surelNotifikasi: true,
@@ -81,6 +82,9 @@ export async function kurasAntrianSurel(batas = BATAS_SEKALI_KURAS): Promise<Has
   });
 
   const rahasia = rahasiaSmtp();
+
+  // Sapaan memakai nama dari identitas-itts: SEKALI untuk seluruh antrian, bukan per surel.
+  const tampilan = await tampilanDariRujukan(antre.map((b) => b.pengguna));
 
   for (const baris of antre) {
     hasil.diperiksa += 1;
@@ -127,7 +131,7 @@ export async function kurasAntrianSurel(batas = BATAS_SEKALI_KURAS): Promise<Has
     const tautan = `${urlSitus()}/${baris.pengguna.bahasa}${baris.tautan ?? "/dashboard"}`;
 
     const badan = [
-      sisip(kam.surel.salam, { nama: baris.pengguna.nama }),
+      sisip(kam.surel.salam, { nama: tampilan.get(baris.pengguna.id)?.nama ?? baris.pengguna.email }),
       "",
       teks.ringkasan,
       "",

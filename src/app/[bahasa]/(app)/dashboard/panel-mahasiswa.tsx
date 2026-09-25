@@ -13,11 +13,12 @@ import type { DataMahasiswa } from "@/lib/dasbor/muat";
  * yang jujur dapat ditampilkan di sini. Menampilkan angka yang seolah-olah
  * miliknya akan lebih buruk daripada tidak menampilkan apa pun.
  */
-export async function PanelMahasiswa({ data }: { data: DataMahasiswa }) {
+export async function PanelMahasiswa({ data, nomor }: { data: DataMahasiswa; nomor?: string }) {
   const k = await kamus();
 
   return (
     <Bagian
+      nomor={nomor}
       judul={k.dasbor.mahasiswa.judul}
       keterangan={k.dasbor.mahasiswa.keterangan}
       ikon={<GraduationCap className="size-4" />}

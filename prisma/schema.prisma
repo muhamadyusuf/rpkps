@@ -23,11 +23,11 @@ datasource db {
 // ─────────────────────────────────────────────────────────────
 
 model Institusi {
-  id          String   @id @default(cuid())
+  id          String  @id @default(cuid())
   nama        String
-  namaEn      String?  @map("nama_en")
-  namaSingkat String   @map("nama_singkat")
-  kodePt      String?  @map("kode_pt")
+  namaEn      String? @map("nama_en")
+  namaSingkat String  @map("nama_singkat")
+  kodePt      String? @map("kode_pt")
   alamat      String?
   situs       String?
 
@@ -43,8 +43,8 @@ model Institusi {
   logoLebar  Int?    @map("logo_lebar")
   logoTinggi Int?    @map("logo_tinggi")
 
-  dibuatPada  DateTime @default(now()) @map("dibuat_pada")
-  diubahPada  DateTime @updatedAt @map("diubah_pada")
+  dibuatPada DateTime @default(now()) @map("dibuat_pada")
+  diubahPada DateTime @updatedAt @map("diubah_pada")
 
   fakultas  Fakultas[]
   kebijakan KebijakanBebanBelajar[]
@@ -88,6 +88,13 @@ model Prodi {
   akreditasi String?
   aktif      Boolean      @default(true)
 
+  /// Unit organisasi jenis PRODI di identitas-itts yang SAMA dengan prodi ini
+  /// (docs/26). Dipakai menerjemahkan jabatan Kaprodi dan homebase dosen di
+  /// sana menjadi `prodiId` di sini. Null = belum dipetakan: peran turunan yang
+  /// butuh prodi ini TIDAK diberikan (gagal-tertutup) dan dilaporkan ke admin —
+  /// bukan diberi cakupan institusi.
+  identitasUnitId String? @unique @map("identitas_unit_id")
+
   // ── Identitas prodi (docs/21) ────────────────────────────────────────
   // Seluruhnya opsional: prodi yang belum mengisinya tetap sah, dan tiap
   // tampilan punya perilaku kosongnya sendiri. Tidak ada satu pun dari medan
@@ -96,7 +103,7 @@ model Prodi {
 
   /// Visi prodi, satu paragraf. Prosa, karena itu berpasangan *En.
   visi   String? @db.Text
-  visiEn String? @db.Text @map("visi_en")
+  visiEn String? @map("visi_en") @db.Text
 
   /// Misi sebagai DAFTAR butir, bukan satu blok teks: misi selalu dicetak
   /// bernomor, dan menyimpannya sebagai satu teks berarti tiap pembaca
@@ -120,8 +127,8 @@ model Prodi {
   logoLebar  Int?    @map("logo_lebar")
   logoTinggi Int?    @map("logo_tinggi")
 
-  dibuatPada DateTime     @default(now()) @map("dibuat_pada")
-  diubahPada DateTime     @updatedAt @map("diubah_pada")
+  dibuatPada DateTime @default(now()) @map("dibuat_pada")
+  diubahPada DateTime @updatedAt @map("diubah_pada")
 
   fakultas  Fakultas         @relation(fields: [fakultasId], references: [id], onDelete: Restrict)
   penugasan PenugasanPeran[]
@@ -201,29 +208,36 @@ enum StatusPengguna {
 }
 
 model Pengguna {
-  id            String          @id @default(cuid())
-  firebaseUid   String          @unique @map("firebase_uid")
-  email         String          @unique
-  nama          String
-  gelarDepan    String?         @map("gelar_depan")
-  gelarBelakang String?         @map("gelar_belakang")
-  nidn          String?         @unique
-  nip           String?         @unique
-  nik           String?         @unique
-  telepon       String?
-  fotoUrl       String?         @map("foto_url")
-  status        StatusPengguna  @default(MENUNGGU_VERIFIKASI)
+  id              String          @id @default(cuid())
+  firebaseUid     String          @unique @map("firebase_uid")
+  email           String          @unique
+  /// Kunci ke identitas-itts (`sub` id_token = Akun.id di sana) — docs/26.
+  /// Terisi = pegawai: nama, gelar, NIDN, NIP dibaca dari identitas-itts, TIDAK
+  /// dari kolom di bawah (yang dipertahankan sementara sampai kontraksi, M5).
+  /// Null = pengguna LOKAL (asesor, mahasiswa, admin bootstrap): hanya `nama`.
+  identitasAkunId String?         @unique @map("identitas_akun_id")
+  /// Terakhir peran turunannya disegarkan dari identitas-itts.
+  sinkronPada     DateTime?       @map("sinkron_pada")
+  nama            String
+  gelarDepan      String?         @map("gelar_depan")
+  gelarBelakang   String?         @map("gelar_belakang")
+  nidn            String?         @unique
+  nip             String?         @unique
+  nik             String?         @unique
+  telepon         String?
+  fotoUrl         String?         @map("foto_url")
+  status          StatusPengguna  @default(MENUNGGU_VERIFIKASI)
   /// Preferensi bahasa antarmuka. Mengikuti ORANGNYA lintas perangkat;
   /// cookie `bahasa` hanya menyimpan yang terakhir dipakai di peramban ini.
-  bahasa        BahasaAntarmuka @default(id)
+  bahasa          BahasaAntarmuka @default(id)
   /// Ikut menerima notifikasi lewat surel (docs/10 §2.5). Menyala secara
   /// bawaan: kanal ini ada justru karena alur kerja aplikasi bersifat tarik,
   /// dan yang tidak pernah membuka dasbor adalah yang paling perlu dikabari.
   /// Mematikannya TIDAK mematikan notifikasi dalam aplikasi.
-  surelNotifikasi Boolean       @default(true) @map("surel_notifikasi")
-  terakhirMasuk DateTime?       @map("terakhir_masuk")
-  dibuatPada    DateTime        @default(now()) @map("dibuat_pada")
-  diubahPada    DateTime        @updatedAt @map("diubah_pada")
+  surelNotifikasi Boolean         @default(true) @map("surel_notifikasi")
+  terakhirMasuk   DateTime?       @map("terakhir_masuk")
+  dibuatPada      DateTime        @default(now()) @map("dibuat_pada")
+  diubahPada      DateTime        @updatedAt @map("diubah_pada")
 
   penugasan          PenugasanPeran[]
   logAudit           LogAudit[]
@@ -259,14 +273,25 @@ enum Peran {
   ASESOR // akses baca terbatas untuk audit/akreditasi
 }
 
+/// Dari mana sebuah penugasan peran berasal (docs/26).
+enum SumberPenugasan {
+  /// Ditetapkan admin RPKPS lewat /pengguna. Sinkron tidak pernah menghapusnya
+  /// sendiri — kecuali diaktifkan eksplisit untuk pegawai.
+  LOKAL
+  /// Diturunkan dari jabatan/jenis pegawai di identitas-itts. Proyeksi: dibuat
+  /// dan dihapus HANYA oleh sinkron, tidak dapat diedit tangan.
+  IDENTITAS
+}
+
 /// Satu pengguna dapat memegang beberapa peran, masing-masing dengan
 /// cakupan prodi. prodiId null = cakupan institusi (mis. ADMIN, GPM).
 model PenugasanPeran {
-  id         String   @id @default(cuid())
-  penggunaId String   @map("pengguna_id")
+  id         String          @id @default(cuid())
+  penggunaId String          @map("pengguna_id")
   peran      Peran
-  prodiId    String?  @map("prodi_id")
-  dibuatPada DateTime @default(now()) @map("dibuat_pada")
+  prodiId    String?         @map("prodi_id")
+  sumber     SumberPenugasan @default(LOKAL)
+  dibuatPada DateTime        @default(now()) @map("dibuat_pada")
 
   pengguna Pengguna @relation(fields: [penggunaId], references: [id], onDelete: Cascade)
   prodi    Prodi?   @relation(fields: [prodiId], references: [id], onDelete: Cascade)
@@ -279,6 +304,7 @@ model PenugasanPeran {
   @@unique([penggunaId, peran, prodiId])
   @@index([penggunaId])
   @@index([prodiId])
+  @@index([sumber])
   @@map("penugasan_peran")
 }
 
@@ -399,32 +425,32 @@ enum StatusPerangkap {
 /// panjangnya), cookie, dan kepala Authorization. Lokasinya perkiraan
 /// tingkat kota dari IP, bukan GPS.
 model PerangkapTemuan {
-  id             String   @id @default(cuid())
+  id             String  @id @default(cuid())
   ip             String
   /// `x-forwarded-for` mentah — bukti, sebab elemen pertamanya dapat dipalsukan.
-  rantaiIp       String?  @map("rantai_ip")
+  rantaiIp       String? @map("rantai_ip")
   jenis          String
   jalur          String
   metode         String
   kueri          String?
-  userAgent      String?  @map("user_agent")
-  bahasaPeramban String?  @map("bahasa_peramban")
+  userAgent      String? @map("user_agent")
+  bahasaPeramban String? @map("bahasa_peramban")
   rujukan        String?
-  sidikPerangkat String?  @map("sidik_perangkat")
+  sidikPerangkat String? @map("sidik_perangkat")
   header         Json?
   kiriman        Json?
 
   negara       String?
-  kodeNegara   String?  @map("kode_negara")
+  kodeNegara   String? @map("kode_negara")
   wilayah      String?
   kota         String?
   lintang      Float?
   bujur        Float?
-  zonaWaktu    String?  @map("zona_waktu")
+  zonaWaktu    String? @map("zona_waktu")
   penyedia     String?
   asn          String?
   /// "VERCEL" | "IPWHO" — dari mana lokasi di atas berasal.
-  sumberLokasi String?  @map("sumber_lokasi")
+  sumberLokasi String? @map("sumber_lokasi")
 
   jumlah       Int      @default(1)
   pertamaPada  DateTime @default(now()) @map("pertama_pada")
@@ -1360,11 +1386,11 @@ model RpkpsSnapshot {
 /// terindeks, dan hanya-baca atas RPKPS saja — tanpa nilai, kelas, maupun
 /// evaluasi. Nilai mahasiswa tidak boleh punya jalur tanpa login.
 model TautanBerbagi {
-  id      String @id @default(cuid())
-  rpkpsId String @map("rpkps_id")
+  id      String  @id @default(cuid())
+  rpkpsId String  @map("rpkps_id")
   /// 32 bita acak base64url. Panjangnya bukan selera: tautan ini adalah
   /// satu-satunya penjaga, jadi menebaknya harus mustahil.
-  token   String @unique
+  token   String  @unique
   /// "Untuk Pak Andi, PT Pertamina". Supaya yang mencabut tahu ia mencabut apa.
   catatan String?
 
@@ -2210,4 +2236,29 @@ model UsulanSunting {
   @@index([bukuAjarId, status])
   @@index([babId])
   @@map("usulan_sunting")
+}
+
+// ─────────────────────────────────────────────────────────────
+// PELAPORAN AKTIVITAS KE IDENTITAS-ITTS — docs/24
+//
+// RPKPS melaporkan PERBUATAN dosen pada rantai pengesahan (mengajukan,
+// memaraf, menyetujui, mengesahkan, mengembalikan) ke identitas-itts sebagai
+// bahan penilaian kinerja. Tidak ada tabel antrian baru: `rpkps_riwayat` dan
+// `tanda_tangan_rpkps` sudah ditulis di transaksi yang sama dengan
+// perubahannya, jadi keduanya SUDAH outbox. Yang disimpan di sini hanya
+// sampai mana keduanya sudah dibaca.
+// ─────────────────────────────────────────────────────────────
+
+model KursorIdentitas {
+  /// "riwayat" (rpkps_riwayat) atau "paraf" (tanda_tangan_rpkps peran PENGAMPU).
+  sumber           String   @id
+  /// Baris terakhir yang sudah DITERIMA identitas-itts, dalam urutan (pada, id).
+  pada             DateTime
+  idTerakhir       String   @map("id_terakhir")
+  /// Selama false, kiriman bertanda isian mundur: baris lama yang baru
+  /// terkirim sekarang bukan "dilaporkan terlambat" (identitas-itts docs/04 §5.1).
+  isiMundurSelesai Boolean  @default(false) @map("isi_mundur_selesai")
+  diubahPada       DateTime @updatedAt @map("diubah_pada")
+
+  @@map("kursor_identitas")
 }

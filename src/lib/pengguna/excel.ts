@@ -109,8 +109,8 @@ export async function buatTemplatePengguna(bahasa: Bahasa = "id"): Promise<Buffe
   }
 
   siapkanLembar(wb, LEMBAR_PENGGUNA.pengguna, KOLOM_PENGGUNA, [28, 24, 16, 14], [
-    ["dosen.contoh@ittelkom-sby.ac.id", "Dr. Contoh Dosen, M.Kom.", "DOSEN", "TI"],
-    ["kaprodi.contoh@ittelkom-sby.ac.id", "Contoh Kaprodi, S.Kom., M.T.", "KAPRODI", "TI"],
+    ["asesor.contoh@lembaga-mitra.ac.id", "Contoh Asesor", "ASESOR", ""],
+    ["mahasiswa.contoh@student.ittelkom-sby.ac.id", "Contoh Mahasiswa", "MAHASISWA", "TI"],
   ]);
 
   const buffer = await wb.xlsx.writeBuffer();

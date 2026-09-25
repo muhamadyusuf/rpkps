@@ -1,5 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
+import { PILIH_RUJUKAN_PENGGUNA } from "@/domain/identitas/tampilan";
+import { pencariNama } from "@/lib/pengguna/tampilan";
 import { nilaiTenggatDokumen, type NilaiTenggat } from "@/domain/rpkps/tenggat";
 import { cakupanProdi, punyaPeran } from "@/lib/otorisasi";
 import { muatBarisCapaian, muatKonteksProdi } from "@/lib/evaluasi/muat";
@@ -680,7 +682,7 @@ async function muatPanelMutu(
         kode: true,
         tingkat: true,
         tindakan: true,
-        penanggungJawab: { select: { nama: true } },
+        penanggungJawab: { select: PILIH_RUJUKAN_PENGGUNA },
         evaluasi: {
           select: {
             kelas: {
@@ -693,6 +695,8 @@ async function muatPanelMutu(
   ]);
 
   const mkDievaluasi = new Set(kelasDitutup.map((k) => k.rpkps.mataKuliahId)).size;
+  // Penanggung jawab temuan dibaca dari identitas-itts, SEKALI untuk seluruh daftar.
+  const namaPenanggungJawab = await pencariNama(...temuanTerbuka.map((t) => t.penanggungJawab));
 
   const hitungTemuan = (s: string) =>
     temuanKelompok.find((t) => t.statusVerifikasi === s)?._count._all ?? 0;
@@ -714,7 +718,7 @@ async function muatPanelMutu(
       mk: t.evaluasi.kelas.rpkps.mataKuliah.kode,
       kelas: t.evaluasi.kelas.kode,
       tindakan: t.tindakan,
-      penanggungJawab: t.penanggungJawab?.nama ?? null,
+      penanggungJawab: namaPenanggungJawab(t.penanggungJawab),
     })),
   };
 }

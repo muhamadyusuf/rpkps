@@ -15,6 +15,7 @@ import {
   hapusLogoInstitusi,
   hapusLogoProdi,
   simpanIdentitasProdi,
+  simpanPemetaanUnit,
   unggahLogoInstitusi,
   unggahLogoProdi,
 } from "../../aksi-identitas";
@@ -327,6 +328,47 @@ export function KartuLogo({
               ) : null}
             </div>
           </div>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * Pemetaan prodi ↔ unit identitas-itts. Hanya Admin yang melihatnya (halaman menyaring; aksinya
+ * menimbang lagi): pemetaan ini menentukan prodi tempat peran Kaprodi dan Dosen diberikan.
+ */
+export function KartuPemetaanUnit({ prodiId, unitId }: { prodiId: string; unitId: string | null }) {
+  const { menunggu, jalankan } = useAksi();
+  const { k } = useBahasa();
+  const t = k.master.identitas;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">{t.pemetaanJudul}</CardTitle>
+        <p className="text-sm text-muted-foreground">{t.pemetaanKeterangan}</p>
+      </CardHeader>
+      <CardContent>
+        <form
+          key={unitId ?? ""}
+          action={(fd) => jalankan(() => simpanPemetaanUnit(prodiId, fd))}
+          className="flex flex-wrap items-end gap-3"
+        >
+          <div className="min-w-64 flex-1 space-y-1.5">
+            <Label htmlFor="unitId">{t.pemetaanLabel}</Label>
+            <Input
+              id="unitId"
+              name="unitId"
+              defaultValue={unitId ?? ""}
+              placeholder={t.pemetaanContoh}
+              maxLength={64}
+              className="font-mono"
+            />
+          </div>
+          <Button type="submit" variant="outline" disabled={menunggu}>
+            {t.pemetaanSimpan}
+          </Button>
         </form>
       </CardContent>
     </Card>

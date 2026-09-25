@@ -77,6 +77,50 @@
   --shadow-angkat-lg: var(--bayang-lg);
   --shadow-cahaya: var(--bayang-cahaya);
   --ease-presisi: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* Palet identitas-itts dengan nama aslinya (docs/28) — hanya bernilai di
+     dalam `data-rupa="aplikasi"`; kelasnya dipakai kerangka aplikasi. */
+  --color-latar: var(--latar);
+  --color-permukaan: var(--permukaan);
+  --color-permukaan-2: var(--permukaan-2);
+  --color-permukaan-3: var(--permukaan-3);
+  --color-garis: var(--garis);
+  --color-garis-kuat: var(--garis-kuat);
+  --color-teks: var(--teks);
+  --color-teks-2: var(--teks-2);
+  --color-teks-3: var(--teks-3);
+  --color-tinta: var(--tinta);
+  --color-tinta-teks: var(--tinta-teks);
+  --color-sinyal: var(--sinyal);
+  --color-sinyal-lembut: var(--sinyal-lembut);
+  --color-sinyal-teks: var(--sinyal-teks);
+  --color-sukses-lembut: var(--sukses-lembut);
+  --color-sukses-teks: var(--sukses-teks);
+  --color-bahaya: var(--bahaya);
+  --color-sukses: var(--sukses);
+  --color-info: var(--info);
+  --color-info-lembut: var(--info-lembut);
+  --color-info-teks: var(--info-teks);
+  --color-bahaya-lembut: var(--bahaya-lembut);
+  --color-bahaya-teks: var(--bahaya-teks);
+  --shadow-b1: var(--bayang-1);
+  --shadow-b2: var(--bayang-2);
+  --shadow-b3: var(--bayang-3);
+  /* Ubin ikon menu (docs/28) — sama dengan identitas-itts, sama di kedua
+     tema. Harfiah, bukan token tema: ikon aplikasi tidak berganti warna saat
+     mode gelap dinyalakan. */
+  --color-ubin-biru: oklch(0.62 0.18 255);
+  --color-ubin-hijau: oklch(0.66 0.16 152);
+  --color-ubin-jingga: oklch(0.7 0.18 48);
+  --color-ubin-ungu: oklch(0.58 0.2 298);
+  --color-ubin-nila: oklch(0.52 0.19 272);
+  --color-ubin-merah: oklch(0.63 0.21 25);
+  --color-ubin-teal: oklch(0.64 0.11 205);
+  --color-ubin-abu: oklch(0.58 0.018 262);
+  --color-ubin-kuning: oklch(0.8 0.16 85);
+  --color-ubin-cokelat: oklch(0.56 0.08 60);
+  --color-ubin-merahmuda: oklch(0.66 0.2 0);
+  --color-ubin-grafit: oklch(0.36 0.01 262);
 }
 
 :root {
@@ -406,6 +450,221 @@
     letter-spacing: 0.1em;
     text-transform: uppercase;
   }
+}
+
+/* ---------------------------------------------------------------------------
+   Rupa aplikasi — area yang memerlukan login (docs/28).
+
+   Palet kertas/lumut di atas tetap milik katalog publik. Halaman masuk dan
+   seluruh aplikasi memakai rupa /pengaturan identitas-itts: latar abu netral,
+   permukaan putih bertepi tipis, butir aktif tinta hitam, satu aksen jingga
+   ("sinyal") untuk hal yang butuh perhatian, Geist + Geist Mono. Nilainya
+   DISALIN dari identitas-itts/src/app/globals.css — dua aplikasi, satu rupa.
+
+   Saklarnya penanda `data-rupa="aplikasi"` DI DALAM halaman, sedangkan
+   tokennya dipasang pada AKAR dokumen lewat `:has()`. Dialog, dropdown,
+   tooltip, dan toast dirender lewat portal ke <body>, di luar pembungkus
+   halaman mana pun — token yang dipasang pada pembungkus tidak akan pernah
+   sampai ke sana.
+
+   Dibungkus `@media screen`: blok cetak di bawah tetap berlaku apa adanya.
+--------------------------------------------------------------------------- */
+@media screen {
+  :root:has([data-rupa="aplikasi"]) {
+    /* Palet sumber, dengan nama identitas-itts. */
+    --latar: oklch(0.985 0.002 250);
+    --permukaan: oklch(1 0 0);
+    --permukaan-2: oklch(0.972 0.003 250);
+    --permukaan-3: oklch(0.945 0.004 250);
+    --garis: oklch(0.918 0.004 250);
+    --garis-kuat: oklch(0.85 0.006 250);
+    --teks: oklch(0.21 0.012 262);
+    --teks-2: oklch(0.46 0.012 262);
+    --teks-3: oklch(0.62 0.01 262);
+    --tinta: oklch(0.21 0.012 262);
+    --tinta-teks: oklch(0.99 0 0);
+    --sinyal: oklch(0.645 0.2 40);
+    --sinyal-lembut: oklch(0.965 0.028 50);
+    --sinyal-teks: oklch(0.52 0.17 38);
+    --sukses: oklch(0.62 0.13 158);
+    --sukses-lembut: oklch(0.965 0.03 158);
+    --sukses-teks: oklch(0.46 0.1 158);
+    --bahaya: oklch(0.585 0.2 25);
+    --bahaya-lembut: oklch(0.965 0.02 25);
+    --bahaya-teks: oklch(0.5 0.18 25);
+    --info: oklch(0.58 0.13 255);
+    --info-lembut: oklch(0.965 0.02 255);
+    --info-teks: oklch(0.47 0.13 258);
+    --bayang-1: 0 1px 2px oklch(0.2 0.02 260 / 0.06);
+    --bayang-2: 0 1px 2px oklch(0.2 0.02 260 / 0.05), 0 8px 24px -8px oklch(0.2 0.02 260 / 0.14);
+    --bayang-3: 0 2px 4px oklch(0.2 0.02 260 / 0.06), 0 24px 48px -12px oklch(0.2 0.02 260 / 0.22);
+
+    --font-sans: var(--font-geist, "Geist"), ui-sans-serif, system-ui, sans-serif;
+    --font-judul: var(--font-sans);
+    --font-mono: var(--font-geist-mono, "Geist Mono"), ui-monospace, "SFMono-Regular", monospace;
+
+    /* `rounded-xl` = 0.75rem seperti `Kartu` identitas-itts; tombol & isian
+       `rounded-lg` ≈ 0.58rem. */
+    --radius: 0.58rem;
+
+    /* Pemetaan ke token yang dibaca seluruh komponen `ui/*`. */
+    --background: var(--latar);
+    --foreground: var(--teks);
+    --card: var(--permukaan);
+    --card-foreground: var(--teks);
+    --popover: var(--permukaan);
+    --popover-foreground: var(--teks);
+    --primary: var(--tinta);
+    --primary-foreground: var(--tinta-teks);
+    --secondary: var(--permukaan-3);
+    --secondary-foreground: var(--teks);
+    --muted: var(--permukaan-2);
+    --muted-foreground: var(--teks-2);
+    --accent: var(--permukaan-3);
+    --accent-foreground: var(--teks);
+    --destructive: var(--bahaya);
+    --destructive-foreground: var(--tinta-teks);
+    --success: var(--sukses);
+    --success-foreground: var(--sukses-teks);
+    --warning: var(--sinyal);
+    --warning-foreground: var(--sinyal-teks);
+    --border: var(--garis);
+    --input: var(--garis-kuat);
+    --ring: var(--sinyal);
+
+    --chart-1: var(--tinta);
+    --chart-2: var(--sukses);
+    --chart-3: var(--sinyal);
+    --chart-4: var(--bahaya);
+    --chart-5: var(--info);
+
+    --sidebar: var(--permukaan-2);
+    --sidebar-foreground: var(--teks);
+    --sidebar-primary: var(--tinta);
+    --sidebar-primary-foreground: var(--tinta-teks);
+    --sidebar-accent: var(--permukaan-3);
+    --sidebar-accent-foreground: var(--teks);
+    --sidebar-border: var(--garis);
+    --sidebar-ring: var(--sinyal);
+
+    --cahaya: var(--sinyal);
+    --cahaya-siku: var(--sinyal);
+    --cahaya-sorot: oklch(0.645 0.2 40 / 0.28);
+    --palang: var(--garis-kuat);
+    --palang-sorot: var(--teks-3);
+    --kisi: transparent;
+    --material: oklch(0.985 0.002 250 / 0.85);
+    --material-tepi: var(--garis);
+
+    --bayang-sm: var(--bayang-1);
+    --bayang: var(--bayang-2);
+    --bayang-lg: var(--bayang-3);
+    --bayang-cahaya: 0 0 0 1px oklch(0.645 0.2 40 / 0.35);
+  }
+
+  .dark:has([data-rupa="aplikasi"]) {
+    --latar: oklch(0.155 0.006 262);
+    --permukaan: oklch(0.185 0.007 262);
+    --permukaan-2: oklch(0.215 0.008 262);
+    --permukaan-3: oklch(0.255 0.009 262);
+    --garis: oklch(0.27 0.009 262);
+    --garis-kuat: oklch(0.36 0.011 262);
+    --teks: oklch(0.955 0.004 262);
+    --teks-2: oklch(0.75 0.01 262);
+    --teks-3: oklch(0.58 0.012 262);
+    --tinta: oklch(0.955 0.004 262);
+    --tinta-teks: oklch(0.17 0.006 262);
+    --sinyal: oklch(0.73 0.17 48);
+    --sinyal-lembut: oklch(0.28 0.055 42);
+    --sinyal-teks: oklch(0.82 0.13 55);
+    --sukses: oklch(0.72 0.14 158);
+    --sukses-lembut: oklch(0.27 0.045 158);
+    --sukses-teks: oklch(0.82 0.11 158);
+    --bahaya: oklch(0.68 0.19 25);
+    --bahaya-lembut: oklch(0.28 0.065 25);
+    --bahaya-teks: oklch(0.8 0.13 25);
+    --info: oklch(0.72 0.12 255);
+    --info-lembut: oklch(0.27 0.05 258);
+    --info-teks: oklch(0.82 0.09 255);
+    --bayang-1: 0 1px 2px oklch(0 0 0 / 0.4);
+    --bayang-2: 0 1px 2px oklch(0 0 0 / 0.4), 0 8px 24px -8px oklch(0 0 0 / 0.6);
+    --bayang-3: 0 2px 4px oklch(0 0 0 / 0.4), 0 24px 48px -12px oklch(0 0 0 / 0.7);
+
+    --cahaya-sorot: oklch(0.73 0.17 48 / 0.3);
+    --material: oklch(0.155 0.006 262 / 0.85);
+    --bayang-cahaya: 0 0 0 1px oklch(0.73 0.17 48 / 0.4);
+  }
+
+  /* Kisi cetak-biru dan palang aksen adalah kosakata kertas publik. */
+  :root:has([data-rupa="aplikasi"]) body::before,
+  :root:has([data-rupa="aplikasi"]) .siku::after {
+    display: none;
+  }
+
+  /* `label-teknis` menjadi `label-mikro` identitas-itts: mono 10.5px, huruf
+     besar, teks-3. Kelasnya tetap, supaya tidak ada halaman yang disunting. */
+  :root:has([data-rupa="aplikasi"]) .label-teknis {
+    font-size: 10.5px;
+    line-height: 1;
+    letter-spacing: 0.08em;
+    color: var(--teks-3);
+  }
+
+  :root:has([data-rupa="aplikasi"]) :is(h1, h2, h3, h4) {
+    letter-spacing: -0.02em;
+  }
+
+  :root:has([data-rupa="aplikasi"]) ::selection {
+    background: var(--cahaya-sorot);
+  }
+}
+
+@layer components {
+  /* Ubin ikon menu gaya Pengaturan: sudut "squircle", kilap tipis di atas,
+     bayang lembut di bawah — sama dengan `UbinMenu` identitas-itts. */
+  .ubin-aplikasi {
+    border-radius: 23%;
+    background-image: linear-gradient(to bottom, #ffffff33, transparent 55%);
+    box-shadow:
+      inset 0 1px 0 #ffffff4d,
+      0 1px 2px #0000001f;
+  }
+}
+
+@keyframes muncul-naik {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes geser-masuk {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes pudar-masuk {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@utility anim-muncul {
+  animation: muncul-naik 220ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+@utility anim-geser {
+  animation: geser-masuk 260ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@utility anim-pudar {
+  animation: pudar-masuk 180ms ease-out both;
 }
 
 /* ---------------------------------------------------------------------------

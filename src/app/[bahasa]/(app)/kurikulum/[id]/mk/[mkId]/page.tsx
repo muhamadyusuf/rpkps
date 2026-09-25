@@ -11,7 +11,8 @@ import { bolehKelolaKurikulum, cakupanKurikulum, cakupanProdi, wajibAktif } from
 import { bolehSuntingKurikulum } from "@/domain/kurikulum/sunting";
 import { PengelolaCapaian } from "./capaian";
 import { infoLevel, type LevelBloom } from "@/domain/kurikulum/bloom";
-import { namaLengkapPengampu } from "@/domain/rpkps/pemetaan";
+import { PILIH_RUJUKAN_PENGGUNA } from "@/domain/identitas/tampilan";
+import { tampilanDariRujukan } from "@/lib/pengguna/tampilan";
 import { formatMenit, paguPertemuanEfektif } from "@/domain/beban-belajar/kalkulator";
 import type { Kebijakan } from "@/domain/beban-belajar/tipe";
 
@@ -97,14 +98,15 @@ export default async function HalamanMataKuliah({
       take: 4,
       select: {
         tahunAkademik: { select: { kode: true, aktif: true } },
-        pengguna: {
-          select: { nama: true, gelarDepan: true, gelarBelakang: true, status: true },
-        },
+        pengguna: { select: { ...PILIH_RUJUKAN_PENGGUNA, status: true } },
       },
     }),
   ]);
 
   if (!mk || mk.kurikulum.id !== id) notFound();
+
+  // Riwayat koordinator dibaca dari identitas-itts (satu panggilan), bukan dari kolom lokal.
+  const namaKoordinator = await tampilanDariRujukan(penugasan.map((p) => p.pengguna));
 
   const cakupan = cakupanKurikulum(sesi);
   if (cakupan !== null && !cakupan.includes(mk.kurikulum.prodiId)) notFound();
@@ -222,7 +224,7 @@ export default async function HalamanMataKuliah({
                   <span className="w-40 shrink-0 text-xs tabular-nums text-muted-foreground">
                     {p.tahunAkademik.kode.replace("-", " ")}
                   </span>
-                  <span>{namaLengkapPengampu(p.pengguna)}</span>
+                  <span>{namaKoordinator.get(p.pengguna.id)?.namaLengkap ?? p.pengguna.email}</span>
                   {p.tahunAkademik.aktif ? (
                     <Badge variant="secondary" className="text-[10px]">
                       {k.kurikulum.mk.berjalan}

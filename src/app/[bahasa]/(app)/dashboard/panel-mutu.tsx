@@ -24,13 +24,14 @@ import type { DataMutu } from "@/lib/dasbor/muat";
  * rincian satu prodi: kisi panas menjawabnya dalam sekali pandang, tanpa
  * memaksa membaca dua belas angka satu per satu.
  */
-export async function PanelMutu({ data }: { data: DataMutu }) {
+export async function PanelMutu({ data, nomor }: { data: DataMutu; nomor?: string }) {
   const k = await kamus();
   const totalTemuan =
     data.temuan.belum + data.temuan.tercapai + data.temuan.tidakTercapai;
 
   return (
     <Bagian
+      nomor={nomor}
       judul={k.dasbor.mutu.judul}
       keterangan={k.dasbor.mutu.keterangan}
       ikon={<ShieldCheck className="size-4" />}

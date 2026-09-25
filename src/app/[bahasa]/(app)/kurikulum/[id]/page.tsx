@@ -16,6 +16,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { prisma } from "@/lib/prisma";
+import { PILIH_RUJUKAN_PENGGUNA } from "@/domain/identitas/tampilan";
+import { tampilanDariRujukan } from "@/lib/pengguna/tampilan";
 import { bolehKelolaKurikulum, cakupanKurikulum, cakupanProdi, wajibAktif } from "@/lib/otorisasi";
 import { bolehSuntingKurikulum } from "@/domain/kurikulum/sunting";
 import { muatKurikulumInput } from "@/lib/kurikulum/usulan";
@@ -77,7 +79,7 @@ export default async function HalamanDetailKurikulum({
       daftarRevisi: {
         orderBy: { revisiKe: "desc" },
         include: {
-          oleh: { select: { nama: true } },
+          oleh: { select: PILIH_RUJUKAN_PENGGUNA },
           berlakuMulaiTa: { select: { kode: true } },
           usulan: { select: { id: true, judul: true } },
         },
@@ -86,6 +88,9 @@ export default async function HalamanDetailKurikulum({
   });
 
   if (!kurikulum) notFound();
+
+  // Pengesah revisi dibaca dari identitas-itts (satu panggilan untuk seluruh daftar), bukan dari kolom lokal.
+  const namaPengesah = await tampilanDariRujukan(kurikulum.daftarRevisi.flatMap((r) => (r.oleh ? [r.oleh] : [])));
 
   const cakupan = cakupanKurikulum(sesi);
   if (cakupan !== null && !cakupan.includes(kurikulum.prodiId)) notFound();
@@ -266,7 +271,7 @@ export default async function HalamanDetailKurikulum({
                 <p className="text-xs text-muted-foreground">
                   {r.ringkasan}
                   {r.oleh
-                    ? isi(k.kurikulum.detail.disahkanOleh, { nama: r.oleh.nama })
+                    ? isi(k.kurikulum.detail.disahkanOleh, { nama: namaPengesah.get(r.oleh.id)?.nama ?? r.oleh.email })
                     : ""}{" "}
                   · {tanggal(r.dibuatPada, b, "pendek")}
                 </p>

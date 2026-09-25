@@ -79,4 +79,33 @@ export const env = {
       .map((e) => e.trim().toLowerCase())
       .filter(Boolean);
   },
+  /**
+   * Gerbang kepegawaian identitas-itts (opsional — SENGAJA tidak masuk
+   * KEBUTUHAN_ENV/semuaEnvSiap: ini integrasi baru yang ditambahkan di
+   * atas aplikasi yang sudah berjalan, bukan syarat aplikasi bisa dipakai
+   * sama sekali. Belum dikonfigurasi = gerbang dilewati, bukan galat.
+   * Lihat src/app/api/sesi/route.ts.
+   */
+  get identitasItts(): { url: string; klienId: string; rahasia: string; penerbit: string } | null {
+    const url = baca("IDENTITAS_ITTS_URL");
+    const klienId = baca("IDENTITAS_ITTS_CLIENT_ID");
+    const rahasia = baca("IDENTITAS_ITTS_CLIENT_SECRET");
+    if (!url || !klienId || !rahasia) return null;
+    return {
+      url: url.replace(/\/+$/, ""),
+      klienId,
+      rahasia,
+      // Nilai klaim `iss` id_token. identitas-itts mengunci "identitas-itts"
+      // (lib/oidc/token.ts, PENERBIT) sampai domain resminya ditetapkan; bila
+      // kelak berubah, cukup isi ini — tanpa menyentuh kode.
+      penerbit: baca("IDENTITAS_ITTS_PENERBIT") ?? "identitas-itts",
+    };
+  },
+  /**
+   * Kunci web Firebase (publik). Dibaca di peladen untuk menukar token kustom
+   * menjadi ID token pada masuk lewat identitas-itts (lib/identitas/sso.ts).
+   */
+  get firebaseKunciWeb() {
+    return wajib("NEXT_PUBLIC_FIREBASE_API_KEY");
+  },
 };

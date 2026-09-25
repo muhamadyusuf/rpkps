@@ -9,6 +9,7 @@ import { kePesertaCapaian, keSumberPeta } from "@/domain/evaluasi/pemetaan";
 import { susunPetaAsesmen } from "@/domain/evaluasi/peta-asesmen";
 import { hitungCapaian } from "@/domain/evaluasi/capaian";
 import { muatKopCetak } from "@/lib/dokumen/muat-kop";
+import { pencariNama } from "@/lib/pengguna/tampilan";
 import { buatPortofolioMk } from "@/lib/dokumen/portofolio-docx";
 
 export const runtime = "nodejs";
@@ -77,6 +78,9 @@ export async function GET(
   // Kop dari data HIDUP, bukan dari salinan beku (docs/21 §2.5).
   const kop = await muatKopCetak(rpkps.mataKuliah.kurikulum.prodiId);
 
+  // Nama dosen, penutup evaluasi, dan penanggung jawab temuan: SATU pembacaan dari identitas-itts.
+  const nama = await pencariNama(kelas.dosen, evaluasi?.ditutupOleh, ...(evaluasi?.temuan ?? []).map((t) => t.penanggungJawab));
+
   const buffer = await buatPortofolioMk({
     mk: {
       kode: rpkps.mataKuliah.kode,
@@ -87,7 +91,7 @@ export async function GET(
     prodi: rpkps.mataKuliah.kurikulum.prodi.nama,
     tahunAkademik: kelas.rpkps.tahunAkademik.kode,
     kelas: kelas.kode,
-    dosen: kelas.dosen?.nama ?? null,
+    dosen: nama(kelas.dosen),
     jumlahPeserta: kelas.peserta.length,
     ambangKelulusanMhs: Number(evaluasi?.ambangKelulusanMhs ?? rpkps.ambangKelulusanMhs),
     ambangKetercapaianMk: Number(evaluasi?.ambangKetercapaianMk ?? rpkps.ambangKetercapaianMk),
@@ -109,14 +113,14 @@ export async function GET(
       capaianTerukur: t.capaianTerukur === null ? null : Number(t.capaianTerukur),
       akarMasalah: t.akarMasalah,
       tindakan: t.tindakan,
-      penanggungJawab: t.penanggungJawab?.nama ?? null,
+      penanggungJawab: nama(t.penanggungJawab),
       taSasaran: t.taSasaran?.kode ?? null,
       statusVerifikasi: t.statusVerifikasi,
       catatanVerifikasi: t.catatanVerifikasi,
     })),
     sidik: snapshot?.sidik ?? null,
     ditutupPada: evaluasi?.ditutupPada ?? null,
-    ditutupOleh: evaluasi?.ditutupOleh?.nama ?? null,
+    ditutupOleh: nama(evaluasi?.ditutupOleh),
   }, "id", kop);
 
   const namaBerkas =

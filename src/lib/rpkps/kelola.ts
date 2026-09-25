@@ -2,7 +2,8 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import { adalahAdmin, cakupanProdi } from "@/lib/otorisasi";
 import { periksaKelayakanHapus, ringkasAkibatHapus } from "@/domain/rpkps/daur-hidup";
-import { namaLengkapPengampu } from "@/domain/rpkps/pemetaan";
+import { PILIH_RUJUKAN_PENGGUNA } from "@/domain/identitas/tampilan";
+import { tampilanDariRujukan } from "@/lib/pengguna/tampilan";
 import type { PenggunaSesi } from "@/lib/sesi";
 
 /**
@@ -72,12 +73,9 @@ export async function muatDataKelola(
         status: "AKTIF",
         penugasan: { some: { peran: { in: [...PERAN_DOSEN] } } },
       },
-      orderBy: { nama: "asc" },
+      // Diurutkan menurut nama SETELAH dibaca dari identitas-itts (di bawah): kolom nama di sini bukan sumbernya.
       select: {
-        id: true,
-        nama: true,
-        gelarDepan: true,
-        gelarBelakang: true,
+        ...PILIH_RUJUKAN_PENGGUNA,
         penugasan: { select: { prodi: { select: { kode: true } } } },
       },
     }),
@@ -145,13 +143,24 @@ export async function muatDataKelola(
 
   const akibat = ringkasSensus ? ringkasAkibatHapus(ringkasSensus).rincian : [];
 
+  // Satu panggilan ke identitas-itts untuk SELURUH calon, bukan satu per calon.
+  const tampilan = await tampilanDariRujukan(calonMentah);
+  const calon = calonMentah
+    .map((c) => {
+      const t = tampilan.get(c.id);
+      return {
+        id: c.id,
+        urut: t?.nama ?? c.email,
+        nama: t?.namaLengkap ?? c.email,
+        prodi:
+          [...new Set(c.penugasan.map((p) => p.prodi?.kode).filter(Boolean))].join("/") || null,
+      };
+    })
+    .sort((a, b) => a.urut.localeCompare(b.urut, "id"))
+    .map(({ id, nama, prodi }) => ({ id, nama, prodi }));
+
   return {
-    calon: calonMentah.map((c) => ({
-      id: c.id,
-      nama: namaLengkapPengampu(c),
-      prodi:
-        [...new Set(c.penugasan.map((p) => p.prodi?.kode).filter(Boolean))].join("/") || null,
-    })),
+    calon,
     sasaran: mk.map((m) => ({
       id: m.id,
       kode: m.kode,

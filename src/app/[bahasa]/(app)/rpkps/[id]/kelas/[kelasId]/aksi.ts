@@ -7,6 +7,8 @@ import { wajibAktif } from "@/lib/otorisasi";
 import { wenangAtasRpkps } from "@/lib/rpkps/wenang";
 import { muatRpkps, namaLengkapPengampu } from "@/lib/rpkps/muat";
 import { muatKelasEvaluasi } from "@/lib/evaluasi/muat";
+import { wajibPencariNama } from "@/lib/pengguna/tampilan";
+import { ProfilTidakTersedia } from "@/lib/identitas/pegawai";
 import {
   bukaKembaliEvaluasi,
   muatAtauBuatEvaluasi,
@@ -230,11 +232,20 @@ export async function tutupEvaluasi(kelasId: string): Promise<Hasil> {
     };
   }
 
+  // Salinan beku evaluasi memuat nama dosen dan penanggung jawab: HARUS dari data segar identitas-itts.
+  let nama;
+  try {
+    nama = await wajibPencariNama(konteks.kelas.dosen, ...konteks.evaluasi.temuan.map((t) => t.penanggungJawab));
+  } catch (galat) {
+    if (galat instanceof ProfilTidakTersedia) return { ok: false, pesan: galat.message, temuan: syarat.temuan };
+    throw galat;
+  }
+
   const sumberProyeksi = {
     mk: { kode: konteks.rpkps.mataKuliah.kode, nama: konteks.rpkps.mataKuliah.nama },
     tahunAkademik: konteks.rpkps.tahunAkademik.kode,
     kelas: konteks.kelas.kode,
-    dosen: konteks.kelas.dosen?.nama ?? null,
+    dosen: nama(konteks.kelas.dosen),
     ambangKelulusanMhs: Number(konteks.evaluasi.ambangKelulusanMhs),
     ambangKetercapaianMk: Number(konteks.evaluasi.ambangKetercapaianMk),
     catatanProses: konteks.evaluasi.catatanProses,
@@ -247,7 +258,7 @@ export async function tutupEvaluasi(kelasId: string): Promise<Hasil> {
       capaianTerukur: t.capaianTerukur === null ? null : Number(t.capaianTerukur),
       akarMasalah: t.akarMasalah,
       tindakan: t.tindakan,
-      penanggungJawab: t.penanggungJawab?.nama ?? null,
+      penanggungJawab: nama(t.penanggungJawab),
       taSasaran: t.taSasaran?.kode ?? null,
     })),
   };

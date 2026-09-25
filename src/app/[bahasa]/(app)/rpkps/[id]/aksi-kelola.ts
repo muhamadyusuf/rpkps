@@ -3,6 +3,9 @@
 import { segarkan } from "@/lib/bahasa/segarkan";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { PILIH_RUJUKAN_PENGGUNA } from "@/domain/identitas/tampilan";
+import { tampilanDariRujukan, wajibTampilanDariRujukan } from "@/lib/pengguna/tampilan";
+import { ProfilTidakTersedia } from "@/lib/identitas/pegawai";
 import { kirimNotifikasi } from "@/lib/notifikasi/kirim";
 import { cakupanProdi, punyaPeran } from "@/lib/otorisasi";
 import { wenangRpkps } from "@/lib/rpkps/wenang";
@@ -188,7 +191,7 @@ export async function hapusPaksaRpkps(id: string, alasan: string): Promise<Hasil
       },
       tahunAkademik: { select: { kode: true } },
       snapshot: { select: { versi: true, sidik: true, dibuatPada: true } },
-      pengampu: { select: { peran: true, pengguna: { select: { nama: true, email: true } } } },
+      pengampu: { select: { peran: true, pengguna: { select: { email: true } } } },
       _count: { select: { pertemuan: true, tugas: true, kisiKisi: true, pustaka: true } },
       kelas: {
         select: {
@@ -246,8 +249,8 @@ export async function hapusPaksaRpkps(id: string, alasan: string): Promise<Hasil
             sidik: s.sidik,
             dibuatPada: s.dibuatPada.toISOString(),
           })),
+          // Surel, bukan nama: jejak audit tidak menyimpan nama pegawai (docs/26).
           pengampu: rpkps.pengampu.map((p) => ({
-            nama: p.pengguna.nama,
             email: p.pengguna.email,
             peran: p.peran,
           })),
@@ -416,24 +419,26 @@ export async function tambahPengampu(
   const calon = await prisma.pengguna.findUnique({
     where: { id: penggunaId },
     select: {
-      nama: true,
+      ...PILIH_RUJUKAN_PENGGUNA,
       status: true,
       penugasan: { select: { peran: true } },
     },
   });
   if (!calon) return { ok: false, pesan: kam.aksi.takAda.dosen };
+  // Hanya untuk pesan ke layar — tidak ditulis ke catatan permanen mana pun, jadi tak perlu data segar.
+  const namaCalon = (await tampilanDariRujukan([calon])).get(calon.id)?.namaLengkap ?? calon.email;
   if (calon.status !== "AKTIF") {
-    return { ok: false, pesan: sisip(kam.aksi.pengampu.belumAktif, { nama: calon.nama }) };
+    return { ok: false, pesan: sisip(kam.aksi.pengampu.belumAktif, { nama: namaCalon }) };
   }
   if (!calon.penugasan.some((p) => (PERAN_DOSEN as readonly string[]).includes(p.peran))) {
-    return { ok: false, pesan: sisip(kam.aksi.pengampu.bukanDosen, { nama: calon.nama }) };
+    return { ok: false, pesan: sisip(kam.aksi.pengampu.bukanDosen, { nama: namaCalon }) };
   }
 
   const sudah = await prisma.rpkpsPengampu.findUnique({
     where: { rpkpsId_penggunaId: { rpkpsId, penggunaId } },
     select: { id: true },
   });
-  if (sudah) return { ok: false, pesan: sisip(kam.aksi.pengampu.sudahAda, { nama: calon.nama }) };
+  if (sudah) return { ok: false, pesan: sisip(kam.aksi.pengampu.sudahAda, { nama: namaCalon }) };
 
   const terakhir = await prisma.rpkpsPengampu.aggregate({
     where: { rpkpsId },
@@ -455,7 +460,7 @@ export async function tambahPengampu(
         aksi: "PENGAMPU_DITAMBAH",
         entitas: "rpkps",
         entitasId: rpkpsId,
-        ringkasan: `${sesi.email} menambahkan ${calon.nama} sebagai pengampu`,
+        ringkasan: `${sesi.email} menambahkan ${calon.email} sebagai pengampu`,
       },
     }),
   ]);
@@ -477,7 +482,7 @@ export async function tambahPengampu(
 
   segarkan(`/rpkps/${rpkpsId}`);
   segarkan("/rpkps");
-  return { ok: true, pesan: sisip(kam.aksi.pengampu.ditambahkan, { nama: calon.nama }) };
+  return { ok: true, pesan: sisip(kam.aksi.pengampu.ditambahkan, { nama: namaCalon }) };
 }
 
 /**
@@ -494,9 +499,10 @@ export async function lepasPengampu(
 
   const baris = await prisma.rpkpsPengampu.findUnique({
     where: { rpkpsId_penggunaId: { rpkpsId, penggunaId } },
-    select: { peran: true, pengguna: { select: { nama: true } } },
+    select: { peran: true, pengguna: { select: PILIH_RUJUKAN_PENGGUNA } },
   });
   if (!baris) return { ok: false, pesan: kam.aksi.pengampu.bukanPengampu };
+  const namaDilepas = (await tampilanDariRujukan([baris.pengguna])).get(baris.pengguna.id)?.namaLengkap ?? baris.pengguna.email;
 
   // Tanpa pagar ini sebuah RPKPS bisa berakhir tanpa penanggung jawab.
   if (baris.peran === "KOORDINATOR") {
@@ -517,14 +523,14 @@ export async function lepasPengampu(
         aksi: "PENGAMPU_DILEPAS",
         entitas: "rpkps",
         entitasId: rpkpsId,
-        ringkasan: `${sesi.email} melepas ${baris.pengguna.nama} dari tim pengampu`,
+        ringkasan: `${sesi.email} melepas ${baris.pengguna.email} dari tim pengampu`,
       },
     }),
   ]);
 
   segarkan(`/rpkps/${rpkpsId}`);
   segarkan("/rpkps");
-  return { ok: true, pesan: sisip(kam.aksi.pengampu.dilepas, { nama: baris.pengguna.nama }) };
+  return { ok: true, pesan: sisip(kam.aksi.pengampu.dilepas, { nama: namaDilepas }) };
 }
 
 /**
@@ -553,11 +559,21 @@ export async function serahTerimaKoordinator(
       versi: true,
       status: true,
       pengampu: {
-        select: { penggunaId: true, peran: true, pengguna: { select: { nama: true } } },
+        select: { penggunaId: true, peran: true, pengguna: { select: PILIH_RUJUKAN_PENGGUNA } },
       },
     },
   });
   if (!rpkps) return { ok: false, pesan: kam.aksi.takAda.rpkps };
+
+  // Nama masuk `rpkps_riwayat` (catatan permanen): HARUS dari data segar identitas-itts, bukan nama darurat.
+  let tampilan;
+  try {
+    tampilan = await wajibTampilanDariRujukan(rpkps.pengampu.map((p) => p.pengguna));
+  } catch (galat) {
+    if (galat instanceof ProfilTidakTersedia) return { ok: false, pesan: galat.message };
+    throw galat;
+  }
+  const namaPengampu = (id: string) => tampilan.get(id)?.nama ?? "";
 
   const calon = rpkps.pengampu.find((p) => p.penggunaId === penggunaId);
   if (!calon) {
@@ -567,7 +583,7 @@ export async function serahTerimaKoordinator(
     };
   }
   if (calon.peran === "KOORDINATOR") {
-    return { ok: false, pesan: sisip(kam.aksi.pengampu.sudahKoordinator, { nama: calon.pengguna.nama }) };
+    return { ok: false, pesan: sisip(kam.aksi.pengampu.sudahKoordinator, { nama: namaPengampu(calon.pengguna.id) }) };
   }
 
   const lama = rpkps.pengampu.filter((p) => p.peran === "KOORDINATOR");
@@ -589,10 +605,10 @@ export async function serahTerimaKoordinator(
         ...barisRiwayat(
           lama.length > 0
             ? riwayat("KOORDINASI_DIALIHKAN", {
-                dari: lama.map((p) => p.pengguna.nama).join(", "),
-                kepada: calon.pengguna.nama,
+                dari: lama.map((p) => namaPengampu(p.pengguna.id)).join(", "),
+                kepada: namaPengampu(calon.pengguna.id),
               })
-            : riwayat("KOORDINASI_DISERAHKAN", { kepada: calon.pengguna.nama }),
+            : riwayat("KOORDINASI_DISERAHKAN", { kepada: namaPengampu(calon.pengguna.id) }),
         ),
         olehId: sesi.id,
       },
@@ -616,7 +632,7 @@ export async function serahTerimaKoordinator(
 
   segarkan(`/rpkps/${rpkpsId}`);
   segarkan("/rpkps");
-  return { ok: true, pesan: sisip(kam.aksi.pengampu.kiniKoordinator, { nama: calon.pengguna.nama }) };
+  return { ok: true, pesan: sisip(kam.aksi.pengampu.kiniKoordinator, { nama: namaPengampu(calon.pengguna.id) }) };
 }
 
 // ─────────────────────────────────────────────────────────────

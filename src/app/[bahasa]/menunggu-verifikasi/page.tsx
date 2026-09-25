@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { sesiSaatIni } from "@/lib/sesi";
 import { jalurAktif, kamus } from "@/lib/bahasa/server";
 import { TombolKeluar } from "@/components/tombol-keluar";
+import { HalamanPolos } from "@/components/rupa/halaman-polos";
 
 export const dynamic = "force-dynamic";
 export async function generateMetadata() {
@@ -17,9 +18,9 @@ export default async function HalamanMenungguVerifikasi() {
   const k = await kamus();
 
   return (
-    <main className="flex min-h-dvh items-center justify-center px-6 py-12">
-      <div className="w-full max-w-md text-center">
-        <div className="mx-auto mb-5 flex size-14 items-center justify-center rounded-xl border border-warning/35 bg-warning/10 text-warning">
+    <HalamanPolos className="justify-center">
+      <div className="anim-muncul w-full max-w-md rounded-xl border border-border bg-card p-7 text-center shadow-angkat">
+        <div className="mx-auto mb-5 flex size-12 items-center justify-center rounded-full bg-warning/12 text-warning-foreground">
           <Clock className="size-6" />
         </div>
         <p className="label-teknis mb-2 text-muted-foreground/70">
@@ -37,6 +38,6 @@ export default async function HalamanMenungguVerifikasi() {
           <TombolKeluar variant="outline" />
         </div>
       </div>
-    </main>
+    </HalamanPolos>
   );
 }

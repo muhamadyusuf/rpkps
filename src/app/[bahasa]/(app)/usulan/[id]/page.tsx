@@ -8,9 +8,11 @@ import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { prisma } from "@/lib/prisma";
+import { pencariNama } from "@/lib/pengguna/tampilan";
 import { cakupanProdi, punyaPeranDiProdi, wajibAktif } from "@/lib/otorisasi";
 import {
   dampakUsulan,
+  type DampakUsulan,
   keUsulanInput,
   muatKurikulumInput,
   muatUsulan,
@@ -53,7 +55,7 @@ export default async function HalamanUsulan({
     (usulan.status === "DRAF" || usulan.status === "DIREVISI") &&
     usulan.diajukanOlehId === sesi.id;
 
-  const [kurikulum, dampak, taBawaan, daftarTa, kredensialAi] = await Promise.all([
+  const [kurikulum, dampakMentah, taBawaan, daftarTa, kredensialAi] = await Promise.all([
     muatKurikulumInput(usulan.kurikulumId),
     dampakUsulan(usulan),
     taBerlakuBawaan(),
@@ -67,6 +69,22 @@ export default async function HalamanUsulan({
     // tidak berhak mendraf tidak akan pernah memakainya.
     bolehDrafAi ? daftarKredensial(sesi.id) : [],
   ]);
+
+  // Pengaju, pemutus, penulis catatan, dan koordinator RPKPS terdampak: nama dibaca dari identitas-itts
+  // dalam SATU pembacaan, lalu dipakai di semua tempat di bawah.
+  const nama = await pencariNama(
+    usulan.diajukanOleh,
+    usulan.diputuskanOleh,
+    ...usulan.catatan.map((c) => c.oleh),
+    ...dampakMentah.rpkpsTerbit.map((r) => r.koordinator),
+    ...dampakMentah.rpkpsBerjalan.map((r) => r.koordinator),
+  );
+  const dampak: DampakUsulan<string> = {
+    ...dampakMentah,
+    rpkpsTerbit: dampakMentah.rpkpsTerbit.map((r) => ({ ...r, koordinator: nama(r.koordinator) })),
+    rpkpsBerjalan: dampakMentah.rpkpsBerjalan.map((r) => ({ ...r, koordinator: nama(r.koordinator) })),
+  };
+  const catatan = usulan.catatan.map((c) => ({ ...c, oleh: c.oleh ? { id: c.oleh.id, nama: nama(c.oleh) ?? c.oleh.email } : null }));
   if (!kurikulum) notFound();
 
   const masukan = keUsulanInput(usulan);
@@ -131,7 +149,7 @@ export default async function HalamanUsulan({
             mk: namaMk(usulan.mataKuliah, b),
             kurikulum: usulan.kurikulum.nama,
             tahun: usulan.kurikulum.tahun,
-            oleh: usulan.diajukanOleh.nama,
+            oleh: nama(usulan.diajukanOleh) ?? usulan.diajukanOleh.email,
           })}
           {usulan.berlakuMulaiTa
             ? isi(k.usulan.detail.berlakuMulai, { ta: usulan.berlakuMulaiTa.kode })
@@ -154,7 +172,7 @@ export default async function HalamanUsulan({
           <div>
             <p className="font-medium">
               {isi(k.usulan.detail.catatanPemutus, {
-                nama: usulan.diputuskanOleh?.nama ?? k.usulan.detail.kaprodiBaku,
+                nama: nama(usulan.diputuskanOleh) ?? k.usulan.detail.kaprodiBaku,
               })}
             </p>
             <p className="mt-0.5 text-muted-foreground">{usulan.catatanPemutus}</p>
@@ -322,7 +340,7 @@ export default async function HalamanUsulan({
         <PanelDampak dampak={dampak} jalurRalat={usulan.jalurRalat} k={k} />
       ) : null}
 
-      <Diskusi usulanId={usulan.id} catatan={usulan.catatan} />
+      <Diskusi usulanId={usulan.id} catatan={catatan} />
 
       <div className="flex flex-wrap gap-2">
         {dapatDisunting && (adalahPengusul || bolehMemutus) ? (
@@ -418,7 +436,7 @@ function PanelDampak({
   jalurRalat,
   k,
 }: {
-  dampak: Awaited<ReturnType<typeof dampakUsulan>>;
+  dampak: DampakUsulan<string>;
   jalurRalat: boolean;
   k: Kamus;
 }) {

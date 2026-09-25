@@ -1,3 +1,4 @@
+import { gabungNama } from "@/domain/identitas/tampilan";
 import type { RpkpsInput } from "./tipe";
 import { statusParaf, type PeranTtdRingkas } from "./paraf";
 
@@ -125,5 +126,6 @@ export function namaLengkapPengampu(p: {
   gelarDepan: string | null;
   gelarBelakang: string | null;
 }): string {
-  return [p.gelarDepan, p.nama, p.gelarBelakang].filter(Boolean).join(" ");
+  // Satu penulisan nama di seluruh RPKPS, sama dengan identitas-itts (docs/26): "Dr. Siti Aminah, M.Kom.".
+  return gabungNama(p);
 }

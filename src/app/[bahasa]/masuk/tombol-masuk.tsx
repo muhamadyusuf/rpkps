@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { KeyRound } from "lucide-react";
 import { toast } from "sonner";
 import { useBahasa } from "@/components/penyedia-bahasa";
 import { adalahBahasa } from "@/kamus";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { firebaseTerkonfigurasi, masukDenganGoogle } from "@/lib/firebase/client";
 import { terjemahkanGalatAuth, type PesanGalat } from "@/lib/firebase/galat";
 
@@ -32,13 +33,24 @@ function IkonGoogle() {
   );
 }
 
-export function TombolMasuk() {
+export function TombolMasuk({
+  sso,
+  galatSso,
+}: {
+  /** Integrasi identitas-itts dikonfigurasi — tombol "Masuk dengan Identitas ITTS" tampil. */
+  sso: boolean;
+  /** Teks galat dari alamat balik identitas-itts, sudah diterjemahkan; null bila tak ada. */
+  galatSso: string | null;
+}) {
   const [memuat, setMemuat] = useState(false);
   const [galatLangkah, setGalatLangkah] = useState<PesanGalat | null>(null);
   const router = useRouter();
   const params = useSearchParams();
   const { jalur, k } = useBahasa();
   const terkonfigurasi = firebaseTerkonfigurasi();
+  // `lanjut` dibawa ke alur identitas-itts; peladen memeriksanya ulang.
+  const lanjutSso = params.get("lanjut");
+  const hrefSso = `/api/identitas/masuk${lanjutSso ? `?lanjut=${encodeURIComponent(lanjutSso)}` : ""}`;
 
   async function tangani() {
     setMemuat(true);
@@ -92,6 +104,37 @@ export function TombolMasuk() {
         <IkonGoogle />
         {memuat ? k.masuk.menghubungkan : k.masuk.tombol}
       </Button>
+
+      {sso ? (
+        <>
+          <div
+            aria-hidden
+            className="flex items-center gap-3 text-xs text-muted-foreground"
+          >
+            <span className="h-px flex-1 bg-border" />
+            {k.masuk.sso.atau}
+            <span className="h-px flex-1 bg-border" />
+          </div>
+          {/* `<a>` biasa, bukan `Link`: tujuannya Route Handler yang mengalihkan
+              ke situs lain, dan navigasi klien Next tidak tahu caranya. */}
+          <a
+            href={hrefSso}
+            className={buttonVariants({ variant: "outline", size: "lg", className: "w-full" })}
+          >
+            <KeyRound aria-hidden />
+            {k.masuk.sso.tombol}
+          </a>
+        </>
+      ) : null}
+
+      {galatSso ? (
+        <div
+          role="alert"
+          className="rounded-lg border border-warning/25 bg-warning/10 p-4 text-sm"
+        >
+          {galatSso}
+        </div>
+      ) : null}
 
       {galatLangkah?.langkah ? (
         <div className="rounded-lg border border-warning/25 bg-warning/10 p-4 text-sm">

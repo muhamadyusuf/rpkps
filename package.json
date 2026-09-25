@@ -21,7 +21,8 @@
     "typecheck": "tsc --noEmit",
     "test:integrasi": "bash uji/jalankan.sh",
     "db:migrate:pg": "tsx prisma/terapkan-migrasi.mts",
-    "periksa": "tsx uji/periksa-lingkungan.mts"
+    "periksa": "tsx uji/periksa-lingkungan.mts",
+    "periksa:tanpa-pegawai": "tsx uji/periksa-tanpa-data-pegawai.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",
@@ -34,6 +35,7 @@
     "exceljs": "^4.4.0",
     "firebase": "^12.17.1",
     "firebase-admin": "^14.2.0",
+    "jose": "^6.2.12",
     "lucide-react": "^1.31.0",
     "mermaid": "^11.17.2",
     "next": "^16.3.5",

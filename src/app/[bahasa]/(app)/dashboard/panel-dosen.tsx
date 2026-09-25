@@ -24,12 +24,13 @@ import type { DataDosen } from "@/lib/dasbor/muat";
  * peta asesmen, bukan dari tanggal — kalender tidak tahu apa-apa tentang
  * apakah nilai sudah masuk.
  */
-export async function PanelDosen({ data }: { data: DataDosen }) {
+export async function PanelDosen({ data, nomor }: { data: DataDosen; nomor?: string }) {
   const k = await kamus();
   const b = await bahasaAktif();
 
   return (
     <Bagian
+      nomor={nomor}
       judul={k.dasbor.dosen.judul}
       keterangan={k.dasbor.dosen.keterangan}
       ikon={<BookOpen className="size-4" />}

@@ -1,6 +1,7 @@
 import { Tautan } from "@/components/tautan";
 import { ArrowRight } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 /**
  * Potongan yang dipakai berulang oleh panel dasbor. Sengaja tipis: panel
@@ -8,38 +9,50 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
  * halaman yang ditumpuk.
  */
 
+/**
+ * Bagian bergaya `Bagian` identitas-itts (docs/28 §5): judul 15px yang
+ * didahului nomor monospace "01/02/…", tautan aksi di kanan. Nomornya dari
+ * halaman — urutan bagian bergantung pada peran yang dipegang.
+ */
 export function Bagian({
   judul,
   keterangan,
   ikon,
   aksi,
+  nomor,
   children,
 }: {
   judul: string;
   keterangan?: string;
   ikon?: React.ReactNode;
   aksi?: { href: string; label: string };
+  nomor?: string;
   children: React.ReactNode;
 }) {
   return (
     <section className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border/70 pb-2.5">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="flex items-center gap-2 font-heading text-sm font-semibold tracking-tight">
-            {ikon ? <span className="text-cahaya/80">{ikon}</span> : null}
+          <h2 className="flex items-baseline gap-2.5 text-[15px] font-semibold tracking-tight">
+            {nomor ? (
+              <span className="font-mono text-[11px] font-normal text-muted-foreground/80">
+                {nomor}
+              </span>
+            ) : null}
+            {ikon ? <span className="self-center text-muted-foreground/80">{ikon}</span> : null}
             {judul}
           </h2>
           {keterangan ? (
-            <p className="mt-1 text-xs text-muted-foreground">{keterangan}</p>
+            <p className="mt-1 text-[13px] text-muted-foreground">{keterangan}</p>
           ) : null}
         </div>
         {aksi ? (
           <Tautan
             href={aksi.href}
-            className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+            className="flex shrink-0 items-center gap-1 text-[13px] text-muted-foreground hover:text-foreground"
           >
             {aksi.label}
-            <ArrowRight className="size-3" />
+            <ArrowRight className="size-3.5" />
           </Tautan>
         ) : null}
       </div>
@@ -48,6 +61,10 @@ export function Bagian({
   );
 }
 
+/**
+ * Kartu angka bergaya `Statistik` identitas-itts: label mikro + ikon di atas,
+ * angka monospace 32px di bawah. `sorot` = tepi sinyal (butuh perhatian).
+ */
 export function KartuAngka({
   judul,
   angka,
@@ -64,28 +81,32 @@ export function KartuAngka({
   ikon?: React.ReactNode;
 }) {
   const isi = (
-    <Card
-      className={`panel h-full ${
-        sorot ? "border-l-2 border-l-warning bg-warning/8" : ""
-      } ${href ? "transition-colors hover:border-cahaya/40 hover:bg-cahaya/4" : ""}`}
+    <div
+      className={cn(
+        "flex h-full flex-col justify-between gap-6 rounded-xl border bg-card p-4 shadow-angkat-sm transition-[border-color,box-shadow] sm:p-5",
+        sorot ? "border-warning/40" : "border-border",
+        href && (sorot ? "hover:border-warning hover:shadow-angkat" : "hover:border-input hover:shadow-angkat"),
+      )}
     >
-      <CardHeader className="pb-2">
-        <CardDescription className="label-teknis flex items-center gap-1.5 text-muted-foreground/80">
-          {ikon}
-          {judul}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <p className="font-mono text-3xl leading-none font-semibold tabular-nums">
+      <div className="flex items-center justify-between gap-2">
+        <span className="label-teknis">{judul}</span>
+        {ikon ? (
+          <span className={cn("[&_svg]:size-[15px]", sorot ? "text-warning" : "text-muted-foreground/70")}>
+            {ikon}
+          </span>
+        ) : null}
+      </div>
+      <div className="min-w-0">
+        <p className="font-mono text-[32px] leading-none font-medium tracking-[-0.04em] tabular-nums">
           {angka}
         </p>
-        <p className="mt-1.5 text-xs text-muted-foreground">{keterangan}</p>
-      </CardContent>
-    </Card>
+        <p className="mt-2 truncate text-xs text-muted-foreground">{keterangan}</p>
+      </div>
+    </div>
   );
 
   return href ? (
-    <Tautan href={href} className="block">
+    <Tautan href={href} className="block h-full">
       {isi}
     </Tautan>
   ) : (
@@ -105,7 +126,7 @@ export function Panel({
   className?: string;
 }) {
   return (
-    <Card className={`panel ${className ?? ""}`}>
+    <Card className={className}>
       <CardHeader className="pb-3">
         <CardTitle className="text-sm">{judul}</CardTitle>
         {keterangan ? <CardDescription>{keterangan}</CardDescription> : null}

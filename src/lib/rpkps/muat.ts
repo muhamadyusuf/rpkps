@@ -1,6 +1,8 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { muatKebijakanDari } from "@/lib/rpkps/kebijakan-inti";
+import { PILIH_RUJUKAN_PENGGUNA, dataPengguna } from "@/domain/identitas/tampilan";
+import { tampilanDariRujukan, wajibTampilanDariRujukan } from "@/lib/pengguna/tampilan";
 
 /**
  * Memuat kebijakan beban belajar yang berlaku. Bila belum ada di database,
@@ -24,7 +26,7 @@ export type RpkpsLengkap = NonNullable<Awaited<ReturnType<typeof muatRpkps>>>;
  * di sini TIDAK menyentuh `proyeksiIsi()`, jadi sidik ruang pertama tidak
  * bergeser.
  */
-export async function muatRpkps(id: string) {
+async function muatRpkpsMentah(id: string) {
   return prisma.rpkps.findUnique({
     where: { id },
     include: {
@@ -67,9 +69,7 @@ export async function muatRpkps(id: string) {
       pengampu: {
         orderBy: { urutan: "asc" },
         include: {
-          pengguna: {
-            select: { id: true, nama: true, gelarDepan: true, gelarBelakang: true, nidn: true, nip: true },
-          },
+          pengguna: { select: PILIH_RUJUKAN_PENGGUNA },
         },
       },
       /**
@@ -119,6 +119,53 @@ export async function muatRpkps(id: string) {
       },
     },
   });
+}
+
+/**
+ * RPKPS lengkap dengan pengampunya DIHIDRASI dari identitas-itts (docs/26 §4).
+ *
+ * `pengampu[i].pengguna` tetap berbentuk `{id, nama, gelarDepan, gelarBelakang, nidn, nip}` —
+ * bentuk yang dibaca `keRpkpsInput`, `proyeksiIsi`, naskah, dan dokumen .docx — hanya
+ * NILAINYA kini dari identitas-itts, bukan dari kolom yang akan dibuang. Karena bentuknya
+ * sama, seluruh konsumen di hilir tak perlu diubah, dan sidik SHA-256 dokumen tidak
+ * bergeser selama nama/NIDN di identitas-itts sama dengan yang dulu tersimpan.
+ *
+ * Bila identitas-itts tak terbaca, pengampunya bernama darurat (dari surel): cukup untuk
+ * ditampilkan tetapi BUKAN dasar keputusan hukum — untuk itu pakai `{ segar: true }`,
+ * yang melempar `ProfilTidakTersedia` alih-alih menebak.
+ */
+export async function muatRpkps(id: string, opsi: { segar?: boolean } = {}) {
+  const r = await muatRpkpsMentah(id);
+  if (!r) return r;
+
+  const rujukan = r.pengampu.map((p) => p.pengguna);
+  const tampilan = opsi.segar ? await wajibTampilanDariRujukan(rujukan) : await tampilanDariRujukan(rujukan);
+  const hasil = {
+    ...r,
+    pengampu: r.pengampu.map((p) => {
+      const t = tampilan.get(p.pengguna.id);
+      if (!t) throw new Error(`Tampilan pengampu ${p.pengguna.id} tidak tersusun`);
+      return { ...p, pengguna: { id: p.pengguna.id, ...dataPengguna(t) } };
+    }),
+  };
+  if ([...tampilan.values()].some((t) => t.sumber === "TAK_DIKETAHUI")) TAK_PASTI.add(hasil);
+  return hasil;
+}
+
+/**
+ * Hasil `muatRpkps` yang pengampunya sebagian bernama darurat (identitas-itts padam dan tak ada
+ * cache). Ditandai di luar objeknya — WeakSet — supaya penanda tidak ikut terserialisasi ke
+ * salinan beku (`rpkps_snapshot.isi`) maupun ke `proyeksiIsi`.
+ */
+const TAK_PASTI = new WeakSet<object>();
+
+/**
+ * Benar bila nama/NIDN pengampu pada `rpkps` TIDAK dapat dipastikan. Halaman memakainya untuk tidak
+ * menuduh "dokumen bergeser" atau "paraf gugur" hanya karena namanya darurat; keputusan hukum
+ * tidak memakainya — mereka memuat dengan `{ segar: true }` dan menolak bila tak pasti.
+ */
+export function dataPengampuTakPasti(rpkps: object): boolean {
+  return TAK_PASTI.has(rpkps);
 }
 
 // keRpkpsInput dipindahkan ke src/domain/rpkps/pemetaan.ts karena murni.

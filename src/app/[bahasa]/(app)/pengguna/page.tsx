@@ -19,6 +19,10 @@ import { KotakCari } from "@/components/kotak-cari";
 import { Paginasi } from "@/components/paginasi";
 import { bacaHalaman, bacaKata, hitungHalaman, UKURAN_HALAMAN } from "@/lib/paginasi";
 import { FormulirTambahPengguna } from "./formulir-tambah";
+import { TombolSinkronSemua } from "./tombol-sinkron";
+import { env } from "@/lib/env";
+import { cariPegawai } from "@/lib/identitas/pegawai";
+import { tampilanDariRujukan } from "@/lib/pengguna/tampilan";
 
 export const dynamic = "force-dynamic";
 export async function generateMetadata() {
@@ -36,15 +40,25 @@ export default async function HalamanPengguna({
   const mentah = await searchParams;
   const kata = bacaKata(mentah.q);
 
-  // Dicari pada nama, surel, dan nomor induk sekaligus: admin datang ke sini
-  // membawa salah satu dari ketiganya, dan biasanya tidak tahu yang lain.
+  // Nama, NIDN, dan NIP pegawai TIDAK ada di basis data ini (docs/26 §4), jadi pencarian
+  // menanyakannya ke identitas-itts lebih dulu lalu memakai hasilnya sebagai kunci. Surel dan
+  // nama pengguna LOKAL dicari di sini. Bila identitas-itts tak terjangkau, pencarian tetap
+  // berjalan atas surel dan pengguna lokal — dan halaman berkata terus terang bahwa ia terbatas.
+  let akunCocok: string[] = [];
+  let pencarianTerbatas = false;
+  if (kata && env.identitasItts) {
+    try {
+      akunCocok = (await cariPegawai(kata)).map((p) => p.akunId);
+    } catch {
+      pencarianTerbatas = true;
+    }
+  }
   const saring = kata
     ? {
         OR: [
-          { nama: { contains: kata, mode: "insensitive" as const } },
           { email: { contains: kata, mode: "insensitive" as const } },
-          { nidn: { contains: kata, mode: "insensitive" as const } },
-          { nip: { contains: kata, mode: "insensitive" as const } },
+          { identitasAkunId: null, nama: { contains: kata, mode: "insensitive" as const } },
+          ...(akunCocok.length > 0 ? [{ identitasAkunId: { in: akunCocok } }] : []),
         ],
       }
     : {};
@@ -64,15 +78,28 @@ export default async function HalamanPengguna({
 
   const halaman = hitungHalaman(jumlah, bacaHalaman(mentah.hal), UKURAN_HALAMAN);
 
+  // Urut status lalu surel: nama pegawai hidup di identitas-itts, tak dapat dipakai `ORDER BY`.
   const daftar = await prisma.pengguna.findMany({
     where: saring,
-    orderBy: [{ status: "asc" }, { nama: "asc" }],
+    orderBy: [{ status: "asc" }, { email: "asc" }],
     skip: halaman.lewati,
     take: halaman.ambil,
-    include: {
-      penugasan: { include: { prodi: { select: { kode: true } } } },
+    select: {
+      id: true,
+      email: true,
+      nama: true,
+      identitasAkunId: true,
+      status: true,
+      penugasan: {
+        select: { id: true, peran: true, sumber: true, prodi: { select: { kode: true } } },
+        orderBy: { dibuatPada: "asc" },
+      },
     },
   });
+
+  // SATU pembacaan batch ke identitas-itts untuk seluruh halaman ini.
+  const tampilan = await tampilanDariRujukan(daftar);
+  const identitasPadam = [...tampilan.values()].some((t) => t.sumber === "TAK_DIKETAHUI");
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -89,6 +116,16 @@ export default async function HalamanPengguna({
           className="mt-4"
         />
       </header>
+
+      {identitasPadam || pencarianTerbatas ? (
+        <Card className="border-l-2 border-l-warning bg-warning/8">
+          <CardHeader>
+            <CardDescription>
+              {identitasPadam ? k.pengguna.identitasPadam : k.pengguna.pencarianTanpaIdentitas}
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      ) : null}
 
       {menunggu > 0 ? (
         <Card className="border-l-2 border-l-warning bg-warning/8">
@@ -113,9 +150,21 @@ export default async function HalamanPengguna({
           </ButtonLink>
         </CardHeader>
         <CardContent>
-          <FormulirTambahPengguna prodi={prodi} />
+          <FormulirTambahPengguna prodi={prodi} identitasAktif={env.identitasItts !== null} />
         </CardContent>
       </Card>
+
+      {env.identitasItts ? (
+        <Card>
+          <CardHeader className="flex flex-row items-start justify-between gap-4">
+            <div>
+              <CardTitle className="text-base">{k.pengguna.sinkron.judul}</CardTitle>
+              <CardDescription>{k.pengguna.sinkron.keterangan}</CardDescription>
+            </div>
+            <TombolSinkronSemua />
+          </CardHeader>
+        </Card>
+      ) : null}
 
       <Card>
         <CardContent className="pt-6">
@@ -130,19 +179,24 @@ export default async function HalamanPengguna({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {daftar.map((p) => (
+                {daftar.map((p) => {
+                  const t = tampilan.get(p.id);
+                  return (
                   <TableRow key={p.id}>
                     <TableCell>
                       <Tautan
                         href={`/pengguna/${p.id}`}
                         className="font-medium underline-offset-4 hover:underline"
                       >
-                        {[p.gelarDepan, p.nama, p.gelarBelakang].filter(Boolean).join(" ")}
+                        {t?.namaLengkap ?? p.email}
                       </Tautan>
-                      <p className="text-xs text-muted-foreground">{p.email}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {p.email} ·{" "}
+                        {p.identitasAkunId ? k.pengguna.sumber.identitas : k.pengguna.sumber.lokal}
+                      </p>
                     </TableCell>
                     <TableCell className="text-sm tabular-nums">
-                      {p.nidn ?? p.nip ?? (
+                      {t?.nidn ?? t?.nip ?? (
                         <span className="text-muted-foreground">—</span>
                       )}
                     </TableCell>
@@ -153,10 +207,15 @@ export default async function HalamanPengguna({
                             {k.pengguna.belumAdaPeran}
                           </span>
                         ) : (
-                          p.penugasan.map((t) => (
-                            <Badge key={t.id} variant="secondary" className="text-[10px]">
-                              {k.enum.peran[t.peran]}
-                              {t.prodi ? ` · ${t.prodi.kode}` : ""}
+                          p.penugasan.map((u) => (
+                            <Badge
+                              key={u.id}
+                              variant={u.sumber === "IDENTITAS" ? "outline" : "secondary"}
+                              className="text-[10px]"
+                              title={u.sumber === "IDENTITAS" ? k.pengguna.peranDariJabatan : undefined}
+                            >
+                              {k.enum.peran[u.peran]}
+                              {u.prodi ? ` · ${u.prodi.kode}` : ""}
                             </Badge>
                           ))
                         )}
@@ -177,7 +236,8 @@ export default async function HalamanPengguna({
                       </Badge>
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
                 {daftar.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={4} className="py-8 text-center text-sm text-muted-foreground">

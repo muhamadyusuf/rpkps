@@ -14,12 +14,13 @@ import type { Peran } from "@/generated/prisma";
  * kosong, usulan revisi di prodi tersebut tidak akan pernah diputuskan, dan
  * tidak ada tempat lain di aplikasi ini yang memberi tahu.
  */
-export async function PanelAdmin({ data }: { data: DataAdmin }) {
+export async function PanelAdmin({ data, nomor }: { data: DataAdmin; nomor?: string }) {
   const k = await kamus();
   const puncak = Math.max(1, ...data.sebaranPeran.map((p) => p.jumlah));
 
   return (
     <Bagian
+      nomor={nomor}
       judul={k.dasbor.admin.judul}
       keterangan={k.dasbor.admin.keterangan}
       ikon={<Settings className="size-4" />}

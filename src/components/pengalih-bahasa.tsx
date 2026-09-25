@@ -22,7 +22,7 @@ import { useBahasa } from "@/components/penyedia-bahasa";
  * menarik komponen ini ke batas Suspense terdekat dan ikut mendinamiskan
  * halaman katalog yang justru harus tetap statis.
  */
-function usePindahBahasa() {
+export function usePindahBahasa() {
   const pathname = usePathname();
   const router = useRouter();
   const [menunggu, mulai] = useTransition();

@@ -38,6 +38,8 @@ import { statusParaf } from "@/domain/rpkps/paraf";
 import { riwayat } from "@/domain/rpkps/riwayat";
 import { barisRiwayat } from "@/lib/rpkps/riwayat";
 import { kelengkapanRpkps } from "@/lib/rpkps/terjemahan";
+import { ProfilTidakTersedia } from "@/lib/identitas/pegawai";
+import { wajibTampilan } from "@/lib/pengguna/tampilan";
 
 export type Hasil = { ok: boolean; pesan: string; id?: string };
 
@@ -547,9 +549,23 @@ export async function simpanKomponenNilai(
  * Nama dan identitas dibekukan apa adanya saat menandatangani. Alasannya sama
  * dengan nama pengampu pada `rpkps_snapshot`: memperbarui nama yang sudah
  * tercetak pada dokumen resmi menggeser dokumen itu sendiri.
+ *
+ * Karena itu BUKAN dibaca dari `sesi` (yang boleh memakai cache basi atau nama
+ * darurat saat identitas-itts padam), melainkan dari identitas-itts dengan data
+ * segar — dan bila tak dapat dipastikan, penandatanganan DITOLAK (docs/26 §4):
+ * yang tercetak di dokumen resmi tidak boleh berasal dari tebakan.
  */
-function capPenandaTangan(sesi: { namaLengkap: string; nidn: string | null; nip: string | null }) {
-  return { nama: sesi.namaLengkap, identitas: sesi.nidn ?? sesi.nip ?? null };
+async function capPenandaTangan(
+  penggunaId: string,
+): Promise<{ ok: true; cap: { nama: string; identitas: string | null } } | { ok: false; pesan: string }> {
+  try {
+    const t = (await wajibTampilan([penggunaId])).get(penggunaId);
+    if (!t) return { ok: false, pesan: new ProfilTidakTersedia([penggunaId]).message };
+    return { ok: true, cap: { nama: t.namaLengkap, identitas: t.nidn ?? t.nip ?? null } };
+  } catch (galat) {
+    if (galat instanceof ProfilTidakTersedia) return { ok: false, pesan: galat.message };
+    throw galat;
+  }
 }
 
 /**
@@ -557,12 +573,22 @@ function capPenandaTangan(sesi: { namaLengkap: string; nidn: string | null; nip:
  *
  * Sidik dihitung dari data langsung, bukan dari salinan beku — itulah yang
  * membuatnya berguna: ia ikut bergerak bila kurikulum di bawahnya berubah di
- * sela-sela rantai.
+ * sela-sela rantai. Nama dan NIDN pengampu masuk ke sidik itu, jadi pemuatannya
+ * memakai data SEGAR dari identitas-itts: sidik yang dihitung dari nama darurat
+ * (identitas-itts padam) akan tercatat pada cap dan kemudian tampak "bergeser".
  */
-async function muatDenganSidik(id: string) {
-  const rpkps = await muatRpkps(id);
-  if (!rpkps) return null;
-  return { rpkps, sidik: sidikRpkps(rpkps) };
+async function muatDenganSidik(
+  id: string,
+  kam: Kamus,
+): Promise<{ ok: true; rpkps: NonNullable<Awaited<ReturnType<typeof muatRpkps>>>; sidik: string } | { ok: false; pesan: string }> {
+  try {
+    const rpkps = await muatRpkps(id, { segar: true });
+    if (!rpkps) return { ok: false, pesan: kam.aksi.takAda.rpkps };
+    return { ok: true, rpkps, sidik: sidikRpkps(rpkps) };
+  } catch (galat) {
+    if (galat instanceof ProfilTidakTersedia) return { ok: false, pesan: galat.message };
+    throw galat;
+  }
 }
 
 /**
@@ -605,8 +631,8 @@ export async function parafPengampu(id: string): Promise<Hasil> {
   }
   if (!bolehSunting) return { ok: false, pesan: pesanTerkunci(status, kam) };
 
-  const dokumen = await muatDenganSidik(id);
-  if (!dokumen) return { ok: false, pesan: kam.aksi.takAda.rpkps };
+  const dokumen = await muatDenganSidik(id, kam);
+  if (!dokumen.ok) return { ok: false, pesan: dokumen.pesan };
 
   const kunci = {
     rpkpsId_versi_peran_penggunaId: {
@@ -616,7 +642,9 @@ export async function parafPengampu(id: string): Promise<Hasil> {
       penggunaId: sesi.id,
     },
   };
-  const cap = { ...capPenandaTangan(sesi), sidik: dokumen.sidik };
+  const ttd = await capPenandaTangan(sesi.id);
+  if (!ttd.ok) return { ok: false, pesan: ttd.pesan };
+  const cap = { ...ttd.cap, sidik: dokumen.sidik };
 
   await prisma.tandaTanganRpkps.upsert({
     where: kunci,
@@ -654,8 +682,8 @@ export async function mintaParaf(id: string): Promise<Hasil> {
   if (!koordinator) return { ok: false, pesan: kam.aksi.rpkps.hanyaKoordinatorMinta };
   if (!bolehSunting) return { ok: false, pesan: pesanTerkunci(status, kam) };
 
-  const dokumen = await muatDenganSidik(id);
-  if (!dokumen) return { ok: false, pesan: kam.aksi.takAda.rpkps };
+  const dokumen = await muatDenganSidik(id, kam);
+  if (!dokumen.ok) return { ok: false, pesan: dokumen.pesan };
   const { rpkps, sidik } = dokumen;
 
   /*
@@ -717,8 +745,8 @@ export async function ajukanRpkps(id: string): Promise<Hasil> {
     };
   }
 
-  const dokumen = await muatDenganSidik(id);
-  if (!dokumen) return { ok: false, pesan: kam.aksi.takAda.rpkps };
+  const dokumen = await muatDenganSidik(id, kam);
+  if (!dokumen.ok) return { ok: false, pesan: dokumen.pesan };
   const { rpkps, sidik } = dokumen;
 
   if (rpkps.status !== "DRAF" && rpkps.status !== "DIREVISI") {
@@ -745,6 +773,9 @@ export async function ajukanRpkps(id: string): Promise<Hasil> {
     };
   }
 
+  const ttd = await capPenandaTangan(sesi.id);
+  if (!ttd.ok) return { ok: false, pesan: ttd.pesan };
+
   await prisma.$transaction([
     prisma.rpkps.update({ where: { id }, data: { status: "DIAJUKAN" } }),
     prisma.tandaTanganRpkps.create({
@@ -753,7 +784,7 @@ export async function ajukanRpkps(id: string): Promise<Hasil> {
         versi: rpkps.versi,
         peran: "KOORDINATOR",
         penggunaId: sesi.id,
-        ...capPenandaTangan(sesi),
+        ...ttd.cap,
         sidik,
       },
     }),
@@ -805,8 +836,8 @@ export async function setujuiRpkps(id: string): Promise<Hasil> {
     return { ok: false, pesan: kam.aksi.wenang.hanyaKaprodiIni };
   }
 
-  const dokumen = await muatDenganSidik(id);
-  if (!dokumen) return { ok: false, pesan: kam.aksi.takAda.rpkps };
+  const dokumen = await muatDenganSidik(id, kam);
+  if (!dokumen.ok) return { ok: false, pesan: dokumen.pesan };
   const { rpkps, sidik } = dokumen;
 
   if (rpkps.status !== "DIAJUKAN") {
@@ -816,6 +847,9 @@ export async function setujuiRpkps(id: string): Promise<Hasil> {
   const sidikCocok = periksaSidikCap(rpkps.tandaTangan, rpkps.versi, sidik, kam);
   if (!sidikCocok.cocok) return { ok: false, pesan: sidikCocok.pesan };
 
+  const ttd = await capPenandaTangan(sesi.id);
+  if (!ttd.ok) return { ok: false, pesan: ttd.pesan };
+
   await prisma.$transaction([
     prisma.rpkps.update({ where: { id }, data: { status: "DISETUJUI" } }),
     prisma.tandaTanganRpkps.create({
@@ -824,7 +858,7 @@ export async function setujuiRpkps(id: string): Promise<Hasil> {
         versi: rpkps.versi,
         peran: "KAPRODI",
         penggunaId: sesi.id,
-        ...capPenandaTangan(sesi),
+        ...ttd.cap,
         sidik,
       },
     }),
@@ -878,8 +912,8 @@ export async function sahkanRpkps(id: string): Promise<Hasil> {
   const kam = await kamusAksi();
   const sesi = await wajibPeran("GPM");
 
-  const dokumen = await muatDenganSidik(id);
-  if (!dokumen) return { ok: false, pesan: kam.aksi.takAda.rpkps };
+  const dokumen = await muatDenganSidik(id, kam);
+  if (!dokumen.ok) return { ok: false, pesan: dokumen.pesan };
   const { rpkps, sidik } = dokumen;
 
   if (rpkps.status !== "DISETUJUI") {
@@ -891,6 +925,9 @@ export async function sahkanRpkps(id: string): Promise<Hasil> {
 
   const sidikCocok = periksaSidikCap(rpkps.tandaTangan, rpkps.versi, sidik, kam);
   if (!sidikCocok.cocok) return { ok: false, pesan: sidikCocok.pesan };
+
+  const ttd = await capPenandaTangan(sesi.id);
+  if (!ttd.ok) return { ok: false, pesan: ttd.pesan };
 
   // Membekukan isi dokumen SEBELUM status berubah. Setelah ini, perubahan pada
   // kurikulum tidak lagi mengubah berkas yang sudah disahkan.
@@ -904,7 +941,7 @@ export async function sahkanRpkps(id: string): Promise<Hasil> {
         versi: rpkps.versi,
         peran: "PENJAMINAN_MUTU",
         penggunaId: sesi.id,
-        ...capPenandaTangan(sesi),
+        ...ttd.cap,
         sidik: beku.sidik,
       },
     }),

@@ -17,7 +17,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { hapusPeran, perbaruiProfil, tambahPeran, ubahStatus } from "../aksi";
+import { hapusPeran, perbaruiNamaLokal, sinkronkanPenggunaIni, tambahPeran, ubahStatus } from "../aksi";
+import { peranLokalBoleh } from "@/domain/identitas/peran";
 import type { Peran, StatusPengguna } from "@/generated/prisma";
 
 /**
@@ -35,21 +36,8 @@ export const SEMUA_PERAN: { nilai: Peran; butuhProdi: boolean }[] = [
   { nilai: "MAHASISWA", butuhProdi: true },
 ];
 
-export function FormulirProfil({
-  penggunaId,
-  awal,
-}: {
-  penggunaId: string;
-  awal: {
-    nama: string;
-    gelarDepan: string;
-    gelarBelakang: string;
-    nidn: string;
-    nip: string;
-    nik: string;
-    telepon: string;
-  };
-}) {
+/** Hanya untuk pengguna LOKAL. Nama pegawai dikelola di identitas-itts, jadi tak ada formulir untuknya. */
+export function FormulirNamaLokal({ penggunaId, awal }: { penggunaId: string; awal: string }) {
   const [menunggu, mulai] = useTransition();
   const router = useRouter();
   const { k } = useBahasa();
@@ -58,7 +46,7 @@ export function FormulirProfil({
     <form
       action={(fd) =>
         mulai(async () => {
-          const hasil = await perbaruiProfil(penggunaId, fd);
+          const hasil = await perbaruiNamaLokal(penggunaId, fd);
           if (hasil.ok) {
             toast.success(hasil.pesan);
             router.refresh();
@@ -67,66 +55,48 @@ export function FormulirProfil({
           }
         })
       }
-      className="space-y-4"
+      className="flex flex-wrap items-end gap-3"
     >
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Bidang
-          nama="gelarDepan"
-          label={k.penggunaDetail.gelarDepan}
-          awal={awal.gelarDepan}
-          contoh={k.penggunaDetail.contohGelarDepan}
-        />
-        <div className="sm:col-span-1">
-          <Bidang nama="nama" label={k.penggunaDetail.nama} awal={awal.nama} wajib />
-        </div>
-        <Bidang
-          nama="gelarBelakang"
-          label={k.penggunaDetail.gelarBelakang}
-          awal={awal.gelarBelakang}
-          contoh={k.penggunaDetail.contohGelarBelakang}
-        />
+      <div className="min-w-64 flex-1 space-y-1.5">
+        <Label htmlFor="nama">
+          {k.penggunaDetail.nama}
+          <span className="text-destructive"> *</span>
+        </Label>
+        <Input id="nama" name="nama" defaultValue={awal} required />
       </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Bidang
-          nama="nidn"
-          label="NIDN"
-          awal={awal.nidn}
-          contoh={k.penggunaDetail.contohNidn}
-        />
-        <Bidang nama="nip" label="NIP" awal={awal.nip} />
-        <Bidang nama="nik" label="NIK" awal={awal.nik} />
-        <Bidang nama="telepon" label={k.penggunaDetail.telepon} awal={awal.telepon} />
-      </div>
-
       <Button type="submit" disabled={menunggu}>
-        {menunggu ? k.penggunaDetail.menyimpan : k.penggunaDetail.simpanProfil}
+        {menunggu ? k.penggunaDetail.menyimpan : k.penggunaDetail.simpanNama}
       </Button>
     </form>
   );
 }
 
-function Bidang({
-  nama,
-  label,
-  awal,
-  contoh,
-  wajib,
-}: {
-  nama: string;
-  label: string;
-  awal: string;
-  contoh?: string;
-  wajib?: boolean;
-}) {
+/** Menyelaraskan peran seorang pegawai dengan identitas-itts tanpa menunggu sinkron berikutnya. */
+export function TombolSinkronPengguna({ penggunaId }: { penggunaId: string }) {
+  const [menunggu, mulai] = useTransition();
+  const router = useRouter();
+  const { k } = useBahasa();
+
   return (
-    <div className="space-y-1.5">
-      <Label htmlFor={nama}>
-        {label}
-        {wajib ? <span className="text-destructive"> *</span> : null}
-      </Label>
-      <Input id={nama} name={nama} defaultValue={awal} placeholder={contoh} />
-    </div>
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      disabled={menunggu}
+      onClick={() =>
+        mulai(async () => {
+          const hasil = await sinkronkanPenggunaIni(penggunaId);
+          if (hasil.ok) {
+            toast.success(hasil.pesan);
+            router.refresh();
+          } else {
+            toast.error(hasil.pesan);
+          }
+        })
+      }
+    >
+      {menunggu ? k.pengguna.sinkron.berjalan : k.penggunaDetail.sinkronkanIni}
+    </Button>
   );
 }
 
@@ -134,10 +104,13 @@ export function PengaturPeran({
   penggunaId,
   penugasan,
   prodi,
+  bertaut,
 }: {
   penggunaId: string;
-  penugasan: { id: string; peran: Peran; prodiNama: string | null }[];
+  penugasan: { id: string; peran: Peran; prodiNama: string | null; dariIdentitas: boolean }[];
   prodi: { id: string; nama: string; kode: string }[];
+  /** Pegawai (bertaut ke identitas-itts): boleh diberi peran lokal apa pun. Pengguna lokal: hanya Asesor/Mahasiswa. */
+  bertaut: boolean;
 }) {
   const [menunggu, mulai] = useTransition();
   const router = useRouter();
@@ -164,20 +137,29 @@ export function PengaturPeran({
           </p>
         ) : (
           penugasan.map((t) => (
-            <Badge key={t.id} variant="secondary" className="gap-1.5 py-1 pr-1 pl-2.5">
+            <Badge
+              key={t.id}
+              variant={t.dariIdentitas ? "outline" : "secondary"}
+              className={t.dariIdentitas ? "gap-1.5 py-1 pr-2.5 pl-2.5" : "gap-1.5 py-1 pr-1 pl-2.5"}
+              title={t.dariIdentitas ? k.pengguna.peranDariJabatan : undefined}
+            >
               {k.enum.peran[t.peran] ?? t.peran}
               {t.prodiNama ? (
                 <span className="text-muted-foreground">· {t.prodiNama}</span>
               ) : null}
-              <TombolIkon
-                type="button"
-                size="icon-xs"
-                petunjuk={k.penggunaDetail.cabutPeran}
-                disabled={menunggu}
-                onClick={() => jalankan(() => hapusPeran(t.id))}
-              >
-                <Trash2 />
-              </TombolIkon>
+              {t.dariIdentitas ? (
+                <span className="text-muted-foreground">· {k.penggunaDetail.peranDariJabatan}</span>
+              ) : (
+                <TombolIkon
+                  type="button"
+                  size="icon-xs"
+                  petunjuk={k.penggunaDetail.cabutPeran}
+                  disabled={menunggu}
+                  onClick={() => jalankan(() => hapusPeran(t.id))}
+                >
+                  <Trash2 />
+                </TombolIkon>
+              )}
             </Badge>
           ))
         )}
@@ -202,7 +184,7 @@ export function PengaturPeran({
               <SelectValue placeholder={k.penggunaDetail.pilihPeran} />
             </SelectTrigger>
             <SelectContent>
-              {SEMUA_PERAN.map((p) => (
+              {SEMUA_PERAN.filter((p) => peranLokalBoleh(bertaut, p.nilai)).map((p) => (
                 <SelectItem key={p.nilai} value={p.nilai}>
                   {k.enum.peran[p.nilai]}
                   {p.butuhProdi ? k.penggunaDetail.perProdi : ""}

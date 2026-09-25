@@ -8,7 +8,7 @@ import { bahasaAktif, kamus } from "@/lib/bahasa/server";
 import { isi } from "@/lib/bahasa/teks";
 import { wajibAktif } from "@/lib/otorisasi";
 import { wenangAtasRpkps } from "@/lib/rpkps/wenang";
-import { muatRpkps } from "@/lib/rpkps/muat";
+import { dataPengampuTakPasti, muatRpkps } from "@/lib/rpkps/muat";
 import { rakitDariRpkps } from "@/lib/dokumen/rakit-naskah";
 import { labelDokumen } from "@/lib/dokumen/label";
 import { sidikRingkas } from "@/domain/rpkps/sidik";
@@ -93,7 +93,10 @@ export default async function HalamanPratinjauRpkps({
    * ruang sidik INDONESIA: itu satu-satunya ruang yang punya padanan pada data
    * langsung, dan naskah Inggris tidak pernah dibandingkan dengannya.
    */
+  // Nama pengampu darurat (identitas-itts padam) mengubah sidik: jangan menuduh dokumen bergeser karenanya.
+  const takPasti = dataPengampuTakPasti(rpkps);
   const bergeser =
+    !takPasti &&
     rpkps.status === "TERBIT" &&
     sidik !== null &&
     bDok === "id" &&
@@ -143,6 +146,12 @@ export default async function HalamanPratinjauRpkps({
         menambahkan peringatan hanya bila data sumber benar-benar sudah
         bergeser darinya.
       */}
+      {takPasti ? (
+        <p className="rounded-md border-l-2 border-l-warning bg-warning/8 px-4 py-3 text-sm print:hidden">
+          {k.rpkps.ikhtisar.identitasPadam}
+        </p>
+      ) : null}
+
       {sidik ? (
         <div
           className={`panel flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border px-4 py-3 print:hidden ${

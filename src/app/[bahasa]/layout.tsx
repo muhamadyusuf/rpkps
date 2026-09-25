@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { notFound } from "next/navigation";
-import { Inter, JetBrains_Mono, Space_Grotesk } from "next/font/google";
+import { Geist, Geist_Mono, Inter, JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { PenyediaTema } from "@/components/penyedia-tema";
 import { PenyediaBahasa } from "@/components/penyedia-bahasa";
@@ -28,6 +28,14 @@ const jetbrainsMono = JetBrains_Mono({
   variable: "--font-jetbrains-mono",
   weight: ["400", "500", "600"],
 });
+
+/**
+ * Huruf area login (docs/28) — sama dengan identitas-itts. `preload: false`:
+ * variabelnya tersedia di semua halaman, tetapi katalog publik, yang tetap
+ * memakai Inter/Space Grotesk, tidak ikut mengunduhnya di muka.
+ */
+const geist = Geist({ subsets: ["latin"], variable: "--font-geist", preload: false });
+const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono", preload: false });
 
 /**
  * Kedua bahasa diterbitkan sebagai ruas statis supaya katalog publik tetap
@@ -78,7 +86,7 @@ export default async function RootLayout({
   return (
     <html
       lang={bahasa}
-      className={`${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable}`}
+      className={`${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} ${geist.variable} ${geistMono.variable}`}
       suppressHydrationWarning
     >
       <body className="font-sans antialiased">

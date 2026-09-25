@@ -4,9 +4,11 @@ import { ButtonLink } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { prisma } from "@/lib/prisma";
 import { bolehSuntingIdentitasProdi, wajibAktif } from "@/lib/otorisasi";
+import { punyaPeran } from "@/domain/otorisasi";
+import { env } from "@/lib/env";
 import { bahasaAktif, kamus } from "@/lib/bahasa/server";
 import { namaMk } from "@/lib/bahasa/teks";
-import { FormulirIdentitas, KartuLogo } from "./formulir-identitas";
+import { FormulirIdentitas, KartuLogo, KartuPemetaanUnit } from "./formulir-identitas";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +50,7 @@ export default async function HalamanIdentitasProdi({
       surel: true,
       situs: true,
       logoLebar: true,
+      identitasUnitId: true,
       diubahPada: true,
     },
   });
@@ -87,6 +90,10 @@ export default async function HalamanIdentitasProdi({
         }
         milik={{ jenis: "prodi", id: prodi.id }}
       />
+
+      {env.identitasItts && punyaPeran(sesi, "ADMIN") ? (
+        <KartuPemetaanUnit prodiId={prodi.id} unitId={prodi.identitasUnitId} />
+      ) : null}
 
       <FormulirIdentitas
         awal={{
