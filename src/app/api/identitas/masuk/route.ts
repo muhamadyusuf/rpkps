@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { sesiSaatIni } from "@/lib/sesi";
 import {
   UMUR_ALUR_SSO_MS,
+  alamatMulaiKanonik,
   bungkusAlur,
   lanjutAman,
   mulaiAlurSso,
@@ -14,6 +15,7 @@ import {
   ssoTersedia,
 } from "@/lib/identitas/sso";
 import { env } from "@/lib/env";
+import { urlSitus } from "@/lib/publik/tautan";
 
 export const runtime = "nodejs";
 
@@ -33,6 +35,11 @@ export const runtime = "nodejs";
  */
 export async function GET(request: NextRequest) {
   const lanjut = lanjutAman(request.nextUrl.searchParams.get("lanjut"));
+
+  // Cookie alur harus lahir di host yang sama dengan `redirect_uri`; tautan
+  // "Buka RPKPS" yang menunjuk alamat lain dialihkan dulu ke host kanonik.
+  const kanonik = alamatMulaiKanonik(request.nextUrl, urlSitus(), lanjut);
+  if (kanonik) return NextResponse.redirect(kanonik);
 
   // Sudah punya sesi RPKPS yang sah: tak perlu berputar lewat identitas-itts.
   const sesi = await sesiSaatIni().catch(() => null);

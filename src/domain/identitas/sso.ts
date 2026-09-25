@@ -38,6 +38,43 @@ export interface AlurSso {
   mulai: number;
 }
 
+/** Penanda pada alamat mulai yang sudah dialihkan ke host kanonik — pagar putaran. */
+const PENANDA_KANONIK = "kanonik";
+
+/**
+ * Cookie alur dipasang pada host yang melayani `/api/identitas/masuk`, tetapi
+ * identitas-itts mengembalikan peramban ke host `redirect_uri`
+ * (NEXT_PUBLIC_URL_SITUS). Bila aplikasi dapat dibuka lewat dua alamat — mis.
+ * `rpkps.vercel.app` dan `rpkps.itts.ac.id` — alur yang dimulai di alamat
+ * yang satu kembali ke alamat yang lain tanpa cookie, dan hasilnya selalu
+ * "kedaluwarsa". Karena itu alur SELALU dimulai di host kanonik.
+ *
+ * Mengembalikan alamat mulai di host kanonik, atau `null` bila permintaan
+ * sudah di sana, alamat situs tak dapat diurai, atau permintaan ini sendiri
+ * hasil pengalihan sebelumnya (host yang terlihat di balik proksi dapat
+ * berbeda dari host yang dibuka pengguna — tanpa pagar, itu putaran tak
+ * berujung).
+ */
+export function alamatMulaiKanonik(
+  permintaan: URL,
+  situs: string,
+  lanjut: string | null,
+): string | null {
+  let kanonik: URL;
+  try {
+    kanonik = new URL(situs);
+  } catch {
+    return null;
+  }
+  if (permintaan.host === kanonik.host) return null;
+  if (permintaan.searchParams.has(PENANDA_KANONIK)) return null;
+
+  const tujuan = new URL(JALUR_MULAI_SSO, kanonik.origin);
+  if (lanjut) tujuan.searchParams.set("lanjut", lanjut);
+  tujuan.searchParams.set(PENANDA_KANONIK, "1");
+  return tujuan.toString();
+}
+
 /** RFC 7636 §4.2: `BASE64URL(SHA256(verifier))`. */
 export function tantanganPkce(verifier: string): string {
   return createHash("sha256").update(verifier).digest("base64url");

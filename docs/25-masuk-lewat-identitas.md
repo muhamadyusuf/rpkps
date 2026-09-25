@@ -118,6 +118,12 @@ layar galat di identitas-itts (`/oauth/authorize/galat`), bukan di RPKPS.
 - **`NEXT_PUBLIC_URL_SITUS` harus sama dengan tempat pengguna berada.** Alamat
   balik dibentuk darinya; bila pengguna membuka RPKPS lewat alamat lain (mis.
   IP jaringan), cookie alur tak ikut ke callback dan hasilnya "kedaluwarsa".
+  Sejak itu `/api/identitas/masuk` mengalihkan permintaan dari host lain ke
+  host kanonik LEBIH DULU (`alamatMulaiKanonik`), sehingga tautan "Buka RPKPS"
+  yang masih menunjuk `*.vercel.app` tetap berhasil. Pagar `?kanonik=1`
+  mencegah putaran bila host di balik proksi berbeda dari yang dibuka pengguna.
+  Halaman masuk yang DIBUKA di host lain tetap tidak berbagi sesi dengan host
+  kanonik — alihkan domain cadangan di pengaturan domain Vercel.
 - **Cookie `sesi` dibagi antarporta di `localhost`.** Cookie tidak mengenal porta,
   jadi RPKPS (:3000) dan identitas-itts (:3001) dulu saling menimpa `sesi`.
   identitas-itts kini memakai `identitas_sesi`; RPKPS tetap `sesi`. Bila kelak ada

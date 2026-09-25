@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   UMUR_ALUR_SSO_MS,
+  alamatMulaiKanonik,
   bacaKlaim,
   bukaAlur,
   bungkusAlur,
@@ -161,4 +162,21 @@ test("kodeGalatSso: daftar tertutup — nilai dari alamat tak pernah lolos apa a
   assert.equal(kodeGalatSso(""), null);
   assert.equal(kodeGalatSso(null), null);
   assert.equal(kodeGalatSso(undefined), null);
+});
+
+test("host kanonik: alur dimulai di host redirect_uri, bukan di alamat lain", () => {
+  const situs = "https://rpkps.itts.ac.id";
+  // Sudah di host kanonik: tidak dialihkan.
+  assert.equal(alamatMulaiKanonik(new URL("https://rpkps.itts.ac.id/api/identitas/masuk"), situs, null), null);
+  // Alamat lain (mis. tautan lama ke *.vercel.app): dialihkan, `lanjut` ikut.
+  const ke = alamatMulaiKanonik(new URL("https://rpkps.vercel.app/api/identitas/masuk"), situs, "/rpkps/abc");
+  assert.ok(ke);
+  const u = new URL(ke);
+  assert.equal(u.origin, situs);
+  assert.equal(u.pathname, "/api/identitas/masuk");
+  assert.equal(u.searchParams.get("lanjut"), "/rpkps/abc");
+  // Pagar putaran: permintaan hasil pengalihan tidak dialihkan lagi.
+  assert.equal(alamatMulaiKanonik(u, "https://lain.contoh", "/rpkps/abc"), null);
+  // Alamat situs rusak: jangan menebak.
+  assert.equal(alamatMulaiKanonik(new URL("https://rpkps.vercel.app/x"), "bukan url", null), null);
 });
